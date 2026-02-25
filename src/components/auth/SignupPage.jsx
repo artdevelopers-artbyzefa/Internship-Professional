@@ -1,0 +1,190 @@
+import React, { useState } from 'react';
+import StepWizard from '../ui/StepWizard.jsx';
+import Button from '../ui/Button.jsx';
+import { FormGroup, TextInput, SelectInput } from '../ui/FormInput.jsx';
+import { apiRequest } from '../../utils/api.js';
+import Alert from '../ui/Alert.jsx';
+
+export default function SignupPage({ onBack }) {
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ 
+    name: '', reg: '', semester: '1', cgpa: '', 
+    email: '', password: '', confirmPw: '', 
+    role: 'student' 
+  });
+  const [errors, setErrors] = useState({});
+  const [showPw, setShowPw] = useState(false);
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+
+  const validateStep1 = () => {
+    const e = {};
+    if (!form.name.trim()) e.name = 'Full name required';
+    if (!form.reg.trim())  e.reg = 'Center part of Reg # required';
+    setErrors(e); return !Object.keys(e).length;
+  };
+
+  const validateStep2 = () => {
+    const e = {};
+    const emailLower = form.email.toLowerCase().trim();
+    if (!form.email) {
+      e.email = 'Email required';
+    } else if (!emailLower.endsWith('@cuiatd.edu.pk')) {
+      e.email = 'Strictly @cuiatd.edu.pk required';
+    } else if (emailLower.split('@')[0].includes('@')) {
+      e.email = 'Invalid email format';
+    }
+    setErrors(e); return !Object.keys(e).length;
+  };
+
+  const validateStep3 = () => {
+    const e = {};
+    // Password rules: Min 8 + 1 Upper + 1 Lower + 1 Num + 1 Special
+    const pwRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    if (!pwRegex.test(form.password)) {
+      e.password = 'Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special character';
+    }
+    if (form.password !== form.confirmPw) {
+      e.confirmPw = 'Passwords do not match';
+    }
+    setErrors(e); return !Object.keys(e).length;
+  };
+
+  const next = () => {
+    if (step === 1 && validateStep1()) setStep(2);
+    else if (step === 2 && validateStep2()) setStep(3);
+    else if (step === 3 && validateStep3()) handleSignup();
+  };
+
+  const handleSignup = async () => {
+    setLoading(true);
+    setApiError('');
+    try {
+      // Construct full registration number: CIIT/.../ATD
+      const fullReg = `CIIT/${form.reg.trim()}/ATD`;
+      
+      await apiRequest('/auth/register', {
+        method: 'POST',
+        body: { ...form, reg: fullReg }
+      });
+      setDone(true);
+    } catch (err) {
+      setApiError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (done) return (
+    <div className="min-h-screen bg-gradient-to-br from-primary via-blue-700 to-blue-400 flex items-center justify-center p-5">
+      <div className="bg-white rounded-2xl p-10 w-full max-w-md shadow-2xl text-center">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5 text-4xl text-success">
+          <i className="fas fa-paper-plane"></i>
+        </div>
+        <h2 className="text-xl font-bold text-primary mb-2">Check Your Email!</h2>
+        <p className="text-sm text-gray-400 mb-6">
+          We've sent a verification link to <strong>{form.email}</strong>. 
+          Please verify your account within 10 minutes.
+        </p>
+        <Button variant="primary" onClick={onBack}><i className="fas fa-right-to-bracket"></i> Back to Login</Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary via-blue-700 to-blue-400 flex items-center justify-center p-5">
+      <div className="bg-white rounded-2xl p-10 w-full max-w-md shadow-2xl">
+        <div className="text-center mb-7">
+          <img src="/cuilogo.png" alt="CUI Logo" className="h-20 mx-auto mb-3" 
+               onError={(e) => e.target.style.display = 'none'} />
+          <h1 className="text-xl font-bold text-primary">Student Registration</h1>
+          <p className="text-xs text-gray-400">Join the DIMS Portal</p>
+        </div>
+
+        {apiError && <Alert type="danger" className="mb-4">{apiError}</Alert>}
+
+        <StepWizard steps={['Academic','Credentials','Security']} current={step} />
+
+        {step === 1 && <>
+          <FormGroup label="Full Name" error={errors.name}>
+            <TextInput iconLeft="fa-user" placeholder="Enter full name"
+              value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="Registration Number" error={errors.reg}>
+            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/10 focus-within:border-secondary transition-all">
+              <span className="bg-gray-100 px-3 py-2.5 text-xs font-black text-gray-400 border-r border-gray-200 select-none">CIIT/</span>
+              <input 
+                type="text"
+                placeholder="FA23-BCS-001"
+                className="flex-1 bg-transparent px-3 py-2.5 text-sm outline-none text-gray-700 font-medium placeholder:text-gray-300"
+                value={form.reg}
+                onChange={e => setForm({ ...form, reg: e.target.value.toUpperCase() })}
+              />
+              <span className="bg-gray-100 px-3 py-2.5 text-xs font-black text-gray-400 border-l border-gray-200 select-none">/ATD</span>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5 px-1 font-medium italic">
+              Student ID only (e.g. FA23-BCS-001)
+            </p>
+          </FormGroup>
+          <div className="grid grid-cols-2 gap-4">
+            <FormGroup label="Semester">
+              <SelectInput iconLeft="fa-layer-group" value={form.semester} onChange={e => setForm({ ...form, semester: e.target.value })}>
+                {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>Semester {s}</option>)}
+              </SelectInput>
+            </FormGroup>
+            <FormGroup label="CGPA (Optional)">
+              <TextInput iconLeft="fa-star" placeholder="e.g. 3.5"
+                value={form.cgpa} onChange={e => setForm({ ...form, cgpa: e.target.value })} />
+            </FormGroup>
+          </div>
+        </>}
+
+        {step === 2 && <>
+          <FormGroup label="Institutional Email" error={errors.email}>
+            <TextInput iconLeft="fa-envelope" type="email"
+              placeholder="yourname@cuiatd.edu.pk"
+              value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <div className="text-[10px] text-gray-400 mt-1 leading-tight">
+              Must be a valid @cuiatd.edu.pk domain. Verification required.
+            </div>
+          </FormGroup>
+          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-4">
+            <p className="text-[11px] text-blue-700">
+              <i className="fas fa-circle-info mr-1"></i>
+              Only CUI Abbottabad students can register. Other accounts are managed by Admin.
+            </p>
+          </div>
+        </>}
+
+        {step === 3 && <>
+          <FormGroup label="Password" error={errors.password}>
+            <TextInput iconLeft="fa-lock" iconRight={showPw ? 'fa-eye-slash' : 'fa-eye'}
+              onToggleRight={() => setShowPw(!showPw)}
+              type={showPw ? 'text' : 'password'} placeholder="Min 8 chars, mixed case, symbols"
+              value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+          </FormGroup>
+          <FormGroup label="Confirm Password" error={errors.confirmPw}>
+            <TextInput iconLeft="fa-lock" type="password" placeholder="Re-enter password"
+              value={form.confirmPw} onChange={e => setForm({ ...form, confirmPw: e.target.value })} />
+          </FormGroup>
+          <div className="text-[10px] text-gray-400 px-1">
+            Min 8 characters, with at least one uppercase, lowercase, digit, and special character.
+          </div>
+        </>}
+
+        <div className="flex items-center justify-between mt-6">
+          {step > 1
+            ? <Button variant="outline" onClick={() => setStep(step - 1)} disabled={loading}><i className="fas fa-arrow-left"></i> Back</Button>
+            : <Button variant="outline" onClick={onBack} disabled={loading}><i className="fas fa-arrow-left"></i> Login</Button>}
+          <Button variant="primary" onClick={next} disabled={loading}>
+            {step === 3 
+              ? loading ? <><i className="fas fa-circle-notch fa-spin"></i> Registering...</> : <><i className="fas fa-user-plus"></i> Register</>
+              : <>Next <i className="fas fa-arrow-right"></i></>
+            }
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

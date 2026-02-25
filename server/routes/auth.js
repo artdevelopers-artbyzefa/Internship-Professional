@@ -1,0 +1,296 @@
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import User from '../models/User.js';
+import { sendVerificationEmail } from '../emailServices/emailService.js';
+import { getPKTTime } from '../utils/time.js';
+import { protect } from '../middleware/auth.js';
+
+const router = express.Router();
+
+// @route   GET api/auth/me
+// @desc    Get current user profile
+router.get('/me', protect, (req, res) => {
+    res.json({
+        user: {
+            id: req.user._id,
+            name: req.user.name,
+            email: req.user.email,
+            role: req.user.role,
+            reg: req.user.reg,
+            status: req.user.status,
+            internshipRequest: req.user.internshipRequest,
+            internshipAgreement: req.user.internshipAgreement,
+            mustChangePassword: req.user.mustChangePassword
+        }
+    });
+});
+
+// @route   POST api/auth/change-password
+// @desc    Change password (for forced reset flow)
+router.post('/change-password', protect, async (req, res) => {
+    try {
+        const { newPassword } = req.body;
+        const user = await User.findById(req.user.id);
+
+        user.password = await bcrypt.hash(newPassword, 12);
+        user.mustChangePassword = false;
+        await user.save();
+
+        res.json({ message: 'Password updated successfully.' });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/auth/register
+// @desc    Register a student
+router.post('/register', async (req, res) => {
+    try {
+        console.log(`\n[${getPKTTime()}] AUTH: Registration attempt for ${req.body.email}`);
+        const { name, reg, semester, cgpa, email, password, role } = req.body;
+        console.log(`[DATA] Saving Student with Full Reg: ${reg}`);
+
+        // IMPORTANT RULE: Only students can register
+        if (role !== 'student') {
+            return res.status(403).json({ message: 'Public registration only allowed for students.' });
+        }
+
+        // 1. Validate Email Domain
+        const emailLower = email.toLowerCase().trim();
+        if (!emailLower.endsWith('@cuiatd.edu.pk')) {
+            return res.status(400).json({ message: 'Only @cuiatd.edu.pk emails are allowed.' });
+        }
+
+        // 2. Check Duplicate Email
+        const existingUser = await User.findOne({ email: emailLower });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email already registered.' });
+        }
+
+        // 3. Encrypt Password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // 4. Generate Verification Token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const tokenExpiry = Date.now() + 24 * 60 * 60 * 1000; // Extended to 24h for reliability
+
+        // 5. Save Student Record
+        const user = new User({
+            name,
+            reg,
+            semester,
+            cgpa,
+            email: emailLower,
+            password: hashedPassword,
+            role: 'student',
+            status: 'unverified',
+            emailVerificationToken: verificationToken,
+            emailVerificationExpires: tokenExpiry
+        });
+
+        await user.save();
+        console.log(`[SUCCESS] Student record created in database: ${emailLower}`);
+
+        // 6. Send Verification Email
+        try {
+            console.log(`[MAIL] Dispatching verification email to student...`);
+            await sendVerificationEmail(emailLower, verificationToken);
+        } catch (err) {
+            console.error('Email send failed:', err);
+            // We still registered the user, but they'll need to resend verification
+        }
+
+        res.status(201).json({ message: 'Registration successful! Please check your email for verification link.' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/auth/verify-email/:token
+// @desc    Verify email address
+router.get('/verify-email/:token', async (req, res) => {
+    try {
+        const token = req.params.token.trim();
+        console.log(`[${getPKTTime()}] AUTH: Verification attempt. Received token length: ${token.length}`);
+
+        const user = await User.findOne({ emailVerificationToken: token });
+
+        if (!user) {
+            console.log(`[${getPKTTime()}] [FAIL] Verification failed: Token not found.`);
+            return res.status(400).json({
+                message: 'Verification link invalid. Please request a new one.'
+            });
+        }
+
+        if (user.status === 'verified') {
+            console.log(`[${getPKTTime()}] [INFO] User ${user.email} already verified.`);
+            return res.json({ message: 'Email already verified! Please log in.' });
+        }
+
+        if (user.emailVerificationExpires < Date.now()) {
+            console.log(`[${getPKTTime()}] [FAIL] Verification failed: Token expired for ${user.email}.`);
+            return res.status(400).json({
+                message: 'Verification link expired. Please request a new verification email.'
+            });
+        }
+
+        user.status = 'verified';
+        user.emailVerificationToken = undefined;
+        user.emailVerificationExpires = undefined;
+        await user.save();
+
+        console.log(`[${getPKTTime()}] [SUCCESS] Email verified for: ${user.email}`);
+        res.json({ message: 'Email verified successfully! You can now log in.' });
+
+    } catch (error) {
+        console.error(`[${getPKTTime()}] [ERROR] Verification error:`, error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/auth/login
+// @desc    Login user
+router.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        console.log(`\n[${getPKTTime()}] AUTH: Login attempt for ${email}`);
+        const emailLower = email.toLowerCase().trim();
+
+        const user = await User.findOne({ email: emailLower });
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid credentials.' });
+        }
+
+        // Strict Login Policy
+        if (user.role === 'student' && user.status === 'unverified') {
+            return res.status(401).json({ message: 'Please verify your email before logging in.' });
+        }
+
+        if (user.role !== 'student' && user.status === 'Pending Activation') {
+            return res.status(401).json({ message: 'Your account is pending activation. Please use the nomination link sent to your email.' });
+        }
+
+        if (user.status === 'Inactive') {
+            return res.status(401).json({ message: 'Your account has been deactivated. Please contact the Internship Office.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Invalid credentials.' });
+        }
+
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        // Send token in httpOnly cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production'
+        });
+
+        user.lastLogin = Date.now();
+        await user.save();
+        console.log(`[SUCCESS] User authenticated as ${user.role}: ${emailLower}`);
+
+        res.json({
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                reg: user.reg,
+                status: user.status,
+                internshipRequest: user.internshipRequest,
+                internshipAgreement: user.internshipAgreement,
+                mustChangePassword: user.mustChangePassword
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/auth/faculty-list
+// @desc    Get all faculty members for assignment dropdowns
+router.get('/faculty-list', async (req, res) => {
+    try {
+        const faculty = await User.find({ role: 'faculty_supervisor' }, 'name email status whatsappNumber');
+        res.json(faculty);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/auth/faculty-activate-check/:token
+// @desc    Validate activation token for faculty UI
+router.get('/faculty-activate-check/:token', async (req, res) => {
+    try {
+        const tokenHash = crypto.createHash('sha256').update(req.params.token).digest('hex');
+        const user = await User.findOne({
+            activationToken: tokenHash,
+            activationExpires: { $gt: Date.now() },
+            status: 'Pending Activation'
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Activation link expired or invalid.' });
+        }
+
+        res.json({ name: user.name, email: user.email });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/auth/faculty-set-password
+// @desc    Set password and activate faculty account
+router.post('/faculty-set-password', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        const user = await User.findOne({
+            activationToken: tokenHash,
+            activationExpires: { $gt: Date.now() },
+            status: 'Pending Activation'
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Activation link expired or invalid.' });
+        }
+
+        // 1. Hash Password
+        user.password = await bcrypt.hash(password, 12);
+
+        // 2. Clear Token & Activate
+        user.status = 'Active';
+        user.activationToken = undefined;
+        user.activationExpires = undefined;
+
+        await user.save();
+
+        res.json({ message: 'Account activated successfully! You can now log in.' });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/auth/logout
+// @desc    Logout user / Clear cookie
+router.post('/logout', (req, res) => {
+    res.cookie('token', 'none', {
+        expires: new Date(Date.now() + 10 * 1000),
+        httpOnly: true
+    });
+    res.status(200).json({ message: 'Logged out successfully' });
+});
+
+export default router;
