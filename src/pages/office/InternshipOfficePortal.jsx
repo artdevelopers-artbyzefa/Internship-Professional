@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import OfficeDashboard from './OfficeDashboard.jsx';
 import PendingRequests from './PendingRequests.jsx';
@@ -73,43 +74,54 @@ const officeNav = [
 ];
 
 export default function InternshipOfficePortal({ user, onLogout }) {
-  const [page, setPage] = useState(() => sessionStorage.getItem('office_page') || 'dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-    sessionStorage.setItem('office_page', newPage);
+  // Determine current active page from URL
+  const currentPath = location.pathname.split('/').pop() || 'dashboard';
+
+  const handlePageChange = (newPageId) => {
+    navigate(`/office/${newPageId}`);
   };
 
-  const renderPage = () => {
-    switch (page) {
-      case 'dashboard':             return <OfficeDashboard user={user} />;
-      case 'internship-approvals':  return <PendingRequests />;
-      case 'student-agreements':    return <PendingAgreements />;
-      case 'approved-students':     return <ApprovedStudents />;
-      case 'add-supervisors':
-      case 'view-supervisors':      return <FacultyManagement view={page} user={user} />;
-      case 'add-companies':
-      case 'view-companies':        return <CompanyManagement view={page} user={user} />;
-      case 'assign-students':       return <AssignStudents user={user} />;
-      case 'assigned-students':     return <AssignedStudents />;
-      case 'add-assignments':      return <ManageAssignments user={user} />;
-      case 'view-results':         return <ViewAllResults />;
-      case 'create-notice':
-      case 'update-notice':        return <NoticeManagement view={page} user={user} />;
-      default:                      return <OfficeDashboard user={user} />;
+  useEffect(() => {
+    if (location.pathname === '/office' || location.pathname === '/office/') {
+      navigate('/office/dashboard', { replace: true });
     }
-  };
+  }, [location.pathname]);
 
   return (
     <AppLayout 
       user={user} 
       onLogout={onLogout} 
-      activePage={page} 
+      activePage={currentPath} 
       setActivePage={handlePageChange} 
       navItems={officeNav}
     >
       <div className="p-6">
-        {renderPage()}
+        <Routes>
+          <Route path="dashboard" element={<OfficeDashboard user={user} />} />
+          <Route path="internship-approvals" element={<PendingRequests />} />
+          <Route path="student-agreements" element={<PendingAgreements />} />
+          <Route path="approved-students" element={<ApprovedStudents />} />
+          
+          <Route path="add-supervisors" element={<FacultyManagement view="add-supervisors" user={user} />} />
+          <Route path="view-supervisors" element={<FacultyManagement view="view-supervisors" user={user} />} />
+          
+          <Route path="add-companies" element={<CompanyManagement view="add-companies" user={user} />} />
+          <Route path="view-companies" element={<CompanyManagement view="view-companies" user={user} />} />
+          
+          <Route path="assign-students" element={<AssignStudents user={user} />} />
+          <Route path="assigned-students" element={<AssignedStudents />} />
+          
+          <Route path="add-assignments" element={<ManageAssignments user={user} />} />
+          <Route path="view-results" element={<ViewAllResults />} />
+          
+          <Route path="create-notice" element={<NoticeManagement view="create-notice" user={user} />} />
+          <Route path="update-notice" element={<NoticeManagement view="update-notice" user={user} />} />
+          
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Routes>
       </div>
     </AppLayout>
   );

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import FacultyDashboard from './FacultyDashboard.jsx';
 import FacultyStudents from './FacultyStudents.jsx';
@@ -24,28 +25,41 @@ const facultyNav = [
 ];
 
 export default function FacultyPortal({ user, onLogout }) {
-  const [page, setPage] = useState(() => sessionStorage.getItem('faculty_page') || 'dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-    sessionStorage.setItem('faculty_page', newPage);
+  // Determine current active page from URL
+  const currentPath = location.pathname.split('/').pop() || 'dashboard';
+
+  const handlePageChange = (newPageId) => {
+    navigate(`/faculty/${newPageId}`);
   };
 
-  const renderPage = () => {
-    switch (page) {
-      case 'dashboard':  return <FacultyDashboard user={user} />;
-      case 'students':   return <FacultyStudents />;
-      case 'reports':    return <FacultyReports />;
-      case 'add-marks':   return <AddMarks user={user} />;
-      case 'evaluation': return <FacultyEvaluation />;
-      case 'results':    return <FacultyResults />;
-      default:           return <FacultyDashboard user={user} />;
+  useEffect(() => {
+    if (location.pathname === '/faculty' || location.pathname === '/faculty/') {
+      navigate('/faculty/dashboard', { replace: true });
     }
-  };
+  }, [location.pathname]);
 
   return (
-    <AppLayout user={user} onLogout={onLogout} activePage={page} setActivePage={handlePageChange} navItems={facultyNav}>
-      {renderPage()}
+    <AppLayout 
+      user={user} 
+      onLogout={onLogout} 
+      activePage={currentPath} 
+      setActivePage={handlePageChange} 
+      navItems={facultyNav}
+    >
+      <div className="p-6">
+        <Routes>
+          <Route path="dashboard" element={<FacultyDashboard user={user} />} />
+          <Route path="students" element={<FacultyStudents />} />
+          <Route path="reports" element={<FacultyReports />} />
+          <Route path="add-marks" element={<AddMarks user={user} />} />
+          <Route path="evaluation" element={<FacultyEvaluation />} />
+          <Route path="results" element={<FacultyResults />} />
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Routes>
+      </div>
     </AppLayout>
   );
 }

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import HODDashboard from './HODDashboard.jsx';
 import HODApprovals from './HODApprovals.jsx';
@@ -13,26 +14,39 @@ const hodNav = [
 ];
 
 export default function HODPortal({ user, onLogout }) {
-  const [page, setPage] = useState(() => sessionStorage.getItem('hod_page') || 'dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-    sessionStorage.setItem('hod_page', newPage);
+  // Determine current active page from URL
+  const currentPath = location.pathname.split('/').pop() || 'dashboard';
+
+  const handlePageChange = (newPageId) => {
+    navigate(`/hod/${newPageId}`);
   };
 
-  const renderPage = () => {
-    switch (page) {
-      case 'dashboard': return <HODDashboard />;
-      case 'approvals': return <HODApprovals />;
-      case 'approved':  return <HODApprovedResults />;
-      case 'reports':   return <HODReports />;
-      default:          return <HODDashboard />;
+  useEffect(() => {
+    if (location.pathname === '/hod' || location.pathname === '/hod/') {
+      navigate('/hod/dashboard', { replace: true });
     }
-  };
+  }, [location.pathname]);
 
   return (
-    <AppLayout user={user} onLogout={onLogout} activePage={page} setActivePage={handlePageChange} navItems={hodNav}>
-      {renderPage()}
+    <AppLayout 
+      user={user} 
+      onLogout={onLogout} 
+      activePage={currentPath} 
+      setActivePage={handlePageChange} 
+      navItems={hodNav}
+    >
+      <div className="p-6">
+        <Routes>
+          <Route path="dashboard" element={<HODDashboard />} />
+          <Route path="approvals" element={<HODApprovals />} />
+          <Route path="approved" element={<HODApprovedResults />} />
+          <Route path="reports" element={<HODReports />} />
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Routes>
+      </div>
     </AppLayout>
   );
 }
