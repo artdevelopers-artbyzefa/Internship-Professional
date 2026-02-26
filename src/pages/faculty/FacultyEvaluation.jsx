@@ -12,15 +12,23 @@ export default function FacultyEvaluation() {
   const maxTotal = Object.values(maxes).reduce((s, v) => s + v, 0);
 
   return (
-    <Card>
-      <div className="flex items-center justify-between mb-5">
-        <div className="text-sm font-bold text-primary">Evaluation Form · Ali Hassan</div>
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student Evaluation</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Institutional marking for technical skills and professional conduct.</p>
+        </div>
         {locked && (
-          <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-xl text-xs text-gray-500 font-medium">
-            <i className="fas fa-lock"></i> Submitted & Locked
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-xl text-xs text-emerald-600 font-black tracking-wider">
+            <i className="fas fa-check-circle"></i> VERIFIED & LOCKED
           </div>
         )}
       </div>
+
+      <Card>
+        <div className="flex items-center justify-between mb-5">
+          <div className="text-sm font-bold text-primary">Evaluation Form · Ali Hassan</div>
+        </div>
 
       {!locked ? (
         <>
@@ -64,5 +72,6 @@ export default function FacultyEvaluation() {
         </div>
       )}
     </Card>
+    </div>
   );
 }

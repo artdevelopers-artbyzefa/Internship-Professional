@@ -49,7 +49,7 @@ export default function InternshipRequestForm({ user }) {
           Please wait for approval from the Internship Office.
         </p>
         <div className="mt-6 p-4 bg-gray-50 rounded-xl text-left border border-dashed border-gray-200">
-          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Workflow Status</h4>
+          <h4 className="text-xs font-bold text-gray-400 tracking-widest mb-2">Workflow Status</h4>
           <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
             <i className="fas fa-circle-dot animate-pulse"></i>
             Waiting for Internship Office Decision
@@ -61,9 +61,11 @@ export default function InternshipRequestForm({ user }) {
 
   return (
     <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">Internship Approval Request</h2>
-        <p className="text-gray-500 text-sm">Please provide details about your planned internship for official approval.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-6 border-b border-gray-100">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Internship Approval Request</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Provide details about your planned internship for institutional approval (AppEx-A).</p>
+        </div>
       </div>
 
       {error && <Alert type="danger" className="mb-6">{error}</Alert>}

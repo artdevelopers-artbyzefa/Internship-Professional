@@ -115,7 +115,7 @@ export default function FacultyActivation() {
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
             <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden">
                 <div className="bg-primary p-10 text-white text-center">
-                    <h2 className="text-2xl font-black uppercase tracking-tight">Supervisor Activation</h2>
+                    <h2 className="text-2xl font-black tracking-tight">Supervisor Activation</h2>
                     <p className="text-white/70 text-sm mt-1">Nomination accepted for {facultyData?.name}</p>
                 </div>
                 <div className="p-10">

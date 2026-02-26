@@ -112,7 +112,7 @@ export default function ViewAllResults() {
         label: 'Student Details',
         render: (val) => (
             <div className="text-[11px] space-y-0.5">
-                <p className="font-bold text-gray-800 uppercase">{val?.name}</p>
+                <p className="font-bold text-gray-800">{val?.name}</p>
                 <p className="text-gray-400 font-medium">{val?.reg} | Sem {val?.semester}</p>
             </div>
         )
@@ -120,7 +120,7 @@ export default function ViewAllResults() {
     { 
         key: 'faculty', 
         label: 'Supervisor', 
-        render: (val) => <span className="text-[10px] font-black text-indigo-500 uppercase flex items-center gap-1.5"><i className="fas fa-user-tie opacity-40"></i>{val?.name}</span> 
+        render: (val) => <span className="text-[10px] font-black text-indigo-500 flex items-center gap-1.5"><i className="fas fa-user-tie opacity-40"></i>{val?.name}</span> 
     },
     { 
         key: 'marks', 
@@ -137,7 +137,7 @@ export default function ViewAllResults() {
                             max={row.assignment?.totalMarks || 100}
                         />
                         {Number(editMarks[row._id]) > (row.assignment?.totalMarks || 100) && (
-                            <span className="text-[8px] text-red-500 font-black mt-1 uppercase">Exceeds Max</span>
+                            <span className="text-[8px] text-red-500 font-black mt-1">Exceeds Max</span>
                         )}
                     </div>
                 ) : (
@@ -173,7 +173,7 @@ export default function ViewAllResults() {
 
         <div className="flex flex-wrap items-center gap-4 bg-gray-50/50 p-4 rounded-[30px] border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Filter Faculty:</span>
+            <span className="text-[10px] font-black text-gray-400 tracking-widest px-2">Filter Faculty:</span>
             <SelectInput 
                 className="text-xs font-bold py-2 min-w-[180px] bg-white rounded-2xl border-none shadow-sm"
                 value={filterFaculty}
@@ -185,7 +185,7 @@ export default function ViewAllResults() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Filter Task:</span>
+            <span className="text-[10px] font-black text-gray-400 tracking-widest px-2">Filter Task:</span>
             <SelectInput 
                 className="text-xs font-bold py-2 min-w-[180px] bg-white rounded-2xl border-none shadow-sm"
                 value={filterAssignment}
@@ -207,7 +207,7 @@ export default function ViewAllResults() {
                         setEditMarks({});
                     }
                 }}
-                className={`py-2 px-5 font-black text-[10px] uppercase rounded-2xl transition-all ${isEditMode ? "ring-4 ring-red-100" : ""}`}
+                className={`py-2 px-5 font-black text-[10px] rounded-2xl transition-all ${isEditMode ? "ring-4 ring-red-100" : ""}`}
             >
                 {isEditMode ? <><i className="fas fa-times-circle mr-2"></i> Finished Editing</> : <><i className="fas fa-user-gear mr-2"></i> Administrative Mode</>}
             </Button>
@@ -236,7 +236,7 @@ export default function ViewAllResults() {
                                 <i className="fas fa-file-invoice text-primary text-sm"></i>
                             </div>
                             <div>
-                                <h3 className="text-xs font-black uppercase tracking-[0.2em]">{title}</h3>
+                                <h3 className="text-xs font-black tracking-[0.2em]">{title}</h3>
                                 <p className="text-[10px] text-white/40 font-bold mt-0.5">{groupedResults[title].length} Evaluation(s) Record Found</p>
                             </div>
                         </div>

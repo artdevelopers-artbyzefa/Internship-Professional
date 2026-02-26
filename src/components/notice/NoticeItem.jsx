@@ -44,7 +44,7 @@ export default function NoticeItem({ notice }) {
 
     return (
         <div className="bg-[#f0f9ff] border-2 border-[#3b82f6] rounded-xl p-6 mb-6 shadow-sm hover:shadow-md transition-shadow">
-            <h3 className="text-xl font-extrabold text-[#113d7c] mb-4 uppercase tracking-tight">
+            <h3 className="text-xl font-extrabold text-[#113d7c] mb-4 tracking-tight">
                 {notice.title}
             </h3>
             
@@ -78,7 +78,7 @@ export default function NoticeItem({ notice }) {
                 </div>
             )}
             
-            <div className="mt-6 pt-4 border-t border-blue-100 flex justify-between items-center text-[10px] uppercase font-bold text-gray-400 tracking-widest">
+            <div className="mt-6 pt-4 border-t border-blue-100 flex justify-between items-center text-[10px] font-bold text-gray-400 tracking-widest">
                 <span>Posted On: {new Date(notice.createdAt).toLocaleDateString()}</span>
                 <span>Internship Office</span>
             </div>

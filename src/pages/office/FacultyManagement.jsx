@@ -5,11 +5,13 @@ import Alert from '../../components/ui/Alert.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Modal, { ModalTitle, ModalSub } from '../../components/ui/Modal.jsx';
 import { FormGroup, TextInput } from '../../components/ui/FormInput.jsx';
+import { validate } from '../../utils/validation.js';
+import { showToast, showAlert } from '../../utils/notifications.jsx';
 
 export default function FacultyManagement({ user, view }) {
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [errorDictionary, setErrorDictionary] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(null);
@@ -34,14 +36,29 @@ export default function FacultyManagement({ user, view }) {
       const data = await apiRequest('/auth/faculty-list');
       setFaculty(data);
     } catch (err) {
-      setError(err.message);
+      // apiRequest handles toast, we can log to console
     } finally {
       setLoading(false);
     }
   };
 
+  const handleValidation = () => {
+    const e = {};
+    if (!validate.required(form.name)) e.name = 'Full name is required';
+    
+    if (!validate.required(form.email)) e.email = 'Email is required';
+    else if (!validate.email(form.email)) e.email = 'Invalid email format';
+
+    if (!validate.required(form.whatsappNumber)) e.whatsappNumber = 'WhatsApp number is required';
+    else if (!validate.phone(form.whatsappNumber)) e.whatsappNumber = 'Invalid phone number format';
+
+    setErrorDictionary(e);
+    return Object.keys(e).length === 0;
+  };
+
   const handleOnboard = async (e) => {
     e.preventDefault();
+    if (!handleValidation()) return;
     setSubmitting(true);
     try {
       await apiRequest('/office/onboard-faculty', {
@@ -49,10 +66,10 @@ export default function FacultyManagement({ user, view }) {
         body: { ...form, officeId: user.id || user._id }
       });
       setForm({ name: '', email: '', whatsappNumber: '' });
-      alert('Faculty supervisor nominated successfully.');
+      showToast.success('Faculty supervisor nominated successfully.');
       fetchFaculty();
     } catch (err) {
-      alert(err.message);
+      // Handled by apiRequest
     } finally {
       setSubmitting(false);
     }
@@ -65,11 +82,16 @@ export default function FacultyManagement({ user, view }) {
         email: fac.email,
         whatsappNumber: fac.whatsappNumber
     });
+    setErrorDictionary({});
     setShowEditModal(true);
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
+    if (!validate.required(form.name) || !validate.phone(form.whatsappNumber)) {
+      showToast.warning('Please fill all fields correctly');
+      return;
+    }
     setSubmitting(true);
     try {
         await apiRequest(`/office/edit-faculty/${editingFaculty._id}`, {
@@ -80,39 +102,53 @@ export default function FacultyManagement({ user, view }) {
                 officeId: user.id || user._id 
             }
         });
+        showToast.success('Faculty details updated successfully.');
         setShowEditModal(false);
         fetchFaculty();
     } catch (err) {
-        alert(err.message);
+        // Handled by apiRequest
     } finally {
         setSubmitting(false);
     }
   };
 
   const handleDeactivate = async (id) => {
-    if (!window.confirm('Are you sure you want to deactivate this faculty supervisor?')) return;
+    const confirmed = await showAlert.confirm(
+        'Are you sure?',
+        'You want to deactivate this faculty supervisor?',
+        'Yes, Deactivate'
+    );
+    if (!confirmed) return;
+
     try {
         await apiRequest(`/office/delete-faculty/${id}`, {
             method: 'POST',
             body: { officeId: user.id || user._id }
         });
+        showToast.success('Faculty supervisor deactivated.');
         fetchFaculty();
     } catch (err) {
-        alert(err.message);
+        // Handled by apiRequest
     }
   };
 
   const handleResetPassword = async (fac) => {
-    if (!window.confirm(`Are you sure you want to reset password for ${fac.name}? A temporary password will be emailed to ${fac.email}.`)) return;
+    const confirmed = await showAlert.confirm(
+        'Reset Password?',
+        `Are you sure you want to reset password for ${fac.name}? A temporary password will be emailed to ${fac.email}.`,
+        'Yes, Reset'
+    );
+    if (!confirmed) return;
+
     setResetting(fac._id);
     try {
         await apiRequest(`/office/reset-faculty-password/${fac._id}`, {
             method: 'POST',
             body: { officeId: user.id || user._id }
         });
-        alert('Password reset successful. Temporary password sent via email.');
+        showAlert.success('Password Reset', 'Temporary password has been sent via email.');
     } catch (err) {
-        alert(err.message);
+        // Handled by apiRequest
     } finally {
         setResetting(null);
     }
@@ -125,9 +161,9 @@ export default function FacultyManagement({ user, view }) {
             method: 'POST',
             body: { facultyId: fac._id, officeId: user.id || user._id }
         });
-        alert('Activation link resent successfully.');
+        showToast.success('Activation link resent successfully.');
     } catch (err) {
-        alert(err.message);
+        // Handled by apiRequest
     } finally {
         setResending(null);
     }
@@ -141,7 +177,7 @@ export default function FacultyManagement({ user, view }) {
       key: 'status', 
       label: 'Status',
       render: (val) => (
-        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
           val === 'Active' ? 'bg-green-50 text-green-600' : 
           val === 'Pending Activation' ? 'bg-amber-50 text-amber-600' : 
           'bg-red-50 text-red-600'
@@ -224,22 +260,22 @@ export default function FacultyManagement({ user, view }) {
         )}
       </div>
 
-      {error && <Alert type="danger" className="mb-4">{error}</Alert>}
+      {/* {error && <Alert type="danger" className="mb-4">{error}</Alert>} */}
 
       {isAddMode && (
           <div className="max-w-2xl mb-12 p-8 bg-gray-50/50 rounded-3xl border border-gray-100">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 border-b border-gray-200 pb-2">Add New Faculty member</h3>
+            <h3 className="text-xs font-black text-gray-400 tracking-widest mb-6 border-b border-gray-200 pb-2">Add New Faculty member</h3>
             <form onSubmit={handleOnboard} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                    <FormGroup label="Full Name">
-                        <TextInput required value={form.name} onChange={e => setForm({...form, name: e.target.value})} iconLeft="fa-user" placeholder="Enter Full Name" />
+                    <FormGroup label="Full Name" error={errorDictionary.name}>
+                        <TextInput value={form.name} onChange={e => setForm({...form, name: e.target.value})} iconLeft="fa-user" placeholder="Enter Full Name" />
                     </FormGroup>
-                    <FormGroup label="WhatsApp Number">
-                        <TextInput required value={form.whatsappNumber} onChange={e => setForm({...form, whatsappNumber: e.target.value})} iconLeft="fa-brands fa-whatsapp" placeholder="e.g. +92..." />
+                    <FormGroup label="WhatsApp Number" error={errorDictionary.whatsappNumber}>
+                        <TextInput value={form.whatsappNumber} onChange={e => setForm({...form, whatsappNumber: e.target.value})} iconLeft="fa-brands fa-whatsapp" placeholder="e.g. +92..." />
                     </FormGroup>
                 </div>
-                <FormGroup label="Official Email Address">
-                    <TextInput type="email" required value={form.email} onChange={e => setForm({...form, email: e.target.value})} iconLeft="fa-envelope" placeholder="Enter official email address" />
+                <FormGroup label="Official Email Address" error={errorDictionary.email}>
+                    <TextInput type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} iconLeft="fa-envelope" placeholder="Enter official email address" />
                 </FormGroup>
 
                 <div className="pt-2">
@@ -260,14 +296,14 @@ export default function FacultyManagement({ user, view }) {
           <ModalSub>Modify supervisor information (Email is immutable)</ModalSub>
 
           <form onSubmit={handleUpdate} className="mt-6 space-y-6">
-            <FormGroup label="Full Name">
-              <TextInput required value={form.name} onChange={e => setForm({...form, name: e.target.value})} iconLeft="fa-user" />
+            <FormGroup label="Full Name" error={errorDictionary.name}>
+              <TextInput value={form.name} onChange={e => setForm({...form, name: e.target.value})} iconLeft="fa-user" />
             </FormGroup>
             <FormGroup label="Official Email Address (Locked)">
               <TextInput type="email" disabled value={form.email} iconLeft="fa-lock" className="bg-gray-50 opacity-70" />
             </FormGroup>
-            <FormGroup label="WhatsApp Number">
-              <TextInput required value={form.whatsappNumber} onChange={e => setForm({...form, whatsappNumber: e.target.value})} iconLeft="fa-brands fa-whatsapp" />
+            <FormGroup label="WhatsApp Number" error={errorDictionary.whatsappNumber}>
+              <TextInput value={form.whatsappNumber} onChange={e => setForm({...form, whatsappNumber: e.target.value})} iconLeft="fa-brands fa-whatsapp" />
             </FormGroup>
 
             <div className="flex gap-3 pt-4">

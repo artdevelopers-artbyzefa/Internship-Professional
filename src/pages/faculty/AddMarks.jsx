@@ -4,6 +4,8 @@ import DataTable from '../../components/ui/DataTable.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import Button from '../../components/ui/Button.jsx';
 import { SelectInput, TextInput } from '../../components/ui/FormInput.jsx';
+import { validate } from '../../utils/validation.js';
+import { showToast, showAlert } from '../../utils/notifications.jsx';
 
 export default function AddMarks({ user }) {
   const [assignments, setAssignments] = useState([]);
@@ -26,9 +28,9 @@ export default function AddMarks({ user }) {
   const fetchAssignments = async () => {
     try {
       const data = await apiRequest('/faculty/assignments');
-      setAssignments(data);
+      setAssignments(data || []);
     } catch (err) {
-      setError(err.message);
+      // Handled by apiRequest toast
     } finally {
       setLoading(false);
     }
@@ -38,9 +40,9 @@ export default function AddMarks({ user }) {
     setLoading(true);
     try {
       const data = await apiRequest(`/faculty/assignment-students/${selectedAssignmentId}`);
-      setStudents(data);
+      setStudents(data || []);
     } catch (err) {
-      setError(err.message);
+      // Handled by apiRequest
     } finally {
       setLoading(false);
     }
@@ -51,8 +53,26 @@ export default function AddMarks({ user }) {
   };
 
   const handleSaveAll = async () => {
-    // Confirmation
-    if (!window.confirm('Are you sure you want to save all marks?')) return;
+    const selectedAssignment = assignments.find(a => a._id === selectedAssignmentId);
+    const maxMarks = selectedAssignment?.totalMarks || 100;
+
+    // Check if any mark is invalid (negative or exceeds max)
+    const invalidMarks = students.some(s => {
+        if (s.marks === null || s.marks === '') return false;
+        return !validate.marks(s.marks, maxMarks);
+    });
+
+    if (invalidMarks) {
+        showToast.error(`Some marks are invalid. Must be between 0 and ${maxMarks}.`);
+        return;
+    }
+
+    const confirmed = await showAlert.confirm(
+        'Confirm Submission?',
+        `Are you sure you want to save marks for ${students.length} students?`,
+        'Yes, Save All'
+    );
+    if (!confirmed) return;
 
     setSubmitting(true);
     try {
@@ -64,7 +84,7 @@ export default function AddMarks({ user }) {
             }));
 
         if (marksData.length === 0) {
-            alert('No marks entered to save.');
+            showToast.warning('No marks entered to save.');
             setSubmitting(false);
             return;
         }
@@ -76,10 +96,10 @@ export default function AddMarks({ user }) {
                 marksData
             }
         });
-        alert('All marks saved successfully.');
+        showToast.success('Marks updated successfully for all students.');
         fetchStudents();
     } catch (err) {
-        alert(err.message);
+        // Handled by apiRequest
     } finally {
         setSubmitting(false);
     }
@@ -107,7 +127,7 @@ export default function AddMarks({ user }) {
                     className={`w-20 text-center font-bold ${Number(val) > (selectedAssignment?.totalMarks || 100) ? 'border-red-500 text-red-600 bg-red-50' : ''}`}
                 />
                 {Number(val) > (selectedAssignment?.totalMarks || 100) && (
-                    <span className="text-[9px] text-red-500 font-bold mt-1 uppercase tracking-tighter">Exceeds Max</span>
+                    <span className="text-[9px] text-red-500 font-bold mt-1 tracking-tighter">Exceeds Max</span>
                 )}
             </div>
         )
@@ -138,7 +158,7 @@ export default function AddMarks({ user }) {
         </div>
 
         <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-2xl border border-gray-100">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-2">Select Task:</label>
+            <label className="text-[10px] font-black text-gray-400 tracking-widest pl-2">Select Task:</label>
             <SelectInput 
                 className="text-xs font-bold py-2 min-w-[200px]"
                 value={selectedAssignmentId}
@@ -172,7 +192,7 @@ export default function AddMarks({ user }) {
                             <i className={`fas ${deadlinePassed ? 'fa-lock' : 'fa-calendar-check'} text-xl`}></i>
                         </div>
                         <div>
-                            <p className="text-[10px] uppercase font-black tracking-widest opacity-70">
+                            <p className="text-[10px] font-black tracking-widest opacity-70">
                                 {selectedAssignment.title} (Weight: {selectedAssignment.totalMarks})
                             </p>
                             <h3 className="text-lg font-black tracking-tight leading-none mt-1">
@@ -185,12 +205,12 @@ export default function AddMarks({ user }) {
                     </div>
                     <div className="flex flex-col items-end gap-2">
                         {selectedAssignment.isOverridden && (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full uppercase border border-amber-200">
+                            <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full border border-amber-200">
                                 <i className="fas fa-bolt mr-1"></i> Individual Extension Active
                             </span>
                         )}
                         {deadlinePassed && (
-                            <span className="px-3 py-1 bg-red-100 text-red-700 text-[9px] font-black rounded-full uppercase border border-red-200">
+                            <span className="px-3 py-1 bg-red-100 text-red-700 text-[9px] font-black rounded-full border border-red-200">
                                 System Locked
                             </span>
                         )}

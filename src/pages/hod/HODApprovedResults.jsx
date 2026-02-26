@@ -31,7 +31,7 @@ export default function HODApprovedResults() {
         label: 'Student', 
         render: (val) => (
             <div className="text-xs font-bold">
-                <p className="uppercase">{val?.name}</p>
+                <p>{val?.name}</p>
                 <p className="text-[10px] text-gray-400 font-medium">{val?.reg}</p>
             </div>
         )
@@ -59,12 +59,12 @@ export default function HODApprovedResults() {
             return <span className="text-sm font-black text-secondary">{gradeFromPct(pct)}</span>;
         }
     },
-    { key: 'faculty', label: 'Evaluator', render: (val) => <span className="text-[10px] font-bold text-indigo-500 uppercase">{val?.name}</span> },
+    { key: 'faculty', label: 'Evaluator', render: (val) => <span className="text-[10px] font-bold text-indigo-500">{val?.name}</span> },
     {
         key: 'status',
         label: 'Status',
         render: () => (
-            <div className="inline-flex items-center gap-1.5 bg-green-50 text-green-600 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase border border-green-100">
+            <div className="inline-flex items-center gap-1.5 bg-green-50 text-green-600 rounded-lg px-2.5 py-1 text-[10px] font-black border border-green-100">
                 <i className="fas fa-lock"></i> Verified
             </div>
         )
@@ -74,16 +74,21 @@ export default function HODApprovedResults() {
   if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i></div>;
 
   return (
-    <Card>
-      <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-xl font-black text-gray-800 tracking-tight">Academic Oversight</h2>
-            <p className="text-xs text-gray-500 font-medium mt-1">Reviewing final normalized marks for all internships.</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={fetchMarks} className="p-2.5">
-            <i className="fas fa-sync-alt"></i>
-          </Button>
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Finalized Result Ledger</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Official repository of departmental approved internship evaluation records.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchMarks} className="p-2.5">
+          <i className="fas fa-sync-alt"></i>
+        </Button>
       </div>
+
+      <Card>
+        <div className="mb-6">
+            <h3 className="text-sm font-bold text-primary">Academic Record Registry</h3>
+        </div>
 
       {error && <Alert type="danger" className="mb-6">{error}</Alert>}
       
@@ -93,6 +98,7 @@ export default function HODApprovedResults() {
         <DataTable columns={columns} data={marks} />
       )}
     </Card>
+    </div>
   );
 }
 

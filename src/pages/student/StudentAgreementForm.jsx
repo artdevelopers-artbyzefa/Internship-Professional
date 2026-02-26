@@ -83,12 +83,15 @@ export default function StudentAgreementForm({ user }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-      {/* Header Banner */}
-      <div className="bg-primary p-8 text-white">
-        <h2 className="text-2xl font-black uppercase tracking-tighter">Internship Assignment & Student Agreement Form</h2>
-        <p className="text-white/70 text-sm mt-1">Institutional Placement Verification Portal</p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Internship Agreement Form</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Institutional placement verification and commitment portal (AppEx-B).</p>
+        </div>
       </div>
+
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
 
       <div className="p-8">
         {error && <Alert type="danger" className="mb-6">{error}</Alert>}
@@ -123,7 +126,7 @@ export default function StudentAgreementForm({ user }) {
           <section>
             <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded-full bg-blue-50 text-primary flex items-center justify-center font-bold text-sm">01</div>
-                <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">Student Information</h3>
+                <h3 className="text-sm font-black text-gray-800 tracking-widest">Student Information</h3>
                 <div className="h-[1px] bg-gray-100 flex-1 ml-2"></div>
                 <span className="text-[10px] font-bold text-blue-400 bg-blue-50 px-2 py-1 rounded">MANDATORY</span>
             </div>
@@ -162,7 +165,7 @@ export default function StudentAgreementForm({ user }) {
                 <section className="animate-in slide-in-from-bottom-5 duration-500">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">02</div>
-                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">Self-Placement Details</h3>
+                        <h3 className="text-sm font-black text-gray-800 tracking-widest">Self-Placement Details</h3>
                         <div className="h-[1px] bg-gray-100 flex-1 ml-2"></div>
                     </div>
 
@@ -217,7 +220,7 @@ export default function StudentAgreementForm({ user }) {
 
           {/* Section 3: Agreement Statement */}
           <section className="bg-gray-50 p-8 rounded-2xl border border-gray-200">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-4 text-center">Student Internship Agreement Statement</h3>
+                <h3 className="text-xs font-black text-gray-400 tracking-[0.2em] mb-4 text-center">Student Internship Agreement Statement</h3>
                 
                 <div className="bg-white p-6 rounded-xl border border-gray-100 text-xs leading-relaxed text-gray-700 italic shadow-sm mb-6">
                     I, <span className="font-bold text-primary border-b border-primary/20">{form.fullName || '_________'}</span>, 
@@ -255,6 +258,7 @@ export default function StudentAgreementForm({ user }) {
             </Button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );

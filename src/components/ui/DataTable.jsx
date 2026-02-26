@@ -11,7 +11,7 @@ export function DataTable({ columns, children, data }) {
         <thead className="bg-[#F8FAFC]">
           <tr>
             {columnLabels.map(col => (
-              <th key={col} className="px-4 py-4 text-left text-[11px] font-bold text-primary uppercase tracking-wider whitespace-nowrap">
+              <th key={col} className="px-4 py-4 text-left text-[11px] font-bold text-primary tracking-wider whitespace-nowrap">
                 {col}
               </th>
             ))}

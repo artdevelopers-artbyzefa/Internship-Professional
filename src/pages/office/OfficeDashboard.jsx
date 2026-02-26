@@ -10,6 +10,13 @@ export default function OfficeDashboard({ user }) {
 
   return (
     <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Institutional Portal Control</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Global oversight of internship workflows, requests, and academic evaluations.</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((s, i) => (
           <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -18,7 +25,7 @@ export default function OfficeDashboard({ user }) {
             </div>
             <div>
               <div className="text-2xl font-black text-gray-800">{s.count}</div>
-              <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">{s.label}</div>
+              <div className="text-xs font-medium text-gray-400 tracking-wider">{s.label}</div>
             </div>
           </div>
         ))}
@@ -36,15 +43,15 @@ export default function OfficeDashboard({ user }) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
-            <div className="text-xs font-bold text-primary uppercase mb-1">Designation</div>
+            <div className="text-xs font-bold text-primary mb-1">Designation</div>
             <div className="text-sm font-medium">Internship Officer</div>
           </div>
           <div className="p-4 rounded-xl bg-secondary/5 border border-secondary/10">
-            <div className="text-xs font-bold text-secondary uppercase mb-1">Campus</div>
+            <div className="text-xs font-bold text-secondary mb-1">Campus</div>
             <div className="text-sm font-medium">CUI Abbottabad</div>
           </div>
           <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-            <div className="text-xs font-bold text-gray-400 uppercase mb-1">Account Status</div>
+            <div className="text-xs font-bold text-gray-400 mb-1">Account Status</div>
             <div className="text-sm font-medium text-success flex items-center gap-2">
               <i className="fas fa-circle-check"></i> Verified Admin
             </div>

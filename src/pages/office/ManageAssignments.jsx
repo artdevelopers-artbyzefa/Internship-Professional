@@ -131,7 +131,7 @@ export default function ManageAssignments({ user }) {
       key: 'status', 
       label: 'Status',
       render: (val) => (
-        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
           val === 'Active' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
         }`}>
           {val}

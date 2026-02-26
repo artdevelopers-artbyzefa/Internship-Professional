@@ -5,20 +5,23 @@ import NoticeModal from '../../components/notice/NoticeModal.jsx';
 
 export default function FacultyDashboard({ user }) {
   return (
-    <>
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-gray-100">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Supervisor Dashboard</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Academic oversight and evaluation management for assigned interns.</p>
+        </div>
+      </div>
+      
       <NoticeModal />
-      <WelcomeBanner
-        title="Faculty Supervisor Portal"
-        subtitle="Manage your assigned students and evaluations · Key announcements will appear here"
-      />
       
       <StatsGrid stats={[
         { icon:'fa-users',         cls:'blue',   val:'Active',  label:'Assigned Students' },
-        { icon:'fa-file-lines',    cls:'green',  val:'Ready',   label:'Reports Reviewed' },
+        { icon:'fa-file-lines',    cls:'green',  val:'Ready',   label:'Assignments Reviewed' },
         { icon:'fa-clipboard-list',cls:'yellow', val:'Pending', label:'Evaluations' },
         { icon:'fa-award',         cls:'purple', val:'Track',   label:'Results' },
       ]} />
-    </>
+    </div>
   );
 }
 

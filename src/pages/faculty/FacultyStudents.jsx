@@ -14,11 +14,24 @@ export default function FacultyStudents() {
   );
 
   return (
-    <Card>
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
-        <div className="text-sm font-bold text-primary">My Students</div>
-        <SearchBar value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." />
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Assigned Students</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Registry of interns under your academic supervision.</p>
+        </div>
+        <div className="flex items-center gap-3">
+           <SearchBar value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." className="min-w-[280px]" />
+           <Button variant="outline" size="sm" onClick={() => {}} className="p-2.5">
+             <i className="fas fa-sync-alt"></i>
+           </Button>
+        </div>
       </div>
+
+      <Card>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
+          <div className="text-sm font-bold text-primary">Student Registry</div>
+        </div>
       <DataTable columns={['Name','Reg. No.','Company','Status','Score','Actions']}>
         {filtered.map(s => (
           <TableRow key={s.id}>
@@ -35,6 +48,7 @@ export default function FacultyStudents() {
           </TableRow>
         ))}
       </DataTable>
-    </Card>
+      </Card>
+    </div>
   );
 }

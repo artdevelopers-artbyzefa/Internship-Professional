@@ -36,8 +36,18 @@ export default function StudentResults() {
   if (loading) return <div className="text-center py-10"><i className="fas fa-circle-notch fa-spin text-2xl text-primary"></i></div>;
 
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-gray-100">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Academic Results</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Transcript of internship evaluations and final grading.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => window.print()} className="shadow-sm">
+          <i className="fas fa-print mr-2"></i> Print Transcript
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-secondary text-white rounded-2xl p-5 text-center flex flex-col justify-center">
           <div className="text-3xl font-extrabold">{total}/{maxTotal || 0}</div>
           <div className="text-sm opacity-85 mt-1">Aggregate Score</div>
@@ -63,8 +73,7 @@ export default function StudentResults() {
 
       <Card>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
-          <div className="text-sm font-bold text-primary">Transcript of Evaluations</div>
-          <Button variant="outline" size="sm" onClick={() => window.print()}><i className="fas fa-print mr-2"></i> Print Results</Button>
+          <div className="text-sm font-bold text-primary">Detailed Evaluation Transcript</div>
         </div>
         
         {error && <Alert type="danger" className="mb-4">{error}</Alert>}
@@ -83,7 +92,7 @@ export default function StudentResults() {
                   <TableRow key={m._id}>
                     <TableCell>
                         <div className="font-bold text-gray-800">{m.assignment?.title}</div>
-                        <div className="text-[10px] text-gray-400 uppercase tracking-tighter">Internship Course</div>
+                        <div className="text-[10px] text-gray-400 tracking-tighter">Internship Course</div>
                     </TableCell>
                     <TableCell><strong className="text-primary">{m.marks}</strong></TableCell>
                     <TableCell>{weight}</TableCell>
@@ -94,7 +103,7 @@ export default function StudentResults() {
                       </div>
                     </TableCell>
                     <TableCell>
-                        <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[9px] font-black rounded-full uppercase border border-green-100">
+                        <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[9px] font-black rounded-full border border-green-100">
                            Released
                         </span>
                     </TableCell>
@@ -109,6 +118,6 @@ export default function StudentResults() {
           This is an electronically generated transcript. Securely verified by Internship Office.
         </div>
       </Card>
-    </>
+    </div>
   );
 }

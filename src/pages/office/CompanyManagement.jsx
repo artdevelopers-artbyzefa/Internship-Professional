@@ -5,11 +5,13 @@ import Alert from '../../components/ui/Alert.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Modal, { ModalTitle, ModalSub } from '../../components/ui/Modal.jsx';
 import { FormGroup, TextInput, SelectInput } from '../../components/ui/FormInput.jsx';
+import { validate } from '../../utils/validation.js';
+import { showToast, showAlert } from '../../utils/notifications.jsx';
 
-export default function CompanyManagement({ view }) {
+export default function CompanyManagement({ view, user }) {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [errorDictionary, setErrorDictionary] = useState({});
   const [showAddModal, setShowAddModal] = useState(false);
   
   const initialForm = {
@@ -34,12 +36,34 @@ export default function CompanyManagement({ view }) {
   const fetchCompanies = async () => {
     try {
       const data = await apiRequest('/office/companies');
-      setCompanies(data);
+      setCompanies(data || []);
     } catch (err) {
-      setError(err.message);
+      // Handled by apiRequest
     } finally {
       setLoading(false);
     }
+  };
+
+  const validateForm = () => {
+    const e = {};
+    if (!validate.required(form.name)) e.name = 'Company name is required';
+    if (!validate.required(form.regNo)) e.regNo = 'Registration number is required';
+    if (!validate.required(form.mouSignedDate)) e.mouSignedDate = 'MOU date is required';
+    
+    const supervisorErrors = [];
+    form.siteSupervisors.forEach((s, i) => {
+        const sErr = {};
+        if (!validate.required(s.name)) sErr.name = 'Name required';
+        if (!validate.required(s.email)) sErr.email = 'Email required';
+        else if (!validate.email(s.email)) sErr.email = 'Invalid email';
+        if (!validate.required(s.whatsappNumber)) sErr.whatsapp = 'WhatsApp required';
+        if (Object.keys(sErr).length > 0) supervisorErrors[i] = sErr;
+    });
+
+    if (supervisorErrors.length > 0) e.supervisors = supervisorErrors;
+
+    setErrorDictionary(e);
+    return Object.keys(e).length === 0;
   };
 
   const addSupervisor = () => {
@@ -63,32 +87,45 @@ export default function CompanyManagement({ view }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) {
+        showToast.warning('Please correct the errors in the form.');
+        return;
+    }
     setSubmitting(true);
     try {
       await apiRequest('/office/add-company', {
         method: 'POST',
-        body: { ...form, officeId: user.id || user._id }
+        body: { ...form, officeId: user?.id || user?._id }
       });
+      showToast.success('Company MOU partner registered successfully.');
       setShowAddModal(false);
       setForm(initialForm);
+      setErrorDictionary({});
       fetchCompanies();
     } catch (err) {
-      alert(err.message);
+      // Handled by apiRequest
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteCompany = async (id) => {
-    if (!window.confirm('Are you sure you want to deactivate this company partner?')) return;
+    const confirmed = await showAlert.confirm(
+        'Deactivate Partner?',
+        'Are you sure you want to deactivate this company partner? All associated supervisors will also be affected.',
+        'Yes, Deactivate'
+    );
+    if (!confirmed) return;
+
     try {
         await apiRequest(`/office/delete-company/${id}`, {
             method: 'POST',
-            body: { officeId: user.id || user._id }
+            body: { officeId: user?.id || user?._id }
         });
+        showToast.success('Company partner deactivated.');
         fetchCompanies();
     } catch (err) {
-        alert(err.message);
+        // Handled by apiRequest
     }
   };
 
@@ -113,7 +150,7 @@ export default function CompanyManagement({ view }) {
       key: 'source', 
       label: 'Onboarding',
       render: (val) => (
-        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${val === 'manual' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${val === 'manual' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
           {val === 'manual' ? 'Official Partner' : 'Student Lead'}
         </span>
       )
@@ -168,7 +205,7 @@ export default function CompanyManagement({ view }) {
         </Button>
       </div>
 
-      {error && <Alert type="danger" className="mb-4">{error}</Alert>}
+      {/* {errorDictionary && Object.keys(errorDictionary).length > 0 && <Alert type="danger" className="mb-4">Please fix form errors before submitting</Alert>} */}
 
       <DataTable columns={columns} data={companies} />
 
@@ -179,17 +216,17 @@ export default function CompanyManagement({ view }) {
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-8">
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              <FormGroup label="Company Name">
-                <TextInput required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Google Pakistan" />
+              <FormGroup label="Company Name" error={errorDictionary.name}>
+                <TextInput value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Google Pakistan" />
               </FormGroup>
-              <FormGroup label="Registration Number">
-                <TextInput required value={form.regNo} onChange={e => setForm({...form, regNo: e.target.value})} placeholder="e.g. SECP-12345" />
+              <FormGroup label="Registration Number" error={errorDictionary.regNo}>
+                <TextInput value={form.regNo} onChange={e => setForm({...form, regNo: e.target.value})} placeholder="e.g. SECP-12345" />
               </FormGroup>
               <FormGroup label="Industry Scope">
                 <TextInput value={form.scope} onChange={e => setForm({...form, scope: e.target.value})} placeholder="e.g. Software Development" />
               </FormGroup>
-              <FormGroup label="MOU Signed Date">
-                <TextInput type="date" required value={form.mouSignedDate} onChange={e => setForm({...form, mouSignedDate: e.target.value})} />
+              <FormGroup label="MOU Signed Date" error={errorDictionary.mouSignedDate}>
+                <TextInput type="date" value={form.mouSignedDate} onChange={e => setForm({...form, mouSignedDate: e.target.value})} />
               </FormGroup>
               <div className="col-span-2">
                 <FormGroup label="Office Address">
@@ -200,7 +237,7 @@ export default function CompanyManagement({ view }) {
 
             <div>
               <div className="flex items-center justify-between mb-4 border-b pb-2">
-                <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Site Supervisors</h4>
+                <h4 className="text-[11px] font-black text-gray-400 tracking-widest">Site Supervisors</h4>
                 <button 
                   type="button" 
                   onClick={addSupervisor}
@@ -212,7 +249,7 @@ export default function CompanyManagement({ view }) {
 
               <div className="space-y-4">
                 {form.siteSupervisors.map((s, idx) => (
-                  <div key={idx} className="p-5 bg-gray-50/50 rounded-2xl border border-gray-100 relative group">
+                  <div key={idx} className={`p-5 rounded-2xl border relative group transition-all ${errorDictionary.supervisors?.[idx] ? 'bg-red-50/30 border-red-100' : 'bg-gray-50/50 border-gray-100'}`}>
                     {form.siteSupervisors.length > 1 && (
                         <button 
                             type="button"
@@ -223,18 +260,16 @@ export default function CompanyManagement({ view }) {
                         </button>
                     )}
                     <div className="grid grid-cols-3 gap-4">
-                      <FormGroup label="Full Name">
+                      <FormGroup label="Full Name" error={errorDictionary.supervisors?.[idx]?.name}>
                         <TextInput 
-                            required 
                             size="sm"
                             value={s.name} 
                             onChange={e => handleSupervisorChange(idx, 'name', e.target.value)} 
                             placeholder="Supervisor Name"
                         />
                       </FormGroup>
-                      <FormGroup label="Official Email">
+                      <FormGroup label="Official Email" error={errorDictionary.supervisors?.[idx]?.email}>
                         <TextInput 
-                            required 
                             size="sm"
                             type="email" 
                             value={s.email} 
@@ -242,9 +277,8 @@ export default function CompanyManagement({ view }) {
                             placeholder="name@company.com"
                         />
                       </FormGroup>
-                      <FormGroup label="WhatsApp">
+                      <FormGroup label="WhatsApp" error={errorDictionary.supervisors?.[idx]?.whatsapp}>
                         <TextInput 
-                            required 
                             size="sm"
                             value={s.whatsappNumber} 
                             onChange={e => handleSupervisorChange(idx, 'whatsappNumber', e.target.value)} 

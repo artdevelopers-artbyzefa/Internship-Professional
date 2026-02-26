@@ -84,6 +84,8 @@ export default function App() {
 
   // Global navigation helpers for backward compatibility if needed by legacy components
   window._handleLogout = () => handleLogout();
+  window._goSignup = () => navigate('/signup');
+  window._goForgot = () => navigate('/forgot-password');
 
   const handleLogin = (userData) => {
     sessionStorage.setItem('sessionActive', 'true');
@@ -144,7 +146,7 @@ export default function App() {
 
       {/* Portal Routes with Protection */}
       <Route element={<ProtectedRoute user={user} allowedRoles={['student']} />}>
-        <Route path="/student/*" element={<StudentPortal user={user} onLogout={handleLogout} />} />
+        <Route path="/student/*" element={<StudentPortal user={user} onLogout={handleLogout} onUpdateUser={(updated) => setUser({ ...user, ...updated })} />} />
       </Route>
 
       <Route element={<ProtectedRoute user={user} allowedRoles={['internship_office']} />}>

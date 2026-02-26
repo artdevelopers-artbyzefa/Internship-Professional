@@ -44,7 +44,7 @@ export default function AssignedStudents() {
       label: 'Placement Details',
       render: (val, row) => (
         <div className="text-[11px] space-y-0.5">
-          <p className="font-bold text-gray-800 uppercase">{val}</p>
+          <p className="font-bold text-gray-800">{val}</p>
           <div className="flex items-center text-gray-400 gap-1.5 font-medium">
              <i className="fas fa-building text-[9px]"></i>
              <span>{row.internshipRequest?.type || 'N/A'} Internship</span>
@@ -76,7 +76,7 @@ export default function AssignedStudents() {
       key: 'status',
       label: 'Final Status',
       render: (val) => (
-        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black rounded-full uppercase tracking-tighter border border-indigo-100 shadow-sm inline-block">
+        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[9px] font-black rounded-full tracking-tighter border border-indigo-100 shadow-sm inline-block">
           <i className="fas fa-award mr-1"></i> {val}
         </span>
       )
@@ -94,7 +94,7 @@ export default function AssignedStudents() {
         </div>
         
         <div className="flex items-center gap-3">
-          <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Filter By Advisor:</label>
+          <label className="text-[11px] font-black text-gray-400 tracking-widest whitespace-nowrap">Filter By Advisor:</label>
           <SelectInput 
             className="text-xs font-bold py-2 min-w-[220px]"
             value={facultyFilter}

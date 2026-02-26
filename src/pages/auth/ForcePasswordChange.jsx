@@ -74,7 +74,7 @@ export default function ForcePasswordChange({ onComplete }) {
           </Button>
         </form>
 
-        <p className="text-center text-[10px] text-gray-400 mt-8 uppercase tracking-widest font-bold">
+        <p className="text-center text-[10px] text-gray-400 mt-8 tracking-widest font-bold">
             Controlled by University Security Policy
         </p>
       </div>

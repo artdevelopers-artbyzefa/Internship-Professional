@@ -101,11 +101,18 @@ export default function PendingRequests() {
   if (loading) return <div className="text-center py-10"><i className="fas fa-circle-notch fa-spin text-2xl text-primary"></i></div>;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-800">Internship Approvals</h2>
-        <p className="text-sm text-gray-500">Review and approve student internship placement requests.</p>
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Placement Approvals</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Review and verify student internship placement requests (AppEx-A).</p>
+        </div>
       </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="mb-6">
+          <h3 className="text-sm font-bold text-primary tracking-tight">Pending Requests Queue</h3>
+        </div>
 
       {error && <Alert type="danger" className="mb-4">{error}</Alert>}
       
@@ -125,33 +132,33 @@ export default function PendingRequests() {
           
           <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
             <div className="p-3 bg-gray-50 rounded-xl">
-              <div className="text-[10px] font-bold text-gray-400 uppercase">Internship Type</div>
+              <div className="text-[10px] font-bold text-gray-400">Internship Type</div>
               <div className="font-semibold text-primary">{selectedRequest.internshipRequest?.type}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl">
-              <div className="text-[10px] font-bold text-gray-400 uppercase">Company Name</div>
+              <div className="text-[10px] font-bold text-gray-400">Company Name</div>
               <div className="font-semibold text-primary">{selectedRequest.internshipRequest?.companyName}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl">
-              <div className="text-[10px] font-bold text-gray-400 uppercase">Duration</div>
+              <div className="text-[10px] font-bold text-gray-400">Duration</div>
               <div className="font-semibold text-primary">{selectedRequest.internshipRequest?.duration}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl">
-              <div className="text-[10px] font-bold text-gray-400 uppercase">Mode</div>
+              <div className="text-[10px] font-bold text-gray-400">Mode</div>
               <div className="font-semibold text-primary">{selectedRequest.internshipRequest?.mode}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl">
-              <div className="text-[10px] font-bold text-gray-400 uppercase">Start Date</div>
+              <div className="text-[10px] font-bold text-gray-400">Start Date</div>
               <div className="font-semibold text-primary">{new Date(selectedRequest.internshipRequest?.startDate).toLocaleDateString()}</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl">
-              <div className="text-[10px] font-bold text-gray-400 uppercase">End Date</div>
+              <div className="text-[10px] font-bold text-gray-400">End Date</div>
               <div className="font-semibold text-primary">{new Date(selectedRequest.internshipRequest?.endDate).toLocaleDateString()}</div>
             </div>
           </div>
 
           <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-            <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">Description</div>
+            <div className="text-[10px] font-bold text-gray-400 mb-1">Description</div>
             <div className="text-xs text-gray-600 leading-relaxed italic">
               "{selectedRequest.internshipRequest?.description}"
             </div>
@@ -183,5 +190,6 @@ export default function PendingRequests() {
         </Modal>
       )}
     </div>
+  </div>
   );
 }

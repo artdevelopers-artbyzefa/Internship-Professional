@@ -17,6 +17,7 @@
     margin: 0;
     padding: 0;
   }
+
   body {
     @apply font-poppins bg-lightbg text-gray-700 min-h-screen;
   }
@@ -26,9 +27,11 @@
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 3px;
@@ -38,7 +41,35 @@
 .sidebar-nav::-webkit-scrollbar {
   width: 4px;
 }
+
 .sidebar-nav::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 2px;
+}
+
+/* SweetAlert2 Toast Close Button */
+.swal2-toast .swal2-close {
+  display: flex !important;
+  font-size: 1.25rem !important;
+  color: inherit !important;
+  opacity: 0.5 !important;
+  background: transparent !important;
+  border: none !important;
+  margin-top: 0 !important;
+  margin-right: 0 !important;
+  position: absolute !important;
+  top: 10px !important;
+  right: 12px !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  transition: opacity 0.2s;
+  box-shadow: none !important;
+}
+
+.swal2-toast .swal2-close:hover {
+  opacity: 1 !important;
+}
+
+.swal2-toast .swal2-title {
+  padding-right: 25px !important;
 }

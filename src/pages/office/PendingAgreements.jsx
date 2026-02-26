@@ -96,11 +96,18 @@ export default function PendingAgreements() {
   if (loading) return <div className="text-center py-10"><i className="fas fa-circle-notch fa-spin text-2xl text-primary"></i></div>;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-800">Student Agreements</h2>
-        <p className="text-sm text-gray-500">Verify and finalize student internship agreements.</p>
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Placement Verification</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Final audit and confirmation of student internship agreements (AppEx-B).</p>
+        </div>
       </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="mb-6">
+          <h3 className="text-sm font-bold text-primary tracking-tight">Student Agreements Ledger</h3>
+        </div>
 
       {error && <Alert type="danger" className="mb-4">{error}</Alert>}
       
@@ -120,7 +127,7 @@ export default function PendingAgreements() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 text-sm">
             <div className="md:col-span-2">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 border-b pb-1">01. Student Information</h4>
+                <h4 className="text-[10px] font-black text-gray-400 tracking-widest mb-2 border-b pb-1">01. Student Information</h4>
             </div>
             {[
               { label: 'Degree Program', value: selectedAgreement.internshipAgreement?.degreeProgram },
@@ -129,13 +136,13 @@ export default function PendingAgreements() {
               { label: 'Preferred Field', value: selectedAgreement.internshipAgreement?.preferredField },
             ].map(item => (
               <div key={item.label} className="p-3 bg-blue-50/50 rounded-xl border border-blue-50">
-                <div className="text-[10px] font-bold text-blue-400 uppercase">{item.label}</div>
+                <div className="text-[10px] font-bold text-blue-400">{item.label}</div>
                 <div className="font-semibold text-primary">{item.value || 'N/A'}</div>
               </div>
             ))}
 
             <div className="md:col-span-2 mt-2">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 border-b pb-1">02. Placement Information</h4>
+                <h4 className="text-[10px] font-black text-gray-400 tracking-widest mb-2 border-b pb-1">02. Placement Information</h4>
             </div>
             {[
               { label: 'Company Name', value: selectedAgreement.internshipAgreement?.companyName },
@@ -148,14 +155,14 @@ export default function PendingAgreements() {
               { label: 'Duration', value: selectedAgreement.internshipAgreement?.duration },
             ].map(item => (
               <div key={item.label} className="p-3 bg-gray-50 rounded-xl">
-                <div className="text-[10px] font-bold text-gray-400 uppercase">{item.label}</div>
+                <div className="text-[10px] font-bold text-gray-400">{item.label}</div>
                 <div className="font-semibold text-gray-800">{item.value || 'N/A'}</div>
               </div>
             ))}
           </div>
 
           <div className="mt-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
-             <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Company Scope / Domain</div>
+             <div className="text-[10px] font-bold text-blue-400 mb-1">Company Scope / Domain</div>
              <div className="text-sm text-blue-700 italic">
                {selectedAgreement.internshipAgreement?.companyScope}
              </div>
@@ -187,5 +194,6 @@ export default function PendingAgreements() {
         </Modal>
       )}
     </div>
+  </div>
   );
 }

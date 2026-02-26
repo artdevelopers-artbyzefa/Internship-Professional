@@ -4,6 +4,8 @@ import Button from '../ui/Button.jsx';
 import { FormGroup, TextInput, SelectInput } from '../ui/FormInput.jsx';
 import { apiRequest } from '../../utils/api.js';
 import Alert from '../ui/Alert.jsx';
+import { validate } from '../../utils/validation.js';
+import { showToast } from '../../utils/notifications.jsx';
 
 export default function SignupPage({ onBack }) {
   const [step, setStep] = useState(1);
@@ -20,29 +22,24 @@ export default function SignupPage({ onBack }) {
 
   const validateStep1 = () => {
     const e = {};
-    if (!form.name.trim()) e.name = 'Full name required';
-    if (!form.reg.trim())  e.reg = 'Center part of Reg # required';
+    if (!validate.required(form.name)) e.name = 'Full name is required';
+    if (!validate.required(form.reg))  e.reg = 'Registration part is required';
     setErrors(e); return !Object.keys(e).length;
   };
 
   const validateStep2 = () => {
     const e = {};
-    const emailLower = form.email.toLowerCase().trim();
-    if (!form.email) {
-      e.email = 'Email required';
-    } else if (!emailLower.endsWith('@cuiatd.edu.pk')) {
-      e.email = 'Strictly @cuiatd.edu.pk required';
-    } else if (emailLower.split('@')[0].includes('@')) {
-      e.email = 'Invalid email format';
+    if (!validate.required(form.email)) {
+      e.email = 'Institutional email is required';
+    } else if (!validate.institutionalEmail(form.email)) {
+      e.email = 'Must be an institutional email (@cuiatd.edu.pk)';
     }
     setErrors(e); return !Object.keys(e).length;
   };
 
   const validateStep3 = () => {
     const e = {};
-    // Password rules: Min 8 + 1 Upper + 1 Lower + 1 Num + 1 Special
-    const pwRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-    if (!pwRegex.test(form.password)) {
+    if (!validate.password(form.password)) {
       e.password = 'Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special character';
     }
     if (form.password !== form.confirmPw) {
@@ -61,15 +58,16 @@ export default function SignupPage({ onBack }) {
     setLoading(true);
     setApiError('');
     try {
-      // Construct full registration number: CIIT/.../ATD
       const fullReg = `CIIT/${form.reg.trim()}/ATD`;
       
       await apiRequest('/auth/register', {
         method: 'POST',
         body: { ...form, reg: fullReg }
       });
+      showToast.success('Registration successful! Please verify your email.');
       setDone(true);
     } catch (err) {
+      // apiRequest already shows a toast, but we can set local state for inline alert if needed
       setApiError(err.message);
     } finally {
       setLoading(false);

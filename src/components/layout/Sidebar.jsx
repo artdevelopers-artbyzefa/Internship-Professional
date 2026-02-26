@@ -17,7 +17,7 @@ export default function Sidebar({ user, collapsed, onToggle, activePage, setActi
           <div className="overflow-hidden">
             <div className="text-white text-sm font-bold whitespace-nowrap">CUI DIMS</div>
             <div className="text-white/60 text-xs whitespace-nowrap leading-tight">{user.role}</div>
-            {disabled && <div className="text-[#FFD700] text-[10px] font-bold uppercase tracking-wider animate-pulse pt-0.5">Account Locked</div>}
+            {disabled && <div className="text-[#FFD700] text-[10px] font-bold tracking-wider animate-pulse pt-0.5">Account Locked</div>}
           </div>
         )}
         <button
@@ -27,26 +27,27 @@ export default function Sidebar({ user, collapsed, onToggle, activePage, setActi
         </button>
       </div>
 
-      <nav className={`flex-1 overflow-y-auto p-2 sidebar-nav ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <nav className="flex-1 overflow-y-auto p-2 sidebar-nav">
         {navItems.map(item => {
           const hasChildren = item.children && item.children.length > 0;
           const isOpen = openMenus[item.id];
           const isActive = activePage === item.id || (hasChildren && item.children.some(c => c.id === activePage));
+          const isItemDisabled = disabled || item.disabled;
 
           return (
             <div key={item.id} className="mb-1">
               <div
                 title={collapsed ? item.label : ''}
                 onClick={() => {
-                  if (disabled) return;
+                  if (isItemDisabled) return;
                   if (hasChildren) toggleMenu(item.id);
                   else setActivePage(item.id);
                 }}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
-                  ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
+                  ${isItemDisabled ? 'opacity-40 cursor-not-allowed group relative' : 'cursor-pointer'}
                   ${isActive
                     ? 'bg-secondary text-white shadow-lg shadow-blue-600/30'
-                    : 'text-white/70 ' + (!disabled ? 'hover:bg-white/10 hover:text-white' : '')}`}>
+                    : 'text-white/70 ' + (!isItemDisabled ? 'hover:bg-white/10 hover:text-white' : '')}`}>
                 <i className={`fas ${item.icon} text-sm w-5 text-center flex-shrink-0`}></i>
                 {!collapsed && (
                   <>
@@ -54,11 +55,19 @@ export default function Sidebar({ user, collapsed, onToggle, activePage, setActi
                     {hasChildren && (
                       <i className={`fas fa-chevron-down text-[10px] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}></i>
                     )}
+                    {isItemDisabled && (
+                      <i className="fas fa-lock text-[10px] text-white/40 ml-2 animate-pulse"></i>
+                    )}
                   </>
+                )}
+                {collapsed && isItemDisabled && (
+                   <div className="absolute left-14 bg-primary border border-white/10 rounded px-2 py-1 text-[10px] font-bold text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      Feature Locked
+                   </div>
                 )}
               </div>
               
-              {!collapsed && hasChildren && isOpen && (
+              {!collapsed && hasChildren && isOpen && !isItemDisabled && (
                 <div className="mt-1 ml-4 border-l border-white/10 pl-2 space-y-1 animate-in slide-in-from-top-1 duration-200">
                   {item.children.map(child => (
                     <div

@@ -64,6 +64,13 @@ const userSchema = new mongoose.Schema({
         ],
         default: 'unverified'
     },
+
+    // NEW: Student Profile Specific Mandatory Fields
+    fatherName: { type: String, trim: true },
+    section: { type: String, trim: true },
+    dateOfBirth: { type: Date },
+    profilePicture: { type: String }, // URL or Base64
+    registeredCourse: { type: String, default: 'Internship' },
     activationToken: String,
     activationExpires: Date,
 

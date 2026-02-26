@@ -40,7 +40,7 @@ export default function ApprovedStudents() {
       key: 'status',
       label: 'Status',
       render: (val) => (
-        <span className="px-3 py-1 bg-green-50 text-success text-[10px] font-bold rounded-full uppercase tracking-wider border border-green-100">
+        <span className="px-3 py-1 bg-green-50 text-success text-[10px] font-bold rounded-full tracking-wider border border-green-100">
           <i className="fas fa-check-circle mr-1"></i> {val}
         </span>
       )

@@ -16,10 +16,17 @@ export default function HODApprovals() {
   };
 
   return (
-    <>
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Pending Approval Queue</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Review student internship performance results for final departmental verification.</p>
+        </div>
+      </div>
+
       <Card>
         <div className="flex items-center gap-2 text-sm font-bold text-primary mb-5">
-          <i className="fas fa-clock text-warning"></i> Pending Approvals
+          <i className="fas fa-clock text-amber-500"></i> Verification Required
         </div>
         <DataTable columns={['Student','Reg. No.','Technical','Professional','Reports','Total','Status','Actions']}>
           {evals.map(e => (
@@ -76,6 +83,6 @@ export default function HODApprovals() {
           </div>
         </Modal>
       )}
-    </>
+    </div>
   );
 }

@@ -1,9 +1,24 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatDate, getInitials } from '../../utils/helpers.js';
 
 export default function Topbar({ user, activePage, navItems, onLogout, showDD, setShowDD, showNotif, setShowNotif }) {
+  const navigate = useNavigate();
   const initials = getInitials(user.name);
   const pageLabel = navItems.find(n => n.id === activePage)?.label || 'Dashboard';
+
+  const rolePaths = {
+    student: '/student',
+    internship_office: '/office',
+    faculty_supervisor: '/faculty',
+    hod: '/hod'
+  };
+
+  const handleProfileClick = () => {
+    setShowDD(false);
+    const basePath = rolePaths[user.role] || '/student';
+    navigate(`${basePath}/profile`);
+  };
 
   const notifications = [
     'New internship request submitted',
@@ -41,22 +56,38 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
         <div className="relative">
           <button
             onClick={() => { setShowDD(!showDD); setShowNotif(false); }}
-            className="flex items-center gap-2 px-3 py-1.5 bg-lightbg rounded-xl cursor-pointer border-0 font-poppins hover:bg-blue-100 transition-all">
-            <div className="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center text-white text-xs font-bold">
-              {initials}
+            className="flex items-center gap-2 px-2 py-1.5 bg-lightbg rounded-xl cursor-pointer border-0 font-poppins hover:bg-blue-100 transition-all">
+            <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden flex-shrink-0">
+               {user.profilePicture ? (
+                 <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+               ) : (
+                 initials
+               )}
             </div>
-            <div className="text-left">
+            <div className="text-left hidden md:block">
               <div className="text-xs font-semibold text-gray-700 leading-tight">{user.name}</div>
-              <div className="text-xs text-gray-400 leading-tight">{user.role}</div>
+              <div className="text-[10px] text-gray-400 leading-tight font-medium">{user.role?.replace('_', ' ')}</div>
             </div>
-            <i className="fas fa-chevron-down text-gray-400" style={{ fontSize: 9 }}></i>
+            <i className="fas fa-chevron-down text-gray-400 ml-1" style={{ fontSize: 9 }}></i>
           </button>
           {showDD && (
-            <div className="absolute right-0 top-11 bg-white border border-gray-100 rounded-xl p-2 min-w-40 shadow-xl z-50">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-lightbg text-sm text-gray-600 cursor-pointer"><i className="fas fa-user w-4"></i> My Profile</div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-lightbg text-sm text-gray-600 cursor-pointer"><i className="fas fa-gear w-4"></i> Settings</div>
-              <hr className="my-1 border-gray-100" />
-              <div onClick={onLogout} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 text-sm text-danger cursor-pointer"><i className="fas fa-right-from-bracket w-4"></i> Logout</div>
+            <div className="absolute right-0 top-11 bg-white border border-gray-100 rounded-xl p-2 min-w-44 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
+              <div 
+                onClick={handleProfileClick}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-lightbg text-sm text-gray-600 cursor-pointer transition-colors"
+              >
+                <i className="fas fa-user-circle w-4 text-secondary"></i> My Profile
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-lightbg text-sm text-gray-600 cursor-pointer transition-colors">
+                <i className="fas fa-shield-halved w-4 text-blue-400"></i> Account Security
+              </div>
+              <hr className="my-1 border-gray-100/50" />
+              <div 
+                onClick={onLogout} 
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-sm text-danger cursor-pointer transition-colors"
+              >
+                <i className="fas fa-power-off w-4"></i> Logout
+              </div>
             </div>
           )}
         </div>

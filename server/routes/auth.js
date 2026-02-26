@@ -11,18 +11,33 @@ const router = express.Router();
 
 // @route   GET api/auth/me
 // @desc    Get current user profile
-router.get('/me', protect, (req, res) => {
+router.get('/me', protect, async (req, res) => {
+    // Populate assigned faculty for full dashboard context
+    const user = await User.findById(req.user.id).populate('assignedFaculty', 'name email whatsappNumber');
+
     res.json({
         user: {
-            id: req.user._id,
-            name: req.user.name,
-            email: req.user.email,
-            role: req.user.role,
-            reg: req.user.reg,
-            status: req.user.status,
-            internshipRequest: req.user.internshipRequest,
-            internshipAgreement: req.user.internshipAgreement,
-            mustChangePassword: req.user.mustChangePassword
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            reg: user.reg,
+            status: user.status,
+            internshipRequest: user.internshipRequest,
+            internshipAgreement: user.internshipAgreement,
+            mustChangePassword: user.mustChangePassword,
+
+            // New profile fields
+            fatherName: user.fatherName,
+            section: user.section,
+            dateOfBirth: user.dateOfBirth,
+            profilePicture: user.profilePicture,
+            registeredCourse: user.registeredCourse,
+
+            // Assignment data
+            assignedFaculty: user.assignedFaculty,
+            assignedCompany: user.assignedCompany,
+            assignedCompanySupervisor: user.assignedCompanySupervisor
         }
     });
 });
@@ -156,13 +171,20 @@ router.get('/verify-email/:token', async (req, res) => {
 // @desc    Login user
 router.post('/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
-        console.log(`\n[${getPKTTime()}] AUTH: Login attempt for ${email}`);
+        const { email, password, role } = req.body;
+        console.log(`\n[${getPKTTime()}] AUTH: Login attempt for ${email} with role ${role}`);
         const emailLower = email.toLowerCase().trim();
 
         const user = await User.findOne({ email: emailLower });
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials.' });
+        }
+
+        // Role Verification: Ensure user is logging into the correct portal
+        if (role && user.role !== role) {
+            return res.status(403).json({
+                message: `Unauthorized access. This account is registered as a ${user.role.replace('_', ' ')}. Please select the correct role.`
+            });
         }
 
         // Strict Login Policy
@@ -199,17 +221,31 @@ router.post('/login', async (req, res) => {
         await user.save();
         console.log(`[SUCCESS] User authenticated as ${user.role}: ${emailLower}`);
 
+        const populatedUser = await User.findById(user._id).populate('assignedFaculty', 'name email whatsappNumber');
+
         res.json({
             user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                reg: user.reg,
-                status: user.status,
-                internshipRequest: user.internshipRequest,
-                internshipAgreement: user.internshipAgreement,
-                mustChangePassword: user.mustChangePassword
+                id: populatedUser._id,
+                name: populatedUser.name,
+                email: populatedUser.email,
+                role: populatedUser.role,
+                reg: populatedUser.reg,
+                status: populatedUser.status,
+                internshipRequest: populatedUser.internshipRequest,
+                internshipAgreement: populatedUser.internshipAgreement,
+                mustChangePassword: populatedUser.mustChangePassword,
+
+                // profile fields
+                fatherName: populatedUser.fatherName,
+                section: populatedUser.section,
+                dateOfBirth: populatedUser.dateOfBirth,
+                profilePicture: populatedUser.profilePicture,
+                registeredCourse: populatedUser.registeredCourse,
+
+                // assignment fields
+                assignedFaculty: populatedUser.assignedFaculty,
+                assignedCompany: populatedUser.assignedCompany,
+                assignedCompanySupervisor: populatedUser.assignedCompanySupervisor
             }
         });
 

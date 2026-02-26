@@ -33,6 +33,7 @@ const assignmentSchema = new mongoose.Schema({
         facultyId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         deadline: Date
     }],
+    fileUrl: String,
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

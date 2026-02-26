@@ -209,7 +209,7 @@ export default function NoticeManagement({ view, user }) {
                         </FormGroup>
 
                         <div className="bg-gray-50 p-4 rounded-xl space-y-4">
-                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Target Audience</h4>
+                            <h4 className="text-xs font-bold text-gray-400 tracking-widest">Target Audience</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <FormGroup label="Notice For">
                                     <SelectInput 
@@ -340,7 +340,7 @@ export default function NoticeManagement({ view, user }) {
                     {notices.map(n => (
                         <div key={n._id} className="bg-white rounded-2xl p-6 shadow-sm border hover:shadow-xl hover:border-primary transition-all group cursor-pointer" onClick={() => handleEditClick(n)}>
                             <div className="flex items-center justify-between mb-4">
-                                <span className="text-[10px] bg-blue-50 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                <span className="text-[10px] bg-blue-50 text-primary px-2 py-0.5 rounded-full font-bold tracking-wider">
                                     {n.targetType.replace('_', ' ')}
                                 </span>
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -3,6 +3,8 @@ import Button from '../ui/Button.jsx';
 import { FormGroup, TextInput, SelectInput } from '../ui/FormInput.jsx';
 import Alert from '../ui/Alert.jsx';
 import { apiRequest } from '../../utils/api.js';
+import { validate } from '../../utils/validation.js';
+import { showToast } from '../../utils/notifications.jsx';
 
 export default function LoginPage({ onLogin }) {
   const [form, setForm] = useState({ email: '', password: '', role: 'student' });
@@ -18,16 +20,19 @@ export default function LoginPage({ onLogin }) {
     { id: 'faculty_supervisor', label: 'Faculty Supervisor' }
   ];
 
-  const validate = () => {
+  const handleValidation = () => {
     const e = {};
-    if (!form.email)   e.email = 'Email is required';
-    if (!form.password) e.password = 'Password is required';
+    if (!validate.required(form.email)) e.email = 'Email is required';
+    else if (!validate.email(form.email)) e.email = 'Invalid email format';
+    
+    if (!validate.required(form.password)) e.password = 'Password is required';
+    
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleLogin = async () => {
-    if (!validate()) return;
+    if (!handleValidation()) return;
     setLoading(true);
     setApiError('');
     
@@ -36,7 +41,7 @@ export default function LoginPage({ onLogin }) {
         method: 'POST',
         body: form
       });
-      
+      showToast.success(`Welcome back, ${data.user.name || 'User'}!`);
       onLogin(data.user);
     } catch (err) {
       setApiError(err.message);
@@ -59,7 +64,15 @@ export default function LoginPage({ onLogin }) {
         {apiError && <Alert type="warning">{apiError}</Alert>}
 
         <FormGroup label="Select Role">
-          <SelectInput iconLeft="fa-id-badge" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+          <SelectInput 
+            iconLeft="fa-id-badge" 
+            value={form.role} 
+            onChange={e => {
+              setForm({ ...form, role: e.target.value });
+              setApiError('');
+              setErrors({});
+            }}
+          >
             {roles.map(r => (
               <option key={r.id} value={r.id}>{r.label}</option>
             ))}
@@ -92,11 +105,13 @@ export default function LoginPage({ onLogin }) {
             : <><i className="fas fa-right-to-bracket mr-2"></i> Sign In</>}
         </Button>
 
-        <div className="text-center mt-4 text-sm text-gray-400">
-          Student?{' '}
-          <button className="text-secondary underline bg-transparent border-0 cursor-pointer font-semibold"
-            onClick={() => window._goSignup?.()}>Register Now</button>
-        </div>
+        {form.role === 'student' && (
+          <div className="text-center mt-4 text-sm text-gray-400">
+            Don't have an account?{' '}
+            <button className="text-secondary underline bg-transparent border-0 cursor-pointer font-semibold"
+              onClick={() => window._goSignup?.()}>Register Now</button>
+          </div>
+        )}
       </div>
     </div>
   );
