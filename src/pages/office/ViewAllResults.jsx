@@ -167,7 +167,7 @@ export default function ViewAllResults() {
       {/* Header Section */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 mb-12">
         <div>
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Academic Oversight</h2>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Academic Oversight</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Direct intervention and consolidated evaluation tracking.</p>
         </div>
 

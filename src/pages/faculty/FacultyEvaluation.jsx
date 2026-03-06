@@ -27,7 +27,7 @@ export default function FacultyEvaluation() {
 
       <Card>
         <div className="flex items-center justify-between mb-5">
-          <div className="text-sm font-bold text-primary">Evaluation Form · Ali Hassan</div>
+          <h3 className="text-lg font-bold text-gray-800 tracking-tight">Evaluation Form · Ali Hassan</h3>
         </div>
 
       {!locked ? (

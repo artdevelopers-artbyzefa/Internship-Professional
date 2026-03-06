@@ -176,8 +176,14 @@ router.post('/generate-pdf', async (req, res) => {
 
         const pdfDoc = await printer.createPdfKitDocument(docDefinition);
 
+        const safeFilename = reportTitle.replace(/[^\x00-\x7F]/g, '-').replace(/\s+/g, '_');
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${reportTitle.replace(/\s+/g, '_')}.pdf`);
+        res.setHeader('Content-Disposition', `attachment; filename=${safeFilename}.pdf`);
+
+        pdfDoc.on('error', (err) => {
+            console.error('PDF Stream Error:', err);
+            if (!res.headersSent) res.status(500).json({ message: 'Error streaming PDF' });
+        });
 
         pdfDoc.pipe(res);
         pdfDoc.end();

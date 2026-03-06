@@ -63,7 +63,7 @@ export default function StudentDashboard({ user }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-gray-100">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student Dashboard</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Institutional profile and academic overview at CUI Abbottabad.</p>

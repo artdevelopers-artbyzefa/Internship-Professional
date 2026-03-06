@@ -13,8 +13,7 @@ export default function FacultyResults() {
         </div>
       </div>
 
-      <Card>
-        <div className="text-sm font-bold text-primary mb-4">Published Registry</div>
+      <Card title="Published Registry" icon="fa-award">
       {withGrade.map(s => (
         <div key={s.id} className="flex items-center gap-2 py-2 border-b border-gray-100 last:border-0">
           <span className="text-xs text-gray-400 font-medium min-w-40">{s.name}</span>

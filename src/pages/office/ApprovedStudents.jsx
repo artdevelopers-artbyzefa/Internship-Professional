@@ -50,11 +50,15 @@ export default function ApprovedStudents() {
   if (loading) return <div className="text-center py-10"><i className="fas fa-circle-notch fa-spin text-2xl text-primary"></i></div>;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-800">Approved Students</h2>
-        <p className="text-sm text-gray-500">Students who have passed both Internship and Agreement verification.</p>
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Approved Students</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Students who have passed both Internship and Agreement verification.</p>
+        </div>
       </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
 
       {error && <Alert type="danger" className="mb-4">{error}</Alert>}
       
@@ -66,6 +70,7 @@ export default function ApprovedStudents() {
       ) : (
         <DataTable columns={columns} data={students} />
       )}
+      </div>
     </div>
   );
 }

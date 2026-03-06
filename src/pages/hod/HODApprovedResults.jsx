@@ -85,10 +85,7 @@ export default function HODApprovedResults() {
         </Button>
       </div>
 
-      <Card>
-        <div className="mb-6">
-            <h3 className="text-sm font-bold text-primary">Academic Record Registry</h3>
-        </div>
+      <Card title="Academic Record Registry" icon="fa-book-open">
 
       {error && <Alert type="danger" className="mb-6">{error}</Alert>}
       

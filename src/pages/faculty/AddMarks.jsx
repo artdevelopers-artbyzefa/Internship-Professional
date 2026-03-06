@@ -150,8 +150,8 @@ export default function AddMarks({ user }) {
   if (loading && assignments.length === 0) return <div className="text-center py-10"><i className="fas fa-circle-notch fa-spin text-2xl text-primary"></i></div>;
 
   return (
-    <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 border border-gray-100 p-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-6 border-b border-gray-50">
+    <div className="space-y-6">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Academic Evaluation</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Submit marks for all assigned students at once.</p>
@@ -171,6 +171,7 @@ export default function AddMarks({ user }) {
             </SelectInput>
         </div>
       </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
 
       {!selectedAssignmentId ? (
           <div className="text-center py-20 text-gray-400 font-medium bg-gray-50 rounded-[40px] border-2 border-dashed border-gray-100">
@@ -249,6 +250,7 @@ export default function AddMarks({ user }) {
             )}
           </>
       )}
+      </div>
     </div>
   );
 }

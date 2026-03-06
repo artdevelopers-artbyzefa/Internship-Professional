@@ -37,7 +37,7 @@ export default function StudentResults() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-gray-100">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Academic Results</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Transcript of internship evaluations and final grading.</p>
@@ -54,7 +54,7 @@ export default function StudentResults() {
           <div className="text-3xl font-extrabold mt-2">{grade}</div>
         </div>
         <Card>
-          <div className="text-sm font-bold text-primary mb-3">Quick Summary</div>
+          <h3 className="text-lg font-bold text-gray-800 tracking-tight mb-3">Quick Summary</h3>
           {marks.length === 0 ? (
             <div className="text-sm text-gray-400 italic py-4">No marks released yet.</div>
           ) : (
@@ -73,7 +73,7 @@ export default function StudentResults() {
 
       <Card>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
-          <div className="text-sm font-bold text-primary">Detailed Evaluation Transcript</div>
+          <h3 className="text-lg font-bold text-gray-800 tracking-tight">Detailed Evaluation Transcript</h3>
         </div>
         
         {error && <Alert type="danger" className="mb-4">{error}</Alert>}

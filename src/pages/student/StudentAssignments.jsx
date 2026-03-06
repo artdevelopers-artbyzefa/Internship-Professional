@@ -82,7 +82,7 @@ export default function StudentAssignments({ user }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-gray-100">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Assignment Submissions</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Submit your monthly reports and technical evaluations for review.</p>

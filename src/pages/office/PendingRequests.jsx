@@ -111,7 +111,7 @@ export default function PendingRequests() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="mb-6">
-          <h3 className="text-sm font-bold text-primary tracking-tight">Pending Requests Queue</h3>
+          <h3 className="text-lg font-bold text-gray-800 tracking-tight">Pending Requests Queue</h3>
         </div>
 
       {error && <Alert type="danger" className="mb-4">{error}</Alert>}

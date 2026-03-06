@@ -24,10 +24,7 @@ export default function HODApprovals() {
         </div>
       </div>
 
-      <Card>
-        <div className="flex items-center gap-2 text-sm font-bold text-primary mb-5">
-          <i className="fas fa-clock text-amber-500"></i> Verification Required
-        </div>
+      <Card title="Verification Required" icon="fa-clock">
         <DataTable columns={['Student','Reg. No.','Technical','Professional','Reports','Total','Status','Actions']}>
           {evals.map(e => (
             <TableRow key={e.id}>

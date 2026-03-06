@@ -43,7 +43,7 @@ export default function InternshipRequestForm({ user }) {
         <div className="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
           <i className="fas fa-clock-rotate-left animate-spin-slow"></i>
         </div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Request Under Review</h2>
+        <h2 className="text-2xl font-black text-gray-800 tracking-tight mb-2">Request Under Review</h2>
         <p className="text-gray-500 text-sm">
           Your internship form has been submitted successfully. 
           Please wait for approval from the Internship Office.

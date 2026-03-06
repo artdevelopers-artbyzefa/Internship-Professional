@@ -73,7 +73,7 @@ export default function StudentAgreementForm({ user }) {
         <div className="w-16 h-16 bg-green-50 text-success rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
           <i className="fas fa-file-signature animate-pulse"></i>
         </div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Agreement Submitted</h2>
+        <h2 className="text-2xl font-black text-gray-800 tracking-tight mb-2">Agreement Submitted</h2>
         <p className="text-gray-500 text-sm">
           Your final Internship Agreement has been submitted. 
           The Internship Office will now verify these details and assign an official supervisor.

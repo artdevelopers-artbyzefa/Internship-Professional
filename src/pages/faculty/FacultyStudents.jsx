@@ -52,7 +52,7 @@ export default function FacultyStudents() {
 
       <Card>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
-          <div className="text-sm font-bold text-primary">Student Registry</div>
+          <h3 className="text-lg font-bold text-gray-800 tracking-tight">Student Registry</h3>
         </div>
       
       {loading ? (

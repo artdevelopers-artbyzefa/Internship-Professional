@@ -287,4 +287,251 @@ router.get('/registry', protect, isOffice, async (req, res) => {
     }
 });
 
+// =====================================================
+// NEW: REPORT MODULE ENDPOINTS
+// =====================================================
+
+// @route   GET api/analytics/report/supervisors
+// @desc    Get all faculty supervisors with their student counts and avg scores
+router.get('/report/supervisors', protect, isOffice, async (req, res) => {
+    try {
+        const facultyList = await User.aggregate([
+            { $match: { role: 'student', assignedFaculty: { $exists: true, $ne: null } } },
+            {
+                $group: {
+                    _id: '$assignedFaculty',
+                    studentCount: { $sum: 1 },
+                    students: { $push: { name: '$name', reg: '$reg', company: '$assignedCompany', status: '$status' } }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'facultyInfo'
+                }
+            },
+            { $unwind: '$facultyInfo' },
+            {
+                $project: {
+                    _id: 1,
+                    name: '$facultyInfo.name',
+                    email: '$facultyInfo.email',
+                    studentCount: 1,
+                    students: 1
+                }
+            },
+            { $sort: { studentCount: -1 } }
+        ]);
+
+        // Get average marks per faculty
+        const marks = await Mark.find().populate('faculty', 'name').populate('student', 'reg name');
+        const marksByFaculty = {};
+        marks.forEach(m => {
+            const fid = m.faculty?._id?.toString();
+            if (!fid) return;
+            if (!marksByFaculty[fid]) marksByFaculty[fid] = { total: 0, count: 0 };
+            marksByFaculty[fid].total += m.marks;
+            marksByFaculty[fid].count += 1;
+        });
+
+        const result = facultyList.map(f => ({
+            _id: f._id,
+            name: f.name,
+            email: f.email,
+            studentCount: f.studentCount,
+            students: f.students,
+            avgScore: marksByFaculty[f._id?.toString()]
+                ? (marksByFaculty[f._id.toString()].total / marksByFaculty[f._id.toString()].count).toFixed(1)
+                : null
+        }));
+
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/report/assignments-by-supervisor
+// @desc    Get distinct assignments that have marks submitted by a supervisor
+router.get('/report/assignments-by-supervisor', protect, isOffice, async (req, res) => {
+    try {
+        const { supervisorId } = req.query;
+        let markQuery = {};
+        if (supervisorId && supervisorId !== 'all') {
+            markQuery.faculty = supervisorId;
+        }
+
+        const marks = await Mark.find(markQuery)
+            .populate('assignment', 'title totalMarks createdAt');
+
+        // De-duplicate by assignment id
+        const seen = new Set();
+        const assignments = [];
+        marks.forEach(m => {
+            const aId = m.assignment?._id?.toString();
+            if (aId && !seen.has(aId)) {
+                seen.add(aId);
+                assignments.push({
+                    _id: aId,
+                    title: m.assignment?.title || 'Unknown',
+                    totalMarks: m.assignment?.totalMarks || 100
+                });
+            }
+        });
+
+        res.json(assignments);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/report/results-by-supervisor
+// @desc    Get assignment marks grouped by supervisor, with assignment breakdown
+//          Supports optional assignmentId filter to narrow to a single assignment
+router.get('/report/results-by-supervisor', protect, isOffice, async (req, res) => {
+    try {
+        const { supervisorId, assignmentId } = req.query;
+
+        let markQuery = {};
+        if (supervisorId && supervisorId !== 'all') {
+            markQuery.faculty = supervisorId;
+        }
+        if (assignmentId && assignmentId !== 'all') {
+            markQuery.assignment = assignmentId;
+        }
+
+        const marks = await Mark.find(markQuery)
+            .populate('student', 'name reg semester assignedCompany')
+            .populate('assignment', 'title totalMarks')
+            .populate('faculty', 'name');
+
+        // Group by assignment
+        const byAssignment = {};
+        marks.forEach(m => {
+            const aId = m.assignment?._id?.toString();
+            if (!aId) return;
+            if (!byAssignment[aId]) {
+                byAssignment[aId] = {
+                    assignmentId: aId,
+                    assignmentTitle: m.assignment?.title || 'Unknown',
+                    totalMarks: m.assignment?.totalMarks || 100,
+                    facultyName: m.faculty?.name || 'Unknown',
+                    entries: []
+                };
+            }
+            byAssignment[aId].entries.push({
+                studentName: m.student?.name || 'Unknown',
+                reg: m.student?.reg || '',
+                semester: m.student?.semester || '',
+                company: m.student?.assignedCompany || '',
+                marks: m.marks,
+                percentage: ((m.marks / (m.assignment?.totalMarks || 100)) * 100).toFixed(1)
+            });
+        });
+
+        res.json(Object.values(byAssignment));
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/report/assigned-students
+// @desc    Get students assigned under a supervisor (or all)
+router.get('/report/assigned-students', protect, isOffice, async (req, res) => {
+    try {
+        const { supervisorId } = req.query;
+        let query = { role: 'student', status: 'Assigned' };
+        if (supervisorId && supervisorId !== 'all') {
+            query.assignedFaculty = supervisorId;
+        }
+
+        const students = await User.find(query)
+            .populate('assignedFaculty', 'name email')
+            .select('name reg semester assignedCompany assignedCompanySupervisor assignedFaculty internshipRequest status');
+
+        const result = students.map(s => ({
+            name: s.name,
+            reg: s.reg,
+            semester: s.semester,
+            company: s.assignedCompany || '',
+            mode: s.internshipRequest?.mode || 'N/A',
+            type: s.internshipRequest?.type || 'N/A',
+            faculty: s.assignedFaculty?.name || 'Unassigned',
+            siteSupervisor: s.assignedCompanySupervisor || '',
+            status: s.status
+        }));
+
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/report/session-analysis
+// @desc    Breakdown by admission session (FA23, SP24, etc.) derived from reg number
+router.get('/report/session-analysis', protect, isOffice, async (req, res) => {
+    try {
+        const students = await User.find({ role: 'student' }).select('reg status internshipRequest');
+
+        // Parse session from reg: e.g. CIIT/FA23-BCS-034/ATD → FA23
+        const sessionMap = {};
+        students.forEach(s => {
+            if (!s.reg) return;
+            const match = s.reg.match(/\/(FA|SP)(\d{2})-/i);
+            const session = match ? `${match[1].toUpperCase()}${match[2]}` : 'Unknown';
+            if (!sessionMap[session]) sessionMap[session] = { session, total: 0, assigned: 0 };
+            sessionMap[session].total += 1;
+            if (s.status === 'Assigned' || s.status === 'Agreement Approved') {
+                sessionMap[session].assigned += 1;
+            }
+        });
+
+        const result = Object.values(sessionMap).sort((a, b) => a.session.localeCompare(b.session));
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/report/internship-type
+// @desc    Breakdown by internship mode (Onsite, Remote, Hybrid, Freelance)
+router.get('/report/internship-type', protect, isOffice, async (req, res) => {
+    try {
+        const students = await User.find({
+            role: 'student',
+            'internshipRequest.mode': { $exists: true, $ne: null }
+        }).select('internshipRequest.mode internshipRequest.type status');
+
+        const modeMap = {};
+        students.forEach(s => {
+            const mode = s.internshipRequest?.mode || 'Unspecified';
+            if (!modeMap[mode]) modeMap[mode] = { name: mode, count: 0 };
+            modeMap[mode].count += 1;
+        });
+
+        const typeMap = {};
+        students.forEach(s => {
+            const type = s.internshipRequest?.type || 'Unspecified';
+            if (!typeMap[type]) typeMap[type] = { name: type, count: 0 };
+            typeMap[type].count += 1;
+        });
+
+        res.json({
+            byMode: Object.values(modeMap),
+            byType: Object.values(typeMap)
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 export default router;
+

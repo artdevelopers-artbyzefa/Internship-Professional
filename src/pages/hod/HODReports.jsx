@@ -13,8 +13,7 @@ export default function HODReports() {
         </div>
       </div>
 
-      <Card>
-        <div className="text-sm font-bold text-primary mb-5">Available Report Modules</div>
+      <Card title="Available Report Modules" icon="fa-file-export">
       <div className="flex gap-3 flex-wrap">
         {reportTypes.map(r => (
           <Button key={r} variant="outline"><i className="fas fa-file-export"></i> {r}</Button>

@@ -37,7 +37,7 @@ export default function StudentProfileDetail() {
   if (!student) {
     return (
         <div className="text-center p-12">
-            <h2 className="text-xl font-bold text-gray-800">Student not found</h2>
+            <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student not found</h2>
             <Button onClick={() => navigate('/faculty/students')} className="mt-4">Back to List</Button>
         </div>
     );
