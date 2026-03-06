@@ -8,6 +8,8 @@ import FacultyEvaluation from './FacultyEvaluation.jsx';
 import FacultyResults from './FacultyResults.jsx';
 import AddAssignment from './AddAssignment.jsx';
 import AddMarks from './AddMarks.jsx';
+import FacultyReports from './FacultyReports.jsx';
+import StudentProfileDetail from './StudentProfileDetail.jsx';
 
 const facultyNav = [
   { id:'dashboard',  label:'Dashboard',  icon:'fa-chart-pie' },
@@ -23,6 +25,7 @@ const facultyNav = [
     ]
   },
   { id:'evaluation', label:'Evaluation', icon:'fa-clipboard-list' },
+  { id:'reports',    label:'Reports',    icon:'fa-chart-line' },
   { id:'results',    label:'Results',    icon:'fa-award' },
 ];
 
@@ -55,10 +58,12 @@ export default function FacultyPortal({ user, onLogout }) {
         <Routes>
           <Route path="dashboard" element={<FacultyDashboard user={user} />} />
           <Route path="students" element={<FacultyStudents />} />
+          <Route path="students/:studentId" element={<StudentProfileDetail />} />
           <Route path="view-assignments" element={<FacultyAssignments />} />
           <Route path="add-assignment" element={<AddAssignment user={user} />} />
           <Route path="add-marks" element={<AddMarks user={user} />} />
           <Route path="evaluation" element={<FacultyEvaluation />} />
+          <Route path="reports" element={<FacultyReports user={user} />} />
           <Route path="results" element={<FacultyResults />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

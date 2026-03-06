@@ -421,4 +421,46 @@ router.delete('/delete-assignment/:id', protect, isFaculty, async (req, res) => 
     }
 });
 
+// @route   GET api/faculty/my-students
+// @desc    Get all students assigned to this faculty
+router.get('/my-students', protect, isFaculty, async (req, res) => {
+    try {
+        const students = await User.find({
+            assignedFaculty: req.user.id,
+            role: 'student'
+        }).select('name reg internshipAgreement.companyName status assignedCompany');
+
+        const result = students.map(s => ({
+            id: s._id,
+            name: s.name,
+            reg: s.reg,
+            company: s.assignedCompany || s.internshipAgreement?.companyName || 'Not Assigned',
+            status: s.status
+        }));
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/faculty/student-profile/:id
+// @desc    Get detailed student profile
+router.get('/student-profile/:id', protect, isFaculty, async (req, res) => {
+    try {
+        const student = await User.findOne({
+            _id: req.params.id,
+            assignedFaculty: req.user.id
+        }).select('-password');
+
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found or not assigned to you' });
+        }
+
+        res.json(student);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 export default router;

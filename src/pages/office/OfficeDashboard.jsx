@@ -1,11 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiRequest } from '../../utils/api.js';
 
 export default function OfficeDashboard({ user }) {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const data = await apiRequest('/analytics/summary');
+        setSummary(data);
+      } catch (error) {
+        console.error('Failed to fetch summary:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSummary();
+  }, []);
+
   const stats = [
-    { label: 'Pending Requests', count: 0, icon: 'fa-user-clock', color: 'bg-blue-500' },
-    { label: 'Pending Agreements', count: 0, icon: 'fa-file-signature', color: 'bg-amber-500' },
-    { label: 'Active Interns', count: 0, icon: 'fa-users', color: 'bg-emerald-500' },
-    { label: 'Faculty Active', count: 0, icon: 'fa-user-tie', color: 'bg-purple-500' },
+    { label: 'Completed Internships', count: summary?.completedInternships || 0, icon: 'fa-check-circle', color: 'bg-emerald-500' },
+    { label: 'Partner Companies', count: summary?.activeCompanies || 0, icon: 'fa-building', color: 'bg-blue-500' },
+    { label: 'Active Interns', count: summary?.totalStudents || 0, icon: 'fa-users', color: 'bg-indigo-500' },
+    { label: 'Faculty Active', count: summary?.facultyCount || 0, icon: 'fa-user-tie', color: 'bg-purple-500' },
   ];
 
   return (

@@ -571,15 +571,33 @@ router.post('/override-deadline', async (req, res) => {
 });
 
 // @route   GET api/office/all-marks
-// @desc    Get all evaluation marks for all students
+// @desc    Get all evaluation marks for all students with filters
 router.get('/all-marks', async (req, res) => {
     try {
+        const { program, semester } = req.query;
+        let studentMatch = { role: 'student' };
+
+        if (program === 'BCS' || program === 'CS') {
+            studentMatch.reg = { $regex: /-BCS-/i };
+        } else if (program === 'BSE' || program === 'SE') {
+            studentMatch.reg = { $regex: /-BSE-/i };
+        }
+
+        if (semester && semester !== 'All') studentMatch.semester = parseInt(semester);
+
         const marks = await Mark.find()
-            .populate('student', 'name reg semester')
+            .populate({
+                path: 'student',
+                select: 'name reg semester',
+                match: studentMatch
+            })
             .populate('assignment', 'title totalMarks')
             .populate('faculty', 'name')
             .sort({ createdAt: -1 });
-        res.json(marks);
+
+        // Filter out entries where student didn't match filters
+        const filteredMarks = marks.filter(m => m.student !== null);
+        res.json(filteredMarks);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }

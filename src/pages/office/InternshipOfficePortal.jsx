@@ -12,9 +12,12 @@ import AssignedStudents from './AssignedStudents.jsx';
 import ManageAssignments from './ManageAssignments.jsx';
 import ViewAllResults from './ViewAllResults.jsx';
 import NoticeManagement from './NoticeManagement.jsx';
+import ReportsAnalytics from './ReportsAnalytics.jsx';
+import OfficeReports from './OfficeReports.jsx';
 
 const officeNav = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-line' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+  { id: 'reports-analytics', label: 'Reports & Analytics', icon: 'fa-chart-line' },
   { 
     id: 'student-requests', 
     label: 'Student Requests', 
@@ -117,6 +120,8 @@ export default function InternshipOfficePortal({ user, onLogout }) {
           <Route path="add-assignments" element={<ManageAssignments user={user} />} />
           <Route path="view-results" element={<ViewAllResults />} />
           
+          <Route path="reports-analytics" element={<ReportsAnalytics user={user} />} />
+          <Route path="download-reports" element={<OfficeReports user={user} />} />
           <Route path="create-notice" element={<NoticeManagement view="create-notice" user={user} />} />
           <Route path="update-notice" element={<NoticeManagement view="update-notice" user={user} />} />
           

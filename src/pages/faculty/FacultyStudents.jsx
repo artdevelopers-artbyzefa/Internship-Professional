@@ -1,16 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../../components/ui/Card.jsx';
 import SearchBar from '../../components/ui/SearchBar.jsx';
 import { DataTable, TableRow, TableCell } from '../../components/ui/DataTable.jsx';
-import { mockStudents } from '../../data/mockData.js';
 import StatusBadge from '../../components/ui/StatusBadge.jsx';
 import Button from '../../components/ui/Button.jsx';
+import { showToast } from '../../utils/notifications.jsx';
+import { apiRequest } from '../../utils/api.js';
 
 export default function FacultyStudents() {
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const filtered = mockStudents.filter(s =>
-    s.supervisor === 'Dr. Kamran Ahmed' &&
-    s.name.toLowerCase().includes(search.toLowerCase())
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const data = await apiRequest('/faculty/my-students');
+      setStudents(data);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filtered = students.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.reg.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -22,8 +44,8 @@ export default function FacultyStudents() {
         </div>
         <div className="flex items-center gap-3">
            <SearchBar value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." className="min-w-[280px]" />
-           <Button variant="outline" size="sm" onClick={() => {}} className="p-2.5">
-             <i className="fas fa-sync-alt"></i>
+           <Button variant="outline" size="sm" onClick={fetchStudents} className="p-2.5" disabled={loading}>
+             <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
            </Button>
         </div>
       </div>
@@ -32,22 +54,40 @@ export default function FacultyStudents() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
           <div className="text-sm font-bold text-primary">Student Registry</div>
         </div>
-      <DataTable columns={['Name','Reg. No.','Company','Status','Score','Actions']}>
-        {filtered.map(s => (
-          <TableRow key={s.id}>
-            <TableCell><strong>{s.name}</strong></TableCell>
-            <TableCell muted>{s.reg}</TableCell>
-            <TableCell>{s.company}</TableCell>
-            <TableCell><StatusBadge status={s.status} /></TableCell>
-            <TableCell>
-              {s.grade ? <strong className="text-primary">{s.grade}%</strong> : '—'}
-            </TableCell>
-            <TableCell>
-              <Button variant="outline" size="sm"><i className="fas fa-eye"></i> View</Button>
-            </TableCell>
-          </TableRow>
-        ))}
-      </DataTable>
+      
+      {loading ? (
+        <div className="flex items-center justify-center p-20">
+          <i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i>
+        </div>
+      ) : (
+        <DataTable columns={['Name','Reg. No.','Company','Status','Actions']}>
+          {filtered.length > 0 ? (
+            filtered.map(s => (
+              <TableRow key={s.id}>
+                <TableCell><strong>{s.name}</strong></TableCell>
+                <TableCell muted>{s.reg}</TableCell>
+                <TableCell>{s.company}</TableCell>
+                <TableCell><StatusBadge status={s.status} /></TableCell>
+                <TableCell>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate(`/faculty/students/${s.id}`)}
+                  >
+                    <i className="fas fa-eye"></i> View
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center py-12 text-gray-400 font-medium">
+                No students found.
+              </TableCell>
+            </TableRow>
+          )}
+        </DataTable>
+      )}
       </Card>
     </div>
   );

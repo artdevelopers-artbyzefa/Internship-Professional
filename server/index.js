@@ -11,6 +11,8 @@ import studentRoutes from './routes/student.js';
 import officeRoutes from './routes/office.js';
 import facultyRoutes from './routes/faculty.js';
 import noticesRoutes from './routes/notices.js';
+import reportsRoutes from './routes/reports.js';
+import analyticsRoutes from './routes/analytics.js';
 import { getPKTTime } from './utils/time.js';
 
 dotenv.config();
@@ -42,6 +44,8 @@ app.use('/api/student', studentRoutes);
 app.use('/api/office', officeRoutes);
 app.use('/api/faculty', facultyRoutes);
 app.use('/api/notices', noticesRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Simple Health Check
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
