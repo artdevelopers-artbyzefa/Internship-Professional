@@ -25,7 +25,13 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({
-    origin: '*'
+    origin: (origin, callback) => {
+        // Allows all origins (simulated '*' but compatible with credentials)
+        callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(cookieParser());
 app.use(morgan('dev')); // Log ALL requests to the terminal
