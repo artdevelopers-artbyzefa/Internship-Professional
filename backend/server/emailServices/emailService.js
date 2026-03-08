@@ -6,13 +6,13 @@ dotenv.config();
  * Central helper to send transactional emails via Brevo API
  */
 const brevoSend = async (to, subject, html) => {
-  const SENDER_NAME = process.env.SENDER_NAME || 'Arslan Rathore';
-  const SENDER_EMAIL = process.env.SENDER_EMAIL || 'ininsico@gmail.com';
+  const SENDER_NAME = process.env.SENDER_NAME;
+  const SENDER_EMAIL = process.env.SENDER_EMAIL;
   const API_KEY = process.env.BREVO_API_KEY;
 
-  if (!API_KEY) {
-    console.error('[EMAIL ERROR] BREVO_API_KEY is missing in environment variables.');
-    return { success: false, error: 'API Key missing' };
+  if (!API_KEY || !SENDER_NAME || !SENDER_EMAIL) {
+    console.error('[EMAIL ERROR] Brevo configuration (API Key, SENDER_NAME, or SENDER_EMAIL) is missing.');
+    return { success: false, error: 'Brevo config missing' };
   }
 
   try {
