@@ -7,13 +7,13 @@ import InternshipRequestForm from './InternshipRequestForm.jsx';
 import StudentAgreementForm from './StudentAgreementForm.jsx';
 import StudentAssignments from './StudentAssignments.jsx';
 import StudentResults from './StudentResults.jsx';
+import InternshipStatus from './InternshipStatus.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 export default function StudentPortal({ user, onLogout, onUpdateUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const status = user.status || 'verified';
-
   const [activePhase, setActivePhase] = useState(undefined);
   const [isEligible, setIsEligible] = useState(true); // default allow until loaded
 
@@ -78,25 +78,18 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
 
   const isLocked = !isEligible;
 
-  // Navigation: During Phase 1 (Global or Locked): sidebar shows only Dashboard (and Profile if eligible)
+  // Authority Nav Protocol for Phase 2+ Students
   const studentNav = isPhase1
     ? [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
       ...(isLocked ? [] : [{ id: 'profile', label: 'My Profile', icon: 'fa-user-pen' }]),
     ]
-    : isWorkflowComplete
-      ? [
-        { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
-        { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' },
-        { id: 'assignments', label: 'Assignments', icon: 'fa-cloud-arrow-up', disabled: !isProfileComplete },
-        { id: 'results', label: 'Result', icon: 'fa-chart-column', disabled: !isProfileComplete },
-      ]
-      : [
-        {
-          id: (status.includes('Internship') || status === 'verified') ? 'internship-request' : 'agreement-form',
-          label: 'Workflow Step', icon: 'fa-lock'
-        }
-      ];
+    : [
+      { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
+      { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
+      { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
+      { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' },
+    ];
 
   return (
     <AppLayout
@@ -113,15 +106,21 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
           <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} activePhase={activePhase} />} />
           <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} isEligible={isEligible} isPhase1={isPhase1} activePhase={activePhase} />} />
 
-          {/* Workflow Routes — blocked during Phase 1 */}
-          <Route path="internship-request" element={
+          {/* Institutional Workflow Routes */}
+          <Route path="internship-assessment" element={
             isPhase1 ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} />
+          } />
+          <Route path="internship-status" element={
+            isPhase1 ? <Navigate to="../dashboard" replace /> : <InternshipStatus user={user} activePhase={activePhase} />
           } />
           <Route path="agreement-form" element={
             isPhase1 ? <Navigate to="../dashboard" replace /> : <StudentAgreementForm user={user} />
           } />
 
-          {/* Protected Routes */}
+          {/* Backward compatibility for Phase 2 workflow trigger link */}
+          <Route path="internship-request" element={<Navigate to="../internship-assessment" replace />} />
+
+          {/* Protected Routes (for later phases) */}
           <Route path="assignments" element={isProfileComplete ? <StudentAssignments user={user} /> : <Navigate to="../dashboard" replace />} />
           <Route path="results" element={isProfileComplete ? <StudentResults user={user} /> : <Navigate to="../dashboard" replace />} />
 

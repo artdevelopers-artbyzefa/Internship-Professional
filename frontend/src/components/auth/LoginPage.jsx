@@ -163,11 +163,42 @@ export default function LoginPage({ onLogin }) {
             onClick={() => window._goForgot?.()}>Forgot Password?</button>
         </div>
 
-        <Button variant="primary" block onClick={handleLogin} disabled={loading}>
+        <Button variant="primary" block onClick={handleLogin} disabled={loading} className="mb-8">
           {loading
             ? <><i className="fas fa-circle-notch fa-spin mr-2"></i> Verifying...</>
             : <><i className="fas fa-right-to-bracket mr-2"></i> Sign In</>}
         </Button>
+
+        {/* ── Quick Access Testing Suite ── */}
+        <div className="pt-6 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-4 bg-orange-400 rounded-full"></div>
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Quick Access Testing</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {[
+              { label: 'Student', role: 'student', email: 'fa23-bcs-013@cuiatd.edu.pk', icon: 'fa-user-graduate', color: 'bg-emerald-50 text-emerald-600' },
+              { label: 'HOD', role: 'hod', email: 'hod@cuiatd.edu.pk', icon: 'fa-user-tie', color: 'bg-blue-50 text-blue-600' },
+              { label: 'IO Office', role: 'internship_office', email: 'io@cuiatd.edu.pk', icon: 'fa-building-shield', color: 'bg-indigo-50 text-indigo-600' },
+              { label: 'Faculty', role: 'faculty_supervisor', email: 'drarslanrathore@gmail.com', icon: 'fa-chalkboard-user', color: 'bg-amber-50 text-amber-600' },
+              { label: 'Site Sup', role: 'site_supervisor', email: 'eathorgaming@gmail.com', icon: 'fa-user-gear', color: 'bg-rose-50 text-rose-600' }
+            ].map((testUser) => (
+              <button
+                key={testUser.role}
+                onClick={() => {
+                  setForm({ email: testUser.email, password: 'Megamix@123', role: testUser.role });
+                  setErrors({});
+                  setApiError('');
+                  showToast.info(`${testUser.label} credentials loaded.`);
+                }}
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border border-transparent transition-all active:scale-95 text-center cursor-pointer hover:shadow-md hover:border-gray-100 ${testUser.color}`}
+              >
+                <i className={`fas ${testUser.icon} text-sm mb-1`}></i>
+                <span className="text-[9px] font-black uppercase tracking-tight">{testUser.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

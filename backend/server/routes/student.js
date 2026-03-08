@@ -16,7 +16,22 @@ const router = express.Router();
 // @desc    Submit Internship Approval Form
 router.post('/submit-request', async (req, res) => {
     try {
-        const { userId, internshipType, companyName, duration, startDate, endDate, mode, description } = req.body;
+        const {
+            userId,
+            internshipType,
+            companyName,
+            siteSupervisorName,
+            siteSupervisorEmail,
+            siteSupervisorPhone,
+            facultyType,
+            selectedFacultyId,
+            newFacultyDetails,
+            duration,
+            startDate,
+            endDate,
+            mode,
+            description
+        } = req.body;
 
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
@@ -24,6 +39,15 @@ router.post('/submit-request', async (req, res) => {
         user.internshipRequest = {
             type: internshipType,
             companyName: internshipType === 'Self' ? companyName : 'University Assigned',
+            siteSupervisorName,
+            siteSupervisorEmail,
+            siteSupervisorPhone,
+
+            facultyType,
+            selectedFacultyId: facultyType === 'Registered' ? selectedFacultyId : null,
+            newFacultyDetails: facultyType === 'Identify New' ? newFacultyDetails : null,
+            facultyStatus: 'Pending',
+
             duration,
             startDate,
             endDate,
@@ -37,6 +61,40 @@ router.post('/submit-request', async (req, res) => {
         console.log(`[${getPKTTime()}] [STUDENT] Internship Request Submitted by ${user.email}`);
 
         res.json({ message: 'Internship request submitted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/student/available-supervisors
+// @desc    Fetch registered faculty supervisors who have < 5 students assigned or pending
+router.get('/available-supervisors', protect, async (req, res) => {
+    try {
+        // Fetch all registered faculty supervisors
+        const faculty = await User.find({ role: 'faculty_supervisor' })
+            .select('name email section')
+            .lean();
+
+        // For each faculty, count their current load
+        // Load = (Students currently assigned to them) OR (Students who have requested them and request is NOT rejected)
+        const facultyWithLoad = await Promise.all(faculty.map(async (f) => {
+            const currentLoad = await User.countDocuments({
+                $or: [
+                    { assignedFaculty: f._id },
+                    {
+                        'internshipRequest.selectedFacultyId': f._id,
+                        'internshipRequest.facultyStatus': { $ne: 'Rejected' }
+                    }
+                ]
+            });
+            return { ...f, currentLoad, available: currentLoad < 5 };
+        }));
+
+        // Only return available faculty
+        const availableFaculty = facultyWithLoad.filter(f => f.available);
+
+        res.json(availableFaculty);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });

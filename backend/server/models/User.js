@@ -84,6 +84,9 @@ const userSchema = new mongoose.Schema({
             enum: ['Self', 'University Assigned']
         },
         companyName: String,
+        siteSupervisorName: String,
+        siteSupervisorEmail: String,
+        siteSupervisorPhone: String,
         duration: String,
         startDate: Date,
         endDate: Date,
@@ -92,6 +95,28 @@ const userSchema = new mongoose.Schema({
             enum: ['Onsite', 'Remote', 'Hybrid', 'Freelance']
         },
         description: String,
+
+        // Faculty Supervisor Selection Block
+        facultyType: {
+            type: String,
+            enum: ['Registered', 'Identify New'],
+            default: 'Registered'
+        },
+        selectedFacultyId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        newFacultyDetails: {
+            name: String,
+            email: String,
+            department: String
+        },
+        facultyStatus: {
+            type: String,
+            enum: ['Pending', 'Accepted', 'Rejected'],
+            default: 'Pending'
+        },
+
         rejectionReason: String,
         submittedAt: Date
     },

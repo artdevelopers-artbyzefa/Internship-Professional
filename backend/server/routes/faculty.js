@@ -22,6 +22,65 @@ const isFaculty = (req, res, next) => {
     next();
 };
 
+// @route   GET api/faculty/pending-requests
+// @desc    Get student internship requests (both registered selection and email invitations)
+router.get('/pending-requests', protect, isFaculty, async (req, res) => {
+    try {
+        const students = await User.find({
+            role: 'student',
+            $or: [
+                { 'internshipRequest.selectedFacultyId': req.user.id },
+                { 'internshipRequest.newFacultyDetails.email': req.user.email.toLowerCase() }
+            ],
+            'internshipRequest.facultyStatus': 'Pending'
+        }).select('name reg email internshipRequest.companyName internshipRequest.type internshipRequest.mode internshipRequest.submittedAt');
+
+        res.json(students);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/faculty/handle-request
+// @desc    Accept or Reject a student's internship supervision request
+router.post('/handle-request', protect, isFaculty, async (req, res) => {
+    try {
+        const { studentId, action } = req.body;
+
+        if (!['Accepted', 'Rejected'].includes(action)) {
+            return res.status(400).json({ message: 'Invalid action' });
+        }
+
+        const student = await User.findById(studentId);
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+
+        // Update the request status
+        student.internshipRequest.facultyStatus = action;
+
+        if (action === 'Accepted') {
+            // Officially assign this faculty
+            student.assignedFaculty = req.user.id;
+        }
+
+        await student.save();
+
+        // Audit Log
+        await new AuditLog({
+            action: `FACULTY_REQUEST_${action.toUpperCase()}`,
+            performedBy: req.user.id,
+            targetUser: studentId,
+            details: `Faculty ${action.toLowerCase()}ed supervision request from ${student.name} (${student.reg})`,
+            ipAddress: req.ip
+        }).save();
+
+        res.json({ message: `Request ${action.toLowerCase()}ed successfully` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET api/faculty/assignments
 // @desc    Get assignments with supervisor-specific deadlines
 router.get('/assignments', protect, isFaculty, async (req, res) => {

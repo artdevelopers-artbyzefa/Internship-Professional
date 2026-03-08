@@ -89,11 +89,27 @@ export default function PhaseManagement({ user }) {
     const progressCount = phases.filter(p => p.status === 'completed' || p.status === 'active').length;
     const progress = phases.length ? Math.round((progressCount / phases.length) * 100) : 0;
 
+    // Identified Institutional Sequence Hub:
+    // Determine the authoritative next phase to advance the lifecycle
+    const nextUpPhase = phases.find((p, idx) =>
+        p.status === 'pending' &&
+        (idx === 0 || phases[idx - 1].status === 'completed' || phases[idx - 1].status === 'active')
+    );
+
     if (loading) return (
         <div className="flex items-center justify-center py-20">
             <i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i>
         </div>
     );
+
+    // Global loading state checker for deployment actions
+    const checkIsLoading = (tag, phaseId) => {
+        if (!actionId) return false;
+        // If a direct tag (like 'phaseId+start') is provided
+        if (typeof tag === 'string' && tag.includes('+')) return actionId === tag;
+        // Fallback for simple status strings
+        return actionId === (phaseId + tag);
+    };
 
     return (
         <div className="space-y-8">
@@ -149,15 +165,59 @@ export default function PhaseManagement({ user }) {
                 )}
             </div>
 
+            {/* ── Milestone Deployment Hub ── */}
+            {nextUpPhase && (
+                <div className="bg-white rounded-[2rem] border-2 border-secondary shadow-xl shadow-secondary/5 p-6 md:p-8 relative overflow-hidden group transition-all hover:scale-[1.01]">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
+
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                        <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-secondary/10 text-secondary rounded-[1.25rem] flex items-center justify-center text-3xl shadow-inner border border-secondary/20">
+                                <i className={`fas ${nextUpPhase.icon}`}></i>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black text-secondary uppercase tracking-[0.3em]">Next Deployment Milestone</span>
+                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 uppercase">Phase {nextUpPhase.order}</span>
+                                </div>
+                                <h2 className="text-2xl font-black text-gray-800 tracking-tight">{nextUpPhase.label}</h2>
+                                <p className="text-sm text-gray-500 font-medium mt-1">{nextUpPhase.description}</p>
+                            </div>
+                        </div>
+
+                        <Button
+                            variant="secondary"
+                            className="w-full md:w-auto px-10 py-6 text-sm font-black shadow-lg shadow-secondary/20 h-auto"
+                            loading={checkIsLoading('start', nextUpPhase._id)}
+                            onClick={() => handleAction(nextUpPhase._id, 'start')}
+                        >
+                            <i className="fas fa-rocket mr-2"></i>
+                            DEPLOY START PHASE {nextUpPhase.order}
+                        </Button>
+                    </div>
+
+                    {activePhase && (
+                        <div className="mt-6 flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                            <i className="fas fa-circle-info text-gray-400"></i>
+                            <p className="text-xs font-bold text-gray-400 leading-none">
+                                <span className="text-amber-600">Note:</span> Deploying this phase will automatically archive and complete the current <span className="text-emerald-600 font-black">"{activePhase.label}"</span> phase.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* ── Phase Timeline ────────────────────────────────────── */}
             <div className="space-y-3">
                 {phases.map((phase, idx) => {
                     const cfg = STATUS_CONFIG[phase.status];
                     const isExpanded = expanded === phase._id;
                     const isFirst = idx === 0;
-                    const prevDone = idx === 0 || phases[idx - 1]?.status === 'completed';
-                    const canStart = phase.status === 'pending' && prevDone;
-                    const isLoading = (s) => actionId === phase._id + s;
+
+                    // Authority Progression Logic:
+                    // Previous phase is 'completed' OR 'active' (allowing immediate advance)
+                    const prevWasActioned = idx === 0 || phases[idx - 1]?.status === 'completed' || phases[idx - 1]?.status === 'active';
+                    const canStart = phase.status === 'pending' && prevWasActioned;
 
                     return (
                         <div key={phase._id}
@@ -262,17 +322,17 @@ export default function PhaseManagement({ user }) {
                                             <Button
                                                 variant="primary"
                                                 size="sm"
-                                                loading={isLoading('start')}
+                                                loading={checkIsLoading('start', phase._id)}
                                                 onClick={() => handleAction(phase._id, 'start')}
                                             >
                                                 <i className="fas fa-play mr-2"></i>
                                                 Activate This Phase
                                             </Button>
                                         )}
-                                        {phase.status === 'pending' && !prevDone && (
-                                            <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">
+                                        {phase.status === 'pending' && !prevWasActioned && (
+                                            <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl italic">
                                                 <i className="fas fa-lock"></i>
-                                                Complete Phase {phase.order - 1} first to unlock
+                                                Complete previous milestones to unlock this phase
                                             </div>
                                         )}
                                         {phase.status === 'active' && (
@@ -280,7 +340,7 @@ export default function PhaseManagement({ user }) {
                                                 <Button
                                                     variant="success"
                                                     size="sm"
-                                                    loading={isLoading('complete')}
+                                                    loading={checkIsLoading('complete', phase._id)}
                                                     onClick={() => handleAction(phase._id, 'complete')}
                                                 >
                                                     <i className="fas fa-check mr-2"></i>
@@ -290,7 +350,7 @@ export default function PhaseManagement({ user }) {
                                                     <Button
                                                         variant="primary"
                                                         size="sm"
-                                                        loading={isLoading('start')}
+                                                        loading={checkIsLoading('start', phases[idx + 1]._id)}
                                                         onClick={() => handleAction(phases[idx + 1]._id, 'start')}
                                                     >
                                                         <i className="fas fa-forward-step mr-2"></i>
