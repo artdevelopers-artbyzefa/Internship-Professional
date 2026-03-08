@@ -13,6 +13,10 @@ export default function FacultyManagement({ user }) {
   const [loading, setLoading] = useState(true);
   const [errorDictionary, setErrorDictionary] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [selectedFacultyForStudents, setSelectedFacultyForStudents] = useState(null);
+  const [studentsList, setStudentsList] = useState([]);
+  const [fetchingStudents, setFetchingStudents] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(null);
@@ -169,10 +173,38 @@ export default function FacultyManagement({ user }) {
     }
   };
 
+  const handleViewStudents = async (fac) => {
+    setSelectedFacultyForStudents(fac);
+    setShowStudentsModal(true);
+    setFetchingStudents(true);
+    try {
+      const data = await apiRequest(`/office/faculty-students/${fac._id}`);
+      setStudentsList(data || []);
+    } catch (err) {
+      // Handled
+    } finally {
+      setFetchingStudents(false);
+    }
+  };
+
   const columns = [
     { key: 'name', label: 'Faculty Name' },
     { key: 'email', label: 'Email Address' },
     { key: 'whatsappNumber', label: 'WhatsApp' },
+    {
+      key: 'assignedStudents',
+      label: 'Students',
+      render: (val, row) => (
+        <button
+          onClick={() => handleViewStudents(row)}
+          disabled={!val}
+          className={`font-black flex items-center gap-1.5 transition-all ${val > 0 ? 'text-blue-600 hover:text-blue-800 cursor-pointer bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100' : 'text-gray-300 cursor-default grayscale'}`}
+        >
+          <i className="fas fa-users-viewfinder text-xs"></i>
+          {val || 0}
+        </button>
+      )
+    },
     {
       key: 'status',
       label: 'Status',
@@ -312,6 +344,51 @@ export default function FacultyManagement({ user }) {
               <Button variant="primary" block type="submit" loading={submitting}>Save Changes</Button>
             </div>
           </form>
+        </Modal>
+      )}
+      {showStudentsModal && (
+        <Modal onClose={() => setShowStudentsModal(false)} size="lg">
+          <ModalTitle>Assigned Students: {selectedFacultyForStudents?.name}</ModalTitle>
+          <ModalSub>List of students currently placed under this supervisor.</ModalSub>
+
+          <div className="mt-8 max-h-[60vh] overflow-y-auto pr-2">
+            {fetchingStudents ? (
+              <div className="text-center py-10">
+                <i className="fas fa-circle-notch fa-spin text-2xl text-primary mb-2 block"></i>
+                <span className="text-xs text-gray-400 font-medium">Fetching active placements...</span>
+              </div>
+            ) : studentsList.length > 0 ? (
+              <div className="space-y-3">
+                {studentsList.map((s, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-md hover:shadow-gray-200/50 transition-all group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
+                        <i className="fas fa-user-graduate"></i>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-gray-800">{s.name}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s.reg} · Semester {s.semester}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-gray-400 mb-1 group-hover:text-primary transition-colors">{s.email}</p>
+                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-50 text-emerald-600 border border-emerald-100 tracking-wider">
+                        Active Intern
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/30">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-gray-200 text-3xl mx-auto mb-4 border border-gray-100">
+                  <i className="fas fa-folder-open"></i>
+                </div>
+                <p className="text-sm font-black text-gray-400">No active students found.</p>
+                <p className="text-[10px] text-gray-300 font-medium mt-1">This faculty supervisor has no students assigned yet.</p>
+              </div>
+            )}
+          </div>
         </Modal>
       )}
     </div>

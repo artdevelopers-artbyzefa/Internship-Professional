@@ -38,6 +38,12 @@ const companySchema = new mongoose.Schema({
         enum: ['manual', 'student_submission'],
         default: 'manual'
     },
+    category: {
+        type: String,
+        enum: ['MOU Partner', 'Student Self-Assigned'],
+        default: 'MOU Partner'
+    },
+
     status: {
         type: String,
         enum: ['Active', 'Inactive'],

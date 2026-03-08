@@ -1,68 +1,142 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
-export default function InternshipStatus({ user, activePhase }) {
+export default function InternshipStatus({ user }) {
     const status = user.status || 'verified';
-    const facultyStatus = user.internshipRequest?.facultyStatus;
-    const assignedFaculty = user.assignedFaculty;
+    const req = user.internshipRequest;
+    const isSubmitted = !!req?.submittedAt;
 
-    // Define the institutional progress steps
-    const steps = [
-        {
-            id: 'registration',
-            label: 'Initial Registration',
-            desc: 'Self-registration and eligibility verification.',
-            icon: 'fa-user-check',
-            done: true // If they are here, they registered
-        },
-        {
-            id: 'request',
-            label: 'Internship Request (AppEx-A)',
-            desc: 'Submission of company preference and academic details.',
+    // Collect all chronological events that have ACTUALLY happened
+    const events = [];
+
+    // 1. Always registered
+    events.push({
+        id: 'registration',
+        title: 'Initial Registration',
+        desc: 'Account verified and profile activated.',
+        icon: 'fa-user-check',
+        color: 'emerald',
+        date: user.createdAt
+    });
+
+    // 2. Request Submitted
+    if (isSubmitted) {
+        events.push({
+            id: 'request_submitted',
+            title: 'Internship Request (AppEx-A) Submitted',
+            desc: `Requested placement details logged in the system.`,
             icon: 'fa-file-export',
-            active: activePhase?.key === 'request_submission',
-            done: status === 'Internship Request Submitted' || status === 'Internship Approved' || status.includes('Agreement')
-        },
-        {
-            id: 'faculty',
-            label: 'Faculty Supervisor Reservation',
-            desc: 'Your chosen faculty supervisor must accept the supervision request.',
+            color: 'emerald',
+            date: req.submittedAt
+        });
+    }
+
+    // 3. Faculty Action
+    if (req?.facultyStatus === 'Accepted') {
+        events.push({
+            id: 'faculty_accepted',
+            title: 'Faculty Supervisor Confirmed',
+            desc: user.assignedFaculty?.name ? `Your faculty supervisor is ${user.assignedFaculty.name}.` : 'Supervision accepted by chosen faculty.',
             icon: 'fa-chalkboard-user',
-            rejected: facultyStatus === 'Rejected',
-            active: (status === 'Internship Request Submitted') && facultyStatus === 'Pending',
-            done: facultyStatus === 'Accepted'
-        },
-        {
-            id: 'approval',
-            label: 'Departmental Approval',
-            desc: 'Verification by Internship Office and HOD.',
+            color: 'emerald'
+        });
+    } else if (req?.facultyStatus === 'Rejected') {
+        events.push({
+            id: 'faculty_rejected',
+            title: 'Faculty Request Declined',
+            desc: 'Your chosen faculty supervisor could not accommodate the request.',
+            icon: 'fa-user-slash',
+            color: 'rose',
+            action: '/student/internship-assessment',
+            actionLabel: 'Reassign Supervisor',
+            isError: true
+        });
+    }
+
+    // 4. Site Supervisor
+    if (user.assignedCompanySupervisor) {
+        events.push({
+            id: 'site_supervisor',
+            title: 'Site Supervisor Assigned',
+            desc: `Site supervisor is set to ${user.assignedCompanySupervisor}.`,
+            icon: 'fa-user-tie',
+            color: 'emerald' // we'll map color class down below
+        });
+    }
+
+    // 5. Company Assigned
+    if (user.assignedCompany) {
+        events.push({
+            id: 'company',
+            title: 'Company Assigned',
+            desc: `Your placement organization is ${user.assignedCompany}.`,
+            icon: 'fa-building',
+            color: 'emerald'
+        });
+    }
+
+    // 6. Departmental Action (AppEx-A)
+    if (status === 'Internship Approved' || status.includes('Agreement') || status === 'Assigned') {
+        events.push({
+            id: 'office_approved',
+            title: 'AppEx-A Approved',
+            desc: 'Your request has been verified by the Internship Office.',
             icon: 'fa-building-circle-check',
-            done: status === 'Internship Approved' || status.includes('Agreement')
-        },
-        {
-            id: 'agreement',
-            label: 'Legal Agreement (AppEx-B)',
-            desc: 'Final contract between university and service site.',
+            color: 'emerald'
+        });
+    } else if (status === 'Internship Rejected') {
+        events.push({
+            id: 'office_rejected',
+            title: 'Request Rejected',
+            desc: req?.rejectionReason || 'Your request was rejected by the Internship Office.',
+            icon: 'fa-ban',
+            color: 'rose',
+            action: '/student/internship-assessment',
+            actionLabel: 'Update Request',
+            isError: true
+        });
+    }
+
+    // 7. AppEx-B / Final Assignment
+    if (status === 'Agreement Approved') {
+        events.push({
+            id: 'agreement_approved',
+            title: 'AppEx-B Approved',
+            desc: 'Your legal agreement was verified.',
             icon: 'fa-file-signature',
-            done: status === 'Agreement Approved' || status === 'Assigned'
-        },
-        {
-            id: 'placement',
-            label: 'Final Placement',
-            desc: 'Official assignment to a supervisor.',
+            color: 'emerald'
+        });
+    } else if (status === 'Agreement Rejected') {
+        events.push({
+            id: 'agreement_rejected',
+            title: 'AppEx-B Rejected',
+            desc: 'There was an issue with your legal agreement.',
+            icon: 'fa-triangle-exclamation',
+            color: 'rose',
+            isError: true
+        });
+    }
+
+    if (status === 'Assigned') {
+        events.push({
+            id: 'final_placement',
+            title: 'Final Placement Confirmed',
+            desc: 'You are officially assigned and enrolled in your internship!',
             icon: 'fa-briefcase',
-            done: status === 'Assigned'
-        }
-    ];
+            color: 'primary'
+        });
+    }
 
-    const currentStepIdx = steps.findLastIndex(s => s.done);
-    const overallProgress = Math.round(((currentStepIdx + 1) / steps.length) * 100);
+    // Determine what the overall telemetry ring should look like
+    let progress = 15; // reg
+    if (isSubmitted) progress = 30;
+    if (user.assignedCompany || user.assignedCompanySupervisor || req?.facultyStatus === 'Accepted') progress = 50;
+    if (status === 'Internship Approved') progress = 65;
+    if (status.includes('Agreement')) progress = 85;
+    if (status === 'Assigned') progress = 100;
 
-    const facultyStatusConfig = {
-        'Pending': { color: 'amber', bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-700 border-amber-200', icon: 'fa-hourglass-half', label: 'Awaiting Response' },
-        'Accepted': { color: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: 'fa-circle-check', label: 'Supervision Confirmed' },
-        'Rejected': { color: 'rose', bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-700', badge: 'bg-rose-100 text-rose-700 border-rose-200', icon: 'fa-circle-xmark', label: 'Request Declined' },
-    };
-    const fConfig = facultyStatusConfig[facultyStatus] || facultyStatusConfig['Pending'];
+    const hasError = events.some(e => e.isError);
+    const isComplete = status === 'Assigned';
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
@@ -73,12 +147,13 @@ export default function InternshipStatus({ user, activePhase }) {
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Institutional Telemetry</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Progress Timeline</span>
+                            {!hasError && !isComplete && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>}
+                            {hasError && <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>}
                         </div>
                         <h2 className="text-3xl font-black text-gray-800 tracking-tight mb-2">My Internship Status</h2>
                         <p className="text-gray-500 font-medium max-w-md">
-                            Tracking your progression through the multi-phase academic internship lifecycle.
+                            Tracking events and updates regarding your internship placement.
                         </p>
                     </div>
 
@@ -87,136 +162,98 @@ export default function InternshipStatus({ user, activePhase }) {
                             <svg className="w-20 h-20 -rotate-90">
                                 <circle cx="40" cy="40" r="36" fill="transparent" stroke="currentColor" strokeWidth="6" className="text-gray-200" />
                                 <circle cx="40" cy="40" r="36" fill="transparent" stroke="currentColor" strokeWidth="6"
-                                    className="text-primary transition-all duration-1000"
+                                    className={`${hasError ? 'text-rose-500' : 'text-primary'} transition-all duration-1000`}
                                     strokeDasharray={2 * Math.PI * 36}
-                                    strokeDashoffset={2 * Math.PI * 36 * (1 - overallProgress / 100)}
+                                    strokeDashoffset={2 * Math.PI * 36 * (1 - progress / 100)}
                                     strokeLinecap="round"
                                 />
                             </svg>
-                            <span className="absolute text-lg font-black text-gray-800">{overallProgress}%</span>
+                            <span className="absolute text-lg font-black text-gray-800">{progress}%</span>
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Overall Goal</p>
-                            <p className="text-xl font-black text-gray-800 tracking-tight">Onboarding</p>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Status</p>
+                            <p className="text-lg font-black text-gray-800 tracking-tight">
+                                {isComplete ? 'Assigned' : hasError ? 'Attention Needed' : 'In Progress'}
+                            </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Faculty Supervisor Status Card — shown after request is submitted */}
-            {facultyStatus && (
-                <div className={`${fConfig.bg} border-2 ${fConfig.border} rounded-[2rem] p-6 flex flex-col md:flex-row md:items-center gap-6`}>
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${fConfig.bg} border-2 ${fConfig.border} ${fConfig.text}`}>
-                        <i className={`fas ${fConfig.icon}`}></i>
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${fConfig.badge}`}>
-                                {fConfig.label}
-                            </span>
-                        </div>
-                        <h3 className={`text-base font-black ${fConfig.text} mb-1`}>Faculty Supervisor Assignment</h3>
-                        {facultyStatus === 'Accepted' && assignedFaculty?.name ? (
-                            <p className="text-sm font-bold text-gray-600">
-                                <i className="fas fa-user-graduate mr-2 opacity-50"></i>{assignedFaculty.name} has confirmed your supervision.
-                            </p>
-                        ) : facultyStatus === 'Rejected' ? (
-                            <p className="text-sm font-bold text-rose-600/80">
-                                Your supervision request was declined. Return to the <strong>Internship Assessment</strong> tab to reassign a new supervisor.
-                            </p>
-                        ) : (
-                            <p className="text-sm font-bold text-amber-600/80">
-                                Your request has been logged. The faculty supervisor will review and respond shortly.
-                            </p>
-                        )}
-                    </div>
-                    {facultyStatus === 'Rejected' && (
-                        <a href="/student/internship-assessment">
-                            <button className="flex-shrink-0 px-6 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-colors shadow-lg shadow-rose-200">
-                                <i className="fas fa-rotate-left mr-2"></i>Reassign
-                            </button>
-                        </a>
-                    )}
-                </div>
-            )}
+            {/* Event Timeline */}
+            <div className="bg-white rounded-[2rem] border border-gray-100 p-8 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8 border-b border-gray-50 pb-4">Activity Log</p>
+                <div className="space-y-6">
+                    {/* Render exact completed events */}
+                    {events.map((evt, idx) => {
+                        const isLast = idx === events.length - 1;
+                        const isErr = evt.isError;
+                        const bg = isErr ? 'bg-rose-50 border-rose-100' : evt.color === 'primary' ? 'bg-primary/5 border-primary/20' : 'bg-emerald-50/50 border-emerald-100';
+                        const iconBg = isErr ? 'bg-rose-500 shadow-rose-200' : evt.color === 'primary' ? 'bg-primary shadow-primary/30' : 'bg-emerald-500 shadow-emerald-200';
+                        const text = isErr ? 'text-rose-900' : evt.color === 'primary' ? 'text-primary' : 'text-emerald-900';
 
-            {/* Timeline View */}
-            <div className="grid grid-cols-1 gap-4">
-                {steps.map((step, idx) => {
-                    const isUpcoming = !step.done && !step.active && !step.rejected;
-                    const isActive = step.active && !step.done && !step.rejected;
-                    const isRejected = step.rejected;
+                        return (
+                            <div key={evt.id} className="relative flex items-start gap-5">
+                                {/* Line connecting dots (except last item) */}
+                                {!isLast && (
+                                    <div className={`absolute left-5 top-12 bottom-[-24px] w-0.5 ${isErr ? 'bg-rose-200' : 'bg-emerald-200'}`}></div>
+                                )}
 
-                    return (
-                        <div key={step.id} className={`flex items-start gap-6 p-6 rounded-3xl border-2 transition-all relative ${isRejected ? 'bg-rose-50/50 border-rose-200' :
-                            step.done ? 'bg-emerald-50/50 border-emerald-100' :
-                                isActive ? 'bg-white border-primary shadow-xl shadow-primary/5 ring-4 ring-primary/5' :
-                                    'bg-gray-50/30 border-gray-100 opacity-60'
-                            }`}>
-                            {/* Sequence Line */}
-                            {idx < steps.length - 1 && (
-                                <div className={`absolute left-[39px] top-20 w-0.5 h-12 ${step.done ? 'bg-emerald-200' : isRejected ? 'bg-rose-200' : 'bg-gray-100'}`}></div>
-                            )}
+                                {/* Icon */}
+                                <div className={`relative z-10 w-10 h-10 shrink-0 rounded-[14px] text-white flex items-center justify-center text-sm shadow-lg ${iconBg}`}>
+                                    <i className={`fas ${evt.icon}`}></i>
+                                </div>
 
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg flex-shrink-0 z-10 ${isRejected ? 'bg-rose-500 text-white shadow-lg shadow-rose-200' :
-                                step.done ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
-                                    isActive ? 'bg-primary text-white shadow-lg shadow-primary/30' :
-                                        'bg-white text-gray-300 border border-gray-100'
-                                }`}>
-                                <i className={`fas ${isRejected ? 'fa-xmark' : step.done ? 'fa-check' : step.icon}`}></i>
-                            </div>
-
-                            <div className="flex-1">
-                                <div className="flex items-center justify-between gap-4 mb-1">
-                                    <h3 className={`text-lg font-black tracking-tight ${isRejected ? 'text-rose-900' : step.done ? 'text-emerald-900' : 'text-gray-800'}`}>
-                                        {step.label}
-                                    </h3>
-                                    {isActive && (
-                                        <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg uppercase tracking-widest animate-pulse">
-                                            Current Focus
-                                        </span>
-                                    )}
-                                    {isRejected && (
-                                        <span className="px-3 py-1 bg-rose-100 text-rose-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-rose-200">
-                                            Action Required
-                                        </span>
+                                {/* Content */}
+                                <div className={`flex-1 rounded-2xl border p-5 ${bg}`}>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <h3 className={`text-base font-black tracking-tight mb-1 ${text}`}>{evt.title}</h3>
+                                            <p className="text-sm font-medium text-gray-600 leading-relaxed">{evt.desc}</p>
+                                        </div>
+                                        {evt.date && (
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap pt-1">
+                                                {new Date(evt.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {evt.action && (
+                                        <div className="mt-4 pt-4 border-t border-rose-200/50">
+                                            <Link to={evt.action}>
+                                                <button className="px-5 py-2.5 rounded-xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-colors shadow-md shadow-rose-200">
+                                                    {evt.actionLabel} <i className="fas fa-arrow-right ml-1"></i>
+                                                </button>
+                                            </Link>
+                                        </div>
                                     )}
                                 </div>
-                                <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                                    {step.desc}
-                                </p>
+                            </div>
+                        );
+                    })}
 
-                                {step.done && (
-                                    <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
-                                        <i className="fas fa-circle-check"></i> Milestone Achieved
-                                    </div>
-                                )}
-                                {isRejected && (
-                                    <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-rose-600 uppercase tracking-wider">
-                                        <i className="fas fa-triangle-exclamation"></i> Reassignment Required — Return to Internship Assessment
-                                    </div>
-                                )}
+                    {/* Pending Pulsing Node appended at the end if not complete and no errors */}
+                    {!isComplete && !hasError && (
+                        <div className="relative flex items-start gap-5 mt-6">
+                            {/* Connect from last completed node to pending node */}
+                            <div className="absolute left-5 top-[-24px] h-6 w-0.5 bg-gradient-to-b from-emerald-200 to-gray-200"></div>
+
+                            <div className="relative z-10 w-10 h-10 shrink-0 rounded-[14px] bg-white border-2 border-primary/30 text-primary flex items-center justify-center text-sm">
+                                <span className="absolute w-full h-full rounded-[14px] border-2 border-primary animate-ping opacity-20"></span>
+                                <i className="fas fa-circle-notch fa-spin"></i>
+                            </div>
+
+                            <div className="flex-1 rounded-2xl border border-gray-100 bg-gray-50/50 p-5 mt-[-4px]">
+                                <h3 className="text-base font-black tracking-tight text-gray-700 mb-1">
+                                    {(isSubmitted && req?.facultyStatus !== 'Pending') ? 'Waiting for updates from Internship Office' : 'Awaiting Review & Processing'}
+                                </h3>
+                                <p className="text-sm font-medium text-gray-500">
+                                    The relevant authorities will update your status as your request is processed.
+                                </p>
                             </div>
                         </div>
-                    );
-                })}
-            </div>
-
-            {/* Support Notice */}
-            <div className="bg-gray-900 rounded-[2rem] p-8 text-center text-white relative overflow-hidden">
-                <div className="absolute inset-0 opacity-10">
-                    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_120%,rgba(60,113,243,1),transparent)]"></div>
-                </div>
-                <div className="relative z-10">
-                    <h4 className="text-xl font-black mb-2 tracking-tight">Need assistance with your status?</h4>
-                    <p className="text-gray-400 text-sm font-medium mb-6">Contact the Internship Office if your status hasn't updated after submission.</p>
-                    <a href="mailto:internship.office@cui.edu" className="inline-flex items-center gap-3 px-8 py-4 bg-white text-gray-900 rounded-xl text-xs font-black hover:bg-gray-100 transition-all active:scale-95 shadow-xl shadow-black/20">
-                        <i className="fas fa-headset"></i> CONTACT SUPPORT
-                    </a>
+                    )}
                 </div>
             </div>
         </div>
     );
 }
-
-

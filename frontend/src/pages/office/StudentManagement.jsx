@@ -24,7 +24,7 @@ export default function StudentManagement({ user }) {
 
     const fetchStudents = async () => {
         try {
-            const data = await apiRequest('/auth/student-list');
+            const data = await apiRequest('/office/all-students');
             setStudents(data || []);
         } catch (err) {
             console.error(err);
