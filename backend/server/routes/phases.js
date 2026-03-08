@@ -126,32 +126,10 @@ router.post('/:id/complete', async (req, res) => {
 });
 
 // @route   POST api/phases/:id/reset
-// @desc    Reset a phase back to pending (admin override)
+// @desc    Reset a phase back to pending (admin override) - DISABLED
 router.post('/:id/reset', async (req, res) => {
-    try {
-        const { officeId } = req.body;
-        const phase = await Phase.findById(req.params.id);
-        if (!phase) return res.status(404).json({ message: 'Phase not found.' });
-
-        phase.status = 'pending';
-        phase.startedAt = undefined;
-        phase.completedAt = undefined;
-        phase.startedBy = undefined;
-        phase.completedBy = undefined;
-        await phase.save();
-
-        await new AuditLog({
-            action: 'PHASE_RESET',
-            performedBy: officeId,
-            details: `Phase "${phase.label}" was reset to pending.`,
-            ipAddress: req.ip
-        }).save();
-
-        res.json({ message: `Phase "${phase.label}" has been reset.` });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
-    }
+    // Phase reversals are disabled to maintain data integrity and sequential flow.
+    return res.status(403).json({ message: 'Phase reversals are disabled. The program must proceed in sequence.' });
 });
 
 // @route   PATCH api/phases/:id/notes

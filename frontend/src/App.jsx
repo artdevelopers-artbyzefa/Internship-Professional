@@ -8,6 +8,8 @@ import StudentPortal from './pages/student/StudentPortal.jsx';
 import OfficePortal from './pages/office/InternshipOfficePortal.jsx';
 import FacultyPortal from './pages/faculty/FacultyPortal.jsx';
 import FacultyActivation from './pages/faculty/FacultyActivation.jsx';
+import SupervisorActivation from './pages/auth/SupervisorActivation.jsx';
+import SupervisorPortal from './pages/supervisor/SupervisorPortal.jsx';
 import HODPortal from './pages/hod/HODPortal.jsx';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange.jsx';
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
@@ -97,6 +99,7 @@ export default function App() {
       student: '/student',
       internship_office: '/office',
       faculty_supervisor: '/faculty',
+      site_supervisor: '/supervisor',
       hod: '/hod'
     };
     navigate(rolePaths[userData.role] || '/', { replace: true });
@@ -134,7 +137,8 @@ export default function App() {
       <Route path="/" element={<Navigate to={user ? (
         user.role === 'student' ? '/student' :
           user.role === 'internship_office' ? '/office' :
-            user.role === 'faculty_supervisor' ? '/faculty' : '/hod'
+            user.role === 'faculty_supervisor' ? '/faculty' :
+              user.role === 'site_supervisor' ? '/supervisor' : '/hod'
       ) : '/login'} replace />} />
 
       {/* Auth Screen Routes */}
@@ -142,6 +146,7 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPage onBack={() => navigate('/login')} />} />
       <Route path="/verify-email/:token" element={<VerifyEmail onBack={() => navigate('/login')} />} />
       <Route path="/faculty/activate/:token" element={<FacultyActivation />} />
+      <Route path="/supervisor/activate/:token" element={<SupervisorActivation />} />
 
       {/* Portal Routes with Protection */}
       <Route element={<ProtectedRoute user={user} allowedRoles={['student']} />}>
@@ -158,6 +163,10 @@ export default function App() {
 
       <Route element={<ProtectedRoute user={user} allowedRoles={['hod']} />}>
         <Route path="/hod/*" element={<HODPortal user={user} onLogout={handleLogout} />} />
+      </Route>
+
+      <Route element={<ProtectedRoute user={user} allowedRoles={['site_supervisor']} />}>
+        <Route path="/supervisor/*" element={<SupervisorPortal user={user} onLogout={handleLogout} />} />
       </Route>
 
       {/* Fallback 404 */}

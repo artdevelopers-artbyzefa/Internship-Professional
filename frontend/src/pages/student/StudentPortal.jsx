@@ -31,10 +31,14 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
   }, []);
 
   // Phase 1 = Student Registration — students only see the dashboard
-  const isPhase1 = activePhase?.key === 'registration';
-  // Phase 2+ starts (request_submission) — unlock the workflow
-  const canSubmitRequest = activePhase?.key === 'request_submission' ||
-    (activePhase && activePhase.order >= 2);
+  const isGlobalPhase1 = activePhase?.key === 'registration';
+
+  // A student is effectively in "Phase 1" if the global phase is registration 
+  // OR if they are ineligible (stuck at Phase 1)
+  const isPhase1 = isGlobalPhase1 || !isEligible;
+
+  // Phase 2+ starts (request_submission) — unlock the workflow ONLY if eligible
+  const canSubmitRequest = isEligible && (activePhase?.key === 'request_submission' || (activePhase && activePhase.order >= 2));
 
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
@@ -47,7 +51,7 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
 
     if (!isAtBase) return;
 
-    // During Phase 1: everyone goes to dashboard regardless of their status
+    // During Phase 1 (Global or Eligibility Stuck): everyone goes to dashboard regardless of their status
     if (isPhase1) {
       navigate('/student/dashboard', { replace: true });
       return;
@@ -59,7 +63,7 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       return;
     }
 
-    // Phase 2+ — follow normal workflow routing
+    // Phase 2+ — follow normal workflow routing (only for eligible)
     if (status === 'verified' || status === 'Internship Request Submitted' || status === 'Internship Rejected') {
       navigate('/student/internship-request', { replace: true });
     } else if (status === 'Internship Approved' || status.includes('Agreement Submitted') || status === 'Agreement Rejected') {
@@ -67,14 +71,14 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
     } else {
       navigate('/student/dashboard', { replace: true });
     }
-  }, [activePhase, status, location.pathname]);
+  }, [activePhase, isPhase1, status, location.pathname]);
 
   const isWorkflowComplete = user.status === 'Agreement Approved' || user.status === 'Assigned';
   const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
 
-  const isLocked = isPhase1 && !isEligible;
+  const isLocked = !isEligible;
 
-  // During Phase 1: sidebar shows only Dashboard (and Profile if eligible)
+  // Navigation: During Phase 1 (Global or Locked): sidebar shows only Dashboard (and Profile if eligible)
   const studentNav = isPhase1
     ? [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
@@ -101,13 +105,13 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       activePage={currentPath}
       setActivePage={handlePageChange}
       navItems={studentNav}
-      disableSidebar={!isWorkflowComplete && !isPhase1}
+      disableSidebar={!isWorkflowComplete && isPhase1}
     >
       <div className="p-6">
         <Routes>
           {/* Dashboard & Profile — always accessible */}
-          <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} />} />
-          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} isEligible={isEligible} isPhase1={isPhase1} />} />
+          <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} activePhase={activePhase} />} />
+          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} isEligible={isEligible} isPhase1={isPhase1} activePhase={activePhase} />} />
 
           {/* Workflow Routes — blocked during Phase 1 */}
           <Route path="internship-request" element={

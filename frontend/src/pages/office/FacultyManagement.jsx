@@ -8,16 +8,15 @@ import { FormGroup, TextInput } from '../../components/ui/FormInput.jsx';
 import { validate } from '../../utils/validation.js';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
 
-export default function FacultyManagement({ user, view }) {
+export default function FacultyManagement({ user }) {
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorDictionary, setErrorDictionary] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(null);
   const [resetting, setResetting] = useState(null);
-
-  const isAddMode = view === 'add-supervisors';
 
   const [form, setForm] = useState({
     name: '',
@@ -36,7 +35,7 @@ export default function FacultyManagement({ user, view }) {
       const data = await apiRequest('/auth/faculty-list');
       setFaculty(data);
     } catch (err) {
-      // apiRequest handles toast, we can log to console
+      // apiRequest handles toast
     } finally {
       setLoading(false);
     }
@@ -67,6 +66,7 @@ export default function FacultyManagement({ user, view }) {
       });
       setForm({ name: '', email: '', whatsappNumber: '' });
       showToast.success('Faculty supervisor nominated successfully.');
+      setShowAddForm(false);
       fetchFaculty();
     } catch (err) {
       // Handled by apiRequest
@@ -178,8 +178,8 @@ export default function FacultyManagement({ user, view }) {
       label: 'Status',
       render: (val) => (
         <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${val === 'Active' ? 'bg-green-50 text-green-600' :
-            val === 'Pending Activation' ? 'bg-amber-50 text-amber-600' :
-              'bg-red-50 text-red-600'
+          val === 'Pending Activation' ? 'bg-amber-50 text-amber-600' :
+            'bg-red-50 text-red-600'
           }`}>
           {val}
         </span>
@@ -190,48 +190,39 @@ export default function FacultyManagement({ user, view }) {
       label: 'Actions',
       render: (_, row) => (
         <div className="flex gap-2">
-          {/* View Mode Actions */}
-          {!isAddMode && (
-            <>
-              {row.status === 'Active' ? (
-                <Button
-                  size="sm" variant="outline"
-                  onClick={() => handleResetPassword(row)}
-                  loading={resetting === row._id}
-                  className="text-amber-500 border-amber-200 hover:bg-amber-50"
-                >
-                  <i className="fas fa-key mr-1"></i> Reset Password
-                </Button>
-              ) : (
-                <Button
-                  size="sm" variant="outline"
-                  onClick={() => handleResendLink(row)}
-                  loading={resending === row._id}
-                >
-                  <i className="fas fa-paper-plane mr-1"></i> Resend activation
-                </Button>
-              )}
-            </>
+          {row.status === 'Active' ? (
+            <button
+              title="Reset Password"
+              onClick={() => handleResetPassword(row)}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-amber-600 hover:border-amber-500 hover:bg-amber-50 cursor-pointer transition-all ${resetting === row._id ? 'animate-pulse' : ''}`}
+            >
+              <i className="fas fa-key text-xs"></i>
+            </button>
+          ) : (
+            <button
+              title="Resend Activation"
+              onClick={() => handleResendLink(row)}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-primary hover:border-primary hover:bg-blue-50 cursor-pointer transition-all ${resending === row._id ? 'animate-pulse' : ''}`}
+            >
+              <i className="fas fa-paper-plane text-xs"></i>
+            </button>
           )}
 
-          {/* Add/Edit Mode Actions */}
-          {isAddMode && (
-            <>
-              <button
-                onClick={() => handleEditInit(row)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-600 hover:border-primary hover:text-primary cursor-pointer transition-all"
-              >
-                <i className="fas fa-pen-to-square text-xs"></i>
-              </button>
+          <button
+            title="Edit Details"
+            onClick={() => handleEditInit(row)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-600 hover:border-primary hover:text-primary cursor-pointer transition-all"
+          >
+            <i className="fas fa-pen-to-square text-xs"></i>
+          </button>
 
-              <button
-                onClick={() => handleDeactivate(row._id)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-600 hover:border-red-500 hover:text-red-500 cursor-pointer transition-all"
-              >
-                <i className="fas fa-trash-can text-xs"></i>
-              </button>
-            </>
-          )}
+          <button
+            title="Deactivate"
+            onClick={() => handleDeactivate(row._id)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-600 hover:border-red-500 hover:text-red-500 cursor-pointer transition-all"
+          >
+            <i className="fas fa-trash-can text-xs"></i>
+          </button>
         </div>
       )
     }
@@ -243,48 +234,59 @@ export default function FacultyManagement({ user, view }) {
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-50">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">
-            {isAddMode ? 'Onboard Faculty Supervisor' : 'Faculty Supervisor Registry'}
-          </h2>
-          <p className="text-sm text-gray-500">
-            {isAddMode ? 'Nominate and manage new academic supervisors.' : 'View and monitor all supervisors.'}
-          </p>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Faculty Supervisor Registry</h2>
+          <p className="text-sm text-gray-500">Nominate, monitor, and manage academic supervisors.</p>
         </div>
-        {!isAddMode && (
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => alert('Download scheduled for next update')}>
-              <i className="fas fa-download mr-2"></i> Download All Supervisors
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all h-fit ${showAddForm ? 'bg-gray-100 text-gray-600' : 'bg-primary text-white shadow-lg shadow-blue-600/20'}`}
+          >
+            <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`}></i>
+            <span className="text-sm">{showAddForm ? 'Close Form' : 'Nominate Faculty'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* {error && <Alert type="danger" className="mb-4">{error}</Alert>} */}
+      <div className={`grid transition-all duration-500 ease-in-out ${showAddForm ? 'grid-rows-[1fr] opacity-100 mb-10' : 'grid-rows-[0fr] opacity-0 mb-0 overflow-hidden'}`}>
+        <div className="overflow-hidden">
+          <div className="bg-gray-50/50 rounded-3xl border-2 border-primary/20 p-8 shadow-xl shadow-primary/5">
+            <h3 className="text-xs font-black text-primary tracking-widest mb-6 border-b border-primary/10 pb-2 uppercase">Official Nomination Form</h3>
+            <form onSubmit={handleOnboard} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormGroup label="Full Name" error={errorDictionary.name}>
+                  <TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} iconLeft="fa-user" placeholder="Enter Full Name" />
+                </FormGroup>
+                <FormGroup label="WhatsApp Number" error={errorDictionary.whatsappNumber}>
+                  <TextInput value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} iconLeft="fa-brands fa-whatsapp" placeholder="+92..." />
+                </FormGroup>
+                <div className="md:col-span-2">
+                  <FormGroup label="Official Email Address" error={errorDictionary.email}>
+                    <TextInput type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} iconLeft="fa-envelope" placeholder="faculty@cuiatd.edu.pk" />
+                  </FormGroup>
+                </div>
+              </div>
 
-      {isAddMode && (
-        <div className="max-w-2xl mb-12 p-8 bg-gray-50/50 rounded-3xl border border-gray-100">
-          <h3 className="text-xs font-black text-gray-400 tracking-widest mb-6 border-b border-gray-200 pb-2">Add New Faculty member</h3>
-          <form onSubmit={handleOnboard} className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <FormGroup label="Full Name" error={errorDictionary.name}>
-                <TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} iconLeft="fa-user" placeholder="Enter Full Name" />
-              </FormGroup>
-              <FormGroup label="WhatsApp Number" error={errorDictionary.whatsappNumber}>
-                <TextInput value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} iconLeft="fa-brands fa-whatsapp" placeholder="e.g. +92..." />
-              </FormGroup>
-            </div>
-            <FormGroup label="Official Email Address" error={errorDictionary.email}>
-              <TextInput type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} iconLeft="fa-envelope" placeholder="Enter official email address" />
-            </FormGroup>
-
-            <div className="pt-2">
-              <Button variant="primary" type="submit" loading={submitting} className="px-10">
-                <i className="fas fa-user-plus mr-2"></i> Send Nomination Link
-              </Button>
-            </div>
-          </form>
+              <div className="flex gap-3 pt-4 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-8 py-3 rounded-xl font-bold border-2 border-gray-100 text-gray-500 hover:bg-gray-50 transition-all text-sm"
+                >
+                  Discard
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-10 py-3 rounded-xl font-bold bg-primary text-white hover:bg-blue-800 transition-all text-sm shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                >
+                  {submitting ? 'Sending...' : 'Send Nomination Link'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      )}
+      </div>
 
       <DataTable columns={columns} data={faculty} />
 

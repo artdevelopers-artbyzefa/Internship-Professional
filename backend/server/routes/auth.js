@@ -23,6 +23,7 @@ router.get('/me', protect, async (req, res) => {
             role: user.role,
             reg: user.reg,
             status: user.status,
+            whatsappNumber: user.whatsappNumber,
             internshipRequest: user.internshipRequest,
             internshipAgreement: user.internshipAgreement,
             mustChangePassword: user.mustChangePassword,
@@ -78,10 +79,16 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'Only @cuiatd.edu.pk emails are allowed.' });
         }
 
-        // 2. Check Duplicate Email
-        const existingUser = await User.findOne({ email: emailLower });
+        // 2. Check Duplicate Identity (Across Primary and Secondary Aliases)
+        const existingUser = await User.findOne({
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        });
+
         if (existingUser) {
-            return res.status(400).json({ message: 'Email already registered.' });
+            return res.status(400).json({ message: 'This email is already registered or linked to an account.' });
         }
 
         // 3. Encrypt Password
@@ -101,6 +108,7 @@ router.post('/register', async (req, res) => {
             password: hashedPassword,
             role: 'student',
             status: 'unverified',
+            whatsappNumber: req.body.whatsappNumber || '',
             emailVerificationToken: verificationToken,
             emailVerificationExpires: tokenExpiry
         });
@@ -283,22 +291,25 @@ router.post('/login', async (req, res) => {
         console.log(`\n[${getPKTTime()}] AUTH: Login attempt for ${email} with role ${role}`);
         const emailLower = email.toLowerCase().trim();
 
-        // Find by primary OR secondary email
-        const user = await User.findOne({
-            $or: [
-                { email: emailLower },
-                { secondaryEmail: emailLower }
-            ]
-        });
+        // Deterministic Lookup: Prioritize Primary Institutional Identity
+        let user = await User.findOne({ email: emailLower });
+
+        // If not found by primary, search by secondary alias
+        if (!user) {
+            user = await User.findOne({ secondaryEmail: emailLower });
+        }
 
         if (!user) {
+            console.log(`[FAIL] Login failed: User identity not found for ${emailLower}`);
             return res.status(400).json({ message: 'Invalid credentials.' });
         }
 
         const isSecondaryLogin = user.secondaryEmail === emailLower && user.email !== emailLower;
+        console.log(`[INFO] Found user record: ${user.email} (Primary) | ${user.secondaryEmail || 'None'} (Secondary)`);
 
         // Role Verification: Ensure user is logging into the correct portal
         if (role && user.role !== role) {
+            console.log(`[DENIED] Role mismatch. Database: ${user.role}, Attempted: ${role}`);
             return res.status(403).json({
                 message: `Unauthorized access. This account is registered as a ${user.role.replace('_', ' ')}. Please select the correct role.`
             });
@@ -311,6 +322,7 @@ router.post('/login', async (req, res) => {
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.log(`[AUTH-FAILURE] Incorrect password for: ${user.email}`);
             return res.status(400).json({ message: 'Invalid credentials.' });
         }
 
@@ -362,6 +374,7 @@ router.post('/login', async (req, res) => {
                 role: populatedUser.role,
                 reg: populatedUser.reg,
                 status: populatedUser.status,
+                whatsappNumber: populatedUser.whatsappNumber,
                 internshipRequest: populatedUser.internshipRequest,
                 internshipAgreement: populatedUser.internshipAgreement,
                 mustChangePassword: populatedUser.mustChangePassword,
@@ -429,6 +442,7 @@ router.post('/verify-secondary', async (req, res) => {
                 role: populatedUser.role,
                 reg: populatedUser.reg,
                 status: populatedUser.status,
+                whatsappNumber: populatedUser.whatsappNumber,
                 fatherName: populatedUser.fatherName,
                 section: populatedUser.section,
                 dateOfBirth: populatedUser.dateOfBirth,
@@ -503,6 +517,63 @@ router.post('/faculty-set-password', async (req, res) => {
         await user.save();
 
         res.json({ message: 'Account activated successfully! You can now log in.' });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/auth/supervisor-activate-check/:token
+// @desc    Validate activation token for Site Supervisor UI
+router.get('/supervisor-activate-check/:token', async (req, res) => {
+    try {
+        const tokenHash = crypto.createHash('sha256').update(req.params.token).digest('hex');
+        const user = await User.findOne({
+            activationToken: tokenHash,
+            activationExpires: { $gt: Date.now() },
+            status: 'Pending Activation',
+            role: 'site_supervisor'
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Activation link expired or invalid.' });
+        }
+
+        res.json({ name: user.name, email: user.email });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/auth/supervisor-set-password
+// @desc    Set password and activate Site Supervisor account
+router.post('/supervisor-set-password', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        const user = await User.findOne({
+            activationToken: tokenHash,
+            activationExpires: { $gt: Date.now() },
+            status: 'Pending Activation',
+            role: 'site_supervisor'
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Activation link expired or invalid.' });
+        }
+
+        // 1. Hash Password
+        user.password = await bcrypt.hash(password, 12);
+
+        // 2. Clear Token & Activate
+        user.status = 'Active';
+        user.activationToken = undefined;
+        user.activationExpires = undefined;
+
+        await user.save();
+
+        console.log(`[SUCCESS] Site Supervisor ${user.email} Activated.`);
+        res.json({ message: 'Supervisor account activated! You can now log in.' });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }

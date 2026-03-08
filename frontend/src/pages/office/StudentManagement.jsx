@@ -83,7 +83,7 @@ export default function StudentManagement({ user }) {
             label: 'Status',
             render: (val) => (
                 <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${val === 'unverified' ? 'bg-amber-50 text-amber-600' :
-                        val === 'verified' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
+                    val === 'verified' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
                     }`}>
                     {val === 'unverified' ? 'Pending Activation' : val.charAt(0).toUpperCase() + val.slice(1)}
                 </span>
@@ -94,72 +94,100 @@ export default function StudentManagement({ user }) {
     if (loading) return <div className="text-center py-10"><i className="fas fa-circle-notch fa-spin text-2xl text-primary"></i></div>;
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student Registry</h2>
-                    <p className="text-sm text-gray-500 font-medium mt-1">Manage and manually onboard student accounts.</p>
+        <div className="space-y-8">
+            <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 p-8 overflow-hidden transition-all duration-500">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div>
+                        <h2 className="text-3xl font-black text-gray-800 tracking-tight">Student Registry</h2>
+                        <p className="text-sm text-gray-500 font-medium mt-1">Institutional records for active and pending student accounts.</p>
+                    </div>
+                    <Button
+                        variant={showModal ? "outline" : "primary"}
+                        onClick={() => setShowModal(!showModal)}
+                        className="rounded-2xl px-8 h-12 shadow-lg shadow-primary/10 transition-all font-black text-xs uppercase tracking-widest"
+                    >
+                        {showModal ? (
+                            <><i className="fas fa-times mr-2 animate-bounce"></i> Close Form</>
+                        ) : (
+                            <><i className="fas fa-user-plus mr-2"></i> Onboard Student</>
+                        )}
+                    </Button>
                 </div>
-                <Button variant="primary" onClick={() => setShowModal(true)}>
-                    <i className="fas fa-plus mr-2"></i> Onboard New Student
-                </Button>
-            </div>
 
-            <DataTable columns={columns} data={students} />
-
-            {showModal && (
-                <Modal onClose={() => setShowModal(false)} className="max-w-md">
-                    <ModalTitle>Onboard Student</ModalTitle>
-                    <ModalSub>Registration closed. Manually add a student to the system.</ModalSub>
-
-                    <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-                        <FormGroup label="Full Name" error={errorDictionary.name}>
-                            <TextInput
-                                iconLeft="fa-user"
-                                value={form.name}
-                                onChange={e => setForm({ ...form, name: e.target.value })}
-                                placeholder="Enter student's full name"
-                            />
-                        </FormGroup>
-
-                        <FormGroup label="Registration Number" error={errorDictionary.reg}>
-                            <TextInput
-                                iconLeft="fa-id-card"
-                                value={form.reg}
-                                onChange={e => setForm({ ...form, reg: e.target.value })}
-                                placeholder="e.g. CIIT/FA21-BCS-001/ATD"
-                            />
-                        </FormGroup>
-
-                        <FormGroup label="Institutional Email" error={errorDictionary.email}>
-                            <TextInput
-                                iconLeft="fa-envelope"
-                                type="email"
-                                value={form.email}
-                                onChange={e => setForm({ ...form, email: e.target.value })}
-                                placeholder="student@cuiatd.edu.pk"
-                            />
-                        </FormGroup>
-
-                        <FormGroup label="Current Semester">
-                            <SelectInput
-                                iconLeft="fa-list-ol"
-                                value={form.semester}
-                                onChange={e => setForm({ ...form, semester: e.target.value })}
-                            >
-                                {['1', '2', '3', '4', '5', '6', '7', '8'].map(s => <option key={s} value={s}>Semester {s}</option>)}
-                            </SelectInput>
-                        </FormGroup>
-
-                        <div className="pt-4 flex gap-3">
-                            <Button variant="outline" block onClick={() => setShowModal(false)}>Cancel</Button>
-                            <Button variant="primary" block type="submit" loading={submitting}>
-                                Create Account
-                            </Button>
+                {/* Toggleable Onboarding Form */}
+                <div className={`transition-all duration-700 ease-in-out ${showModal ? 'max-h-[800px] opacity-100 mb-12' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
+                    <div className="bg-gradient-to-br from-gray-50 to-white rounded-[32px] p-8 border border-gray-100 shadow-inner">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+                                <i className="fas fa-id-card-clip text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-gray-800 tracking-tight">Manual Onboarding</h3>
+                                <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">Enrollment verified via Internship Office</p>
+                            </div>
                         </div>
-                    </form>
-                </Modal>
-            )}
+
+                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+                            <FormGroup label="Full Name" error={errorDictionary.name} className="lg:col-span-1">
+                                <TextInput
+                                    iconLeft="fa-user"
+                                    value={form.name}
+                                    onChange={e => setForm({ ...form, name: e.target.value })}
+                                    placeholder="Enter full name"
+                                    className="rounded-xl border-gray-100 bg-white"
+                                />
+                            </FormGroup>
+
+                            <FormGroup label="Registration Number" error={errorDictionary.reg}>
+                                <TextInput
+                                    iconLeft="fa-fingerprint"
+                                    value={form.reg}
+                                    onChange={e => setForm({ ...form, reg: e.target.value })}
+                                    placeholder="FA21-BCS-001"
+                                    className="rounded-xl border-gray-100 bg-white"
+                                />
+                            </FormGroup>
+
+                            <FormGroup label="Institutional Email" error={errorDictionary.email}>
+                                <TextInput
+                                    iconLeft="fa-envelope"
+                                    type="email"
+                                    value={form.email}
+                                    onChange={e => setForm({ ...form, email: e.target.value })}
+                                    placeholder="name@cuiatd.edu.pk"
+                                    className="rounded-xl border-gray-100 bg-white"
+                                />
+                            </FormGroup>
+
+                            <FormGroup label="Semester">
+                                <div className="flex gap-2">
+                                    <SelectInput
+                                        iconLeft="fa-layer-group"
+                                        value={form.semester}
+                                        onChange={e => setForm({ ...form, semester: e.target.value })}
+                                        className="rounded-xl border-gray-100 bg-white flex-1"
+                                    >
+                                        {['1', '2', '3', '4', '5', '6', '7', '8'].map(s => <option key={s} value={s}>Sem {s}</option>)}
+                                    </SelectInput>
+                                    <Button
+                                        variant="primary"
+                                        type="submit"
+                                        loading={submitting}
+                                        className="rounded-xl px-6 bg-gray-900 border-0 shadow-lg"
+                                    >
+                                        Enroll
+                                    </Button>
+                                </div>
+                            </FormGroup>
+                        </form>
+                    </div>
+                </div>
+
+                <div className="border-t border-gray-50 pt-8">
+                    <DataTable columns={columns} data={students} />
+                </div>
+            </div>
         </div>
     );
 }
+

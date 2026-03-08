@@ -60,6 +60,49 @@ router.get('/registration-stats', protect, isManagement, async (req, res) => {
     }
 });
 
+// @route   GET api/analytics/request-stats
+// @desc    Get stats for Phase 2: Eligible Students vs Submitted Requests
+router.get('/request-stats', protect, isManagement, async (req, res) => {
+    try {
+        const students = await User.find({ role: 'student' });
+
+        const eligibleSemesters = ['4', '5', '6', '7', '8'];
+        let eligibleCount = 0;
+        let submittedCount = 0;
+        let approvedCount = 0;
+        let pendingCount = 0;
+
+        students.forEach(s => {
+            const semOk = eligibleSemesters.includes(s.semester);
+            const verified = s.status !== 'unverified';
+            const cgpaVal = parseFloat(s.cgpa) || 0;
+            const cgpaOk = cgpaVal >= 2.0;
+
+            if (semOk && verified && cgpaOk) {
+                eligibleCount++;
+
+                const hasSubmitted = s.status === 'Internship Request Submitted' || s.status === 'Internship Approved' || s.status.includes('Agreement');
+                const isApproved = s.status === 'Internship Approved' || s.status.includes('Agreement');
+
+                if (hasSubmitted) submittedCount++;
+                if (isApproved) approvedCount++;
+                if (!hasSubmitted) pendingCount++;
+            }
+        });
+
+        res.json({
+            eligible: eligibleCount,
+            submitted: submittedCount,
+            approved: approvedCount,
+            pending: pendingCount, // pending submission
+            completionRate: eligibleCount > 0 ? ((submittedCount / eligibleCount) * 100).toFixed(0) : 0
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET api/analytics/summary
 // @desc    Get counts and summary stats for dashboard cards
 router.get('/summary', protect, isManagement, async (req, res) => {

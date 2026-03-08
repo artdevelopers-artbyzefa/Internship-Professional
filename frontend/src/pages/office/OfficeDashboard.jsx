@@ -5,6 +5,7 @@ import RegistrationDetails from '../../components/management/RegistrationDetails
 export default function OfficeDashboard({ user }) {
   const [summary, setSummary] = useState(null);
   const [regStats, setRegStats] = useState(null);
+  const [reqStats, setReqStats] = useState(null);
   const [activePhase, setActivePhase] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,6 +20,12 @@ export default function OfficeDashboard({ user }) {
         setSummary(sumData);
         setRegStats(statsData);
         setActivePhase(phaseData);
+
+        // Fetch phase-specific stats if moving to Phase 2
+        if (phaseData?.key === 'request_submission' || phaseData?.order >= 2) {
+          const reqData = await apiRequest('/analytics/request-stats');
+          setReqStats(reqData);
+        }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -44,7 +51,7 @@ export default function OfficeDashboard({ user }) {
         </div>
       </div>
 
-      {/* ── Phase 1: Registration Stats (Priority) ── */}
+      {/* ── Phase 1: Registration Stats ── */}
       {activePhase?.key === 'registration' && regStats && (
         <div className="bg-white rounded-2xl shadow-sm border-2 border-primary/20 p-4 md:p-8 overflow-hidden relative mb-6">
           <div className="absolute top-0 right-0 p-3">
@@ -82,6 +89,49 @@ export default function OfficeDashboard({ user }) {
             <div className="p-4 md:p-5 bg-amber-50 rounded-2xl border border-amber-100 text-center lg:text-left col-span-2 lg:col-span-1">
               <div className="text-2xl md:text-3xl font-black text-amber-600 mb-1">{regStats.siteSupervisorCount}</div>
               <div className="text-[9px] md:text-[10px] font-bold text-amber-400 uppercase tracking-widest leading-tight">Site Supervisors</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 2: Internship Request Stats ── */}
+      {activePhase?.key === 'request_submission' && reqStats && (
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-secondary/20 p-4 md:p-8 overflow-hidden relative mb-6">
+          <div className="absolute top-0 right-0 p-3">
+            <span className="px-3 py-1 bg-secondary/10 text-secondary text-[10px] font-black rounded-full tracking-widest uppercase">
+              Phase: Internship Requests
+            </span>
+          </div>
+          <div className="flex items-center gap-4 mb-6 md:mb-8 mt-4 md:mt-0">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary text-lg md:text-xl">
+              <i className="fas fa-file-arrow-up"></i>
+            </div>
+            <div>
+              <h3 className="text-base md:text-lg font-black text-gray-800">Student Submission Tracking</h3>
+              <p className="text-[10px] md:text-sm text-gray-400 font-medium tracking-tight">Monitoring internship preferences (AppEx-A) for eligible students.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+            <div className="p-4 md:p-5 bg-blue-50 rounded-2xl border border-blue-100">
+              <div className="text-2xl md:text-3xl font-black text-blue-600 mb-1">{reqStats.eligible}</div>
+              <div className="text-[9px] md:text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-tight">Eligible Count</div>
+            </div>
+            <div className="p-4 md:p-5 bg-indigo-50 rounded-2xl border border-indigo-100">
+              <div className="text-2xl md:text-3xl font-black text-indigo-600 mb-1">{reqStats.submitted}</div>
+              <div className="text-[9px] md:text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-tight">Received AppEx-A</div>
+            </div>
+            <div className="p-4 md:p-5 bg-amber-50 rounded-2xl border border-amber-100">
+              <div className="text-2xl md:text-3xl font-black text-amber-600 mb-1">{reqStats.pending}</div>
+              <div className="text-[9px] md:text-[10px] font-bold text-amber-400 uppercase tracking-widest leading-tight">Unsubmitted</div>
+            </div>
+            <div className="p-4 md:p-5 bg-emerald-50 rounded-2xl border border-emerald-100">
+              <div className="text-2xl md:text-3xl font-black text-emerald-600 mb-1">{reqStats.approved}</div>
+              <div className="text-[9px] md:text-[10px] font-bold text-emerald-400 uppercase tracking-widest leading-tight">OFFICIALLY Approved</div>
+            </div>
+            <div className="p-4 md:p-5 bg-gray-900 rounded-2xl border border-gray-800 text-white">
+              <div className="text-2xl md:text-3xl font-black mb-1">{reqStats.completionRate}%</div>
+              <div className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight">Onboarding Progress</div>
             </div>
           </div>
         </div>
