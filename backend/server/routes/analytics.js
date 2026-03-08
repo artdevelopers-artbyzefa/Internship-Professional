@@ -71,6 +71,10 @@ router.get('/request-stats', protect, isManagement, async (req, res) => {
         let submittedCount = 0;
         let approvedCount = 0;
         let pendingCount = 0;
+        const typeBreakdown = { self: 0, university: 0 };
+        const modeBreakdown = { onsite: 0, remote: 0, hybrid: 0, freelance: 0 };
+        const facultySupSet = new Set();
+        const siteSupSet = new Set();
 
         students.forEach(s => {
             const semOk = eligibleSemesters.includes(s.semester);
@@ -81,10 +85,33 @@ router.get('/request-stats', protect, isManagement, async (req, res) => {
             if (semOk && verified && cgpaOk) {
                 eligibleCount++;
 
-                const hasSubmitted = s.status === 'Internship Request Submitted' || s.status === 'Internship Approved' || s.status.includes('Agreement');
-                const isApproved = s.status === 'Internship Approved' || s.status.includes('Agreement');
+                const hasSubmitted = s.status === 'Internship Request Submitted' ||
+                    s.status === 'Internship Approved' ||
+                    s.status.includes('Agreement') ||
+                    s.status === 'Assigned';
 
-                if (hasSubmitted) submittedCount++;
+                const isApproved = s.status === 'Internship Approved' ||
+                    s.status.includes('Agreement Approved') ||
+                    s.status === 'Assigned';
+
+                if (hasSubmitted) {
+                    submittedCount++;
+
+                    // Placement Type Breakdown
+                    if (s.internshipRequest?.type === 'Self') typeBreakdown.self++;
+                    else if (s.internshipRequest?.type === 'University Assigned') typeBreakdown.university++;
+
+                    // Mode Breakdown
+                    const mode = s.internshipRequest?.mode?.toLowerCase();
+                    if (mode && modeBreakdown.hasOwnProperty(mode)) {
+                        modeBreakdown[mode]++;
+                    }
+
+                    // Supervisor tracking
+                    if (s.assignedFaculty) facultySupSet.add(s.assignedFaculty.toString());
+                    if (s.assignedCompanySupervisor) siteSupSet.add(s.assignedCompanySupervisor);
+                }
+
                 if (isApproved) approvedCount++;
                 if (!hasSubmitted) pendingCount++;
             }
@@ -95,7 +122,15 @@ router.get('/request-stats', protect, isManagement, async (req, res) => {
             submitted: submittedCount,
             approved: approvedCount,
             pending: pendingCount, // pending submission
-            completionRate: eligibleCount > 0 ? ((submittedCount / eligibleCount) * 100).toFixed(0) : 0
+            completionRate: eligibleCount > 0 ? ((submittedCount / eligibleCount) * 100).toFixed(0) : 0,
+            breakdowns: {
+                type: typeBreakdown,
+                mode: modeBreakdown
+            },
+            supervisors: {
+                faculty: facultySupSet.size,
+                site: siteSupSet.size
+            }
         });
     } catch (err) {
         console.error(err);
