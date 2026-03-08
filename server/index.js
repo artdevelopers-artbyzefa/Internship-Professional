@@ -38,11 +38,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Database Connection
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('MongoDB Connected to DIMS Database'))
-    .catch(err => console.error('MongoDB Connection Error:', err));
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
