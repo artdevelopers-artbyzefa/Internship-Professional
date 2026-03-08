@@ -203,7 +203,7 @@ export const sendAssignmentConfirmationEmail = async (studentEmail, studentName,
  */
 export const sendFacultyPasswordResetEmail = async (email, tempPassword, name) => {
   const mailOptions = {
-    from: `"Supervisor Support" <${process.env.EMAIL_USER}>`,
+    from: `"CS-Internship Office CUIATD" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: 'Administrative Action: Password Reset for DIMS',
     html: `
