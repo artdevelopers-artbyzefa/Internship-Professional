@@ -5,6 +5,7 @@ export default function InternshipStatus({ user }) {
     const status = user.status || 'verified';
     const req = user.internshipRequest;
     const isSubmitted = !!req?.submittedAt;
+    const isOfficiallyAssigned = status === 'Assigned' || (user.assignedCompany && user.assignedFaculty && user.assignedCompanySupervisor);
 
     // Collect all chronological events that have ACTUALLY happened
     const events = [];
@@ -97,46 +98,26 @@ export default function InternshipStatus({ user }) {
         });
     }
 
-    // 7. AppEx-B / Final Assignment
-    if (status === 'Agreement Approved') {
-        events.push({
-            id: 'agreement_approved',
-            title: 'AppEx-B Approved',
-            desc: 'Your legal agreement was verified.',
-            icon: 'fa-file-signature',
-            color: 'emerald'
-        });
-    } else if (status === 'Agreement Rejected') {
-        events.push({
-            id: 'agreement_rejected',
-            title: 'AppEx-B Rejected',
-            desc: 'There was an issue with your legal agreement.',
-            icon: 'fa-triangle-exclamation',
-            color: 'rose',
-            isError: true
-        });
-    }
-
-    if (status === 'Assigned') {
+    // 7. Placement Confirmed (If officially assigned)
+    if (isOfficiallyAssigned || status === 'Assigned') {
         events.push({
             id: 'final_placement',
-            title: 'Final Placement Confirmed',
-            desc: 'You are officially assigned and enrolled in your internship!',
+            title: 'Internship Assigned & Confirmed',
+            desc: 'You are officially enrolled and assigned to your internship placement!',
             icon: 'fa-briefcase',
             color: 'primary'
         });
     }
 
     // Determine what the overall telemetry ring should look like
-    let progress = 15; // reg
-    if (isSubmitted) progress = 30;
-    if (user.assignedCompany || user.assignedCompanySupervisor || req?.facultyStatus === 'Accepted') progress = 50;
-    if (status === 'Internship Approved') progress = 65;
-    if (status.includes('Agreement')) progress = 85;
-    if (status === 'Assigned') progress = 100;
+    let progress = 15;
+    if (isSubmitted) progress = 40;
+    if (user.assignedCompany || user.assignedCompanySupervisor || req?.facultyStatus === 'Accepted') progress = 70;
+    if (status === 'Internship Approved') progress = 90;
+    if (isOfficiallyAssigned) progress = 100;
 
     const hasError = events.some(e => e.isError);
-    const isComplete = status === 'Assigned';
+    const isComplete = isOfficiallyAssigned || status === 'Assigned';
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
@@ -244,10 +225,12 @@ export default function InternshipStatus({ user }) {
 
                             <div className="flex-1 rounded-2xl border border-gray-100 bg-gray-50/50 p-5 mt-[-4px]">
                                 <h3 className="text-base font-black tracking-tight text-gray-700 mb-1">
-                                    {(isSubmitted && req?.facultyStatus !== 'Pending') ? 'Waiting for updates from Internship Office' : 'Awaiting Review & Processing'}
+                                    {status === 'Internship Approved' ? 'Placement Secured — Awaiting Enrollment' :
+                                        (isSubmitted && req?.facultyStatus !== 'Pending') ? 'Official Review in Progress' : 'Awaiting Faculty Response'}
                                 </h3>
                                 <p className="text-sm font-medium text-gray-500">
-                                    The relevant authorities will update your status as your request is processed.
+                                    {status === 'Internship Approved' ? 'Your placement details are verified. The department will officially enroll you soon. No further action is required from your side.' :
+                                        'The relevant authorities will update your status as your request is processed.'}
                                 </p>
                             </div>
                         </div>

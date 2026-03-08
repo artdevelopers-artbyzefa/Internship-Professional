@@ -148,6 +148,17 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
                 )}
             </div>
 
+            {req?.siteSupervisorName && (
+                <div className="text-[10px] text-gray-400 font-medium bg-gray-50 rounded-xl p-3 border border-gray-100">
+                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest block mb-1 text-center">Student Proposed Details</span>
+                    <div className="grid grid-cols-1 gap-1">
+                        <p className="truncate"><i className="fas fa-user w-4 text-gray-300"></i> {req.siteSupervisorName}</p>
+                        {req.siteSupervisorEmail && <p className="truncate"><i className="fas fa-envelope w-4 text-gray-300"></i> {req.siteSupervisorEmail}</p>}
+                        {req.siteSupervisorPhone && <p className="truncate"><i className="fas fa-phone w-4 text-gray-300"></i> {req.siteSupervisorPhone}</p>}
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-2">
                 {[
                     { label: 'Name', val: sName, set: setSName, icon: 'fa-user', ph: 'Supervisor name' },
@@ -239,7 +250,7 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
 // ───────────────────────────────────────────────
 function FacultyColumn({ student, officeId, faculties, onRefresh }) {
     const req = student.internshipRequest;
-    const [checkResult, setCheckResult] = useState(null); // { found, faculty }
+    const [checkResult, setCheckResult] = useState(null); // {found, faculty}
     const [checking, setChecking] = useState(false);
     const [assigning, setAssigning] = useState(false);
     const [manualFacultyId, setManualFacultyId] = useState('');
@@ -690,6 +701,9 @@ export default function InternshipRequestsManager({ user }) {
                                                 </td>
                                                 <td className="py-4 pr-4">
                                                     <span className={`text-[9px] font-black px-2.5 py-1 rounded-full border ${sCfg.bg} ${sCfg.text} ${sCfg.border}`}>{sCfg.label}</span>
+                                                    {s.status === 'Internship Request Submitted' && (s.assignedCompany || s.assignedFaculty) && (
+                                                        <span className="ml-1 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-blue-500 text-white uppercase tracking-tighter shadow-sm" title="This student updated their request after a previous approval/assignment.">Update</span>
+                                                    )}
                                                 </td>
                                                 <td className="py-4 text-xs text-gray-400 font-medium whitespace-nowrap">{submittedDate}</td>
                                             </tr>

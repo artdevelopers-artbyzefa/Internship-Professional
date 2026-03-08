@@ -15,6 +15,8 @@ export default function ForgotPage({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   const handleSendCode = async () => {
     if (!validate.email(email)) return setError('Please enter a valid institutional email.');
@@ -145,7 +147,9 @@ export default function ForgotPage({ onBack }) {
                 <FormGroup label="New Password">
                   <TextInput
                     iconLeft="fa-lock"
-                    type="password"
+                    iconRight={showPw ? "fa-eye-slash" : "fa-eye"}
+                    onToggleRight={() => setShowPw(!showPw)}
+                    type={showPw ? "text" : "password"}
                     placeholder="Min 8 characters"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -154,7 +158,9 @@ export default function ForgotPage({ onBack }) {
                 <FormGroup label="Confirm Password">
                   <TextInput
                     iconLeft="fa-shield-halved"
-                    type="password"
+                    iconRight={showConfirmPw ? "fa-eye-slash" : "fa-eye"}
+                    onToggleRight={() => setShowConfirmPw(!showConfirmPw)}
+                    type={showConfirmPw ? "text" : "password"}
                     placeholder="Re-enter password"
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}

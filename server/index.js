@@ -31,7 +31,6 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allows all origins (simulated '*' but compatible with credentials)
         callback(null, true);
     },
     credentials: true,

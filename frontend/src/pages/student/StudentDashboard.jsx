@@ -116,7 +116,9 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
 
   // Decision logic for Phase 2+ progress
   const facultyRejected = user.internshipRequest?.facultyStatus === 'Rejected';
-  const isRequestSubmitted = (user.status === 'Internship Request Submitted' || user.status === 'Internship Approved' || user.status.includes('Agreement')) && !facultyRejected;
+  const isOfficiallyAssigned = user.status === 'Assigned' || (user.assignedCompany && user.assignedFaculty && user.assignedCompanySupervisor);
+  // Check if request is in a final state that doesn't NEED a new submission (but can still be viewed)
+  const isRequestInLog = (user.status === 'Internship Request Submitted' || user.status === 'Internship Approved' || user.status.includes('Agreement') || user.status === 'Assigned') && !facultyRejected;
 
   // ── PHASE 2+: WORKFLOW & ONBOARDING DESIGN ──
   const Phase2PlusDashboard = () => (
@@ -160,36 +162,34 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
 
       {/* Dynamic Workflow Trigger Card */}
       {!isLocked && (
-        <div className={`p-8 rounded-[2.5rem] border-2 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all shadow-xl mb-8 ${isRequestSubmitted ? 'bg-emerald-50/50 border-emerald-100 shadow-emerald-50/50' : 'bg-primary/5 border-primary/10 shadow-primary/5'}`}>
+        <div className={`p-8 rounded-[2.5rem] border-2 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all shadow-xl mb-8 ${isRequestInLog ? 'bg-emerald-50/50 border-emerald-100 shadow-emerald-50/50' : 'bg-primary/5 border-primary/10 shadow-primary/5'}`}>
           <div className="flex items-center gap-6">
-            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white text-3xl shadow-2xl ${isRequestSubmitted ? 'bg-emerald-500 rotate-3' : 'bg-primary -rotate-3'}`}>
-              <i className={`fas ${isRequestSubmitted ? 'fa-clipboard-check' : 'fa-rocket'}`}></i>
+            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white text-3xl shadow-2xl ${isRequestInLog ? 'bg-emerald-500 rotate-3' : 'bg-primary -rotate-3'}`}>
+              <i className={`fas ${isRequestInLog ? 'fa-clipboard-check' : 'fa-rocket'}`}></i>
             </div>
             <div>
               <h4 className="text-2xl font-black text-gray-800 tracking-tight">
-                {isRequestSubmitted ? 'Application Transmitted' : facultyRejected ? 'Reassignment Required' : 'Initialize Workflow'}
+                {isOfficiallyAssigned ? 'Final Placement Confirmed' : isRequestInLog ? (user.status === 'Internship Approved' ? 'Internship Approved' : 'Application Transmitted') : facultyRejected ? 'Reassignment Required' : 'Initialize Workflow'}
               </h4>
               <p className="text-sm text-gray-500 font-medium mt-1 max-w-sm">
-                {isRequestSubmitted
-                  ? 'Your AppEx-A request is currently under departmental review. Monitor your status page for updates.'
-                  : facultyRejected
-                    ? 'Your supervision request was rejected. Please resubmit your form with an available faculty member.'
-                    : 'The mandatory Internship Request (AppEx-A) module is now active. Submit your preferences immediately.'}
+                {isOfficiallyAssigned
+                  ? 'Your placement has been officially locked and confirmed by the Internship Office. Enrollment is complete.'
+                  : isRequestInLog
+                    ? user.status === 'Internship Approved'
+                      ? 'Congratulations! Your placement has been approved. You can still view or update your request if needed.'
+                      : 'Your AppEx-A request is currently under departmental review. You can view or refine your details.'
+                    : facultyRejected
+                      ? 'Your supervision request was rejected. Please resubmit your form with an available faculty member.'
+                      : 'The mandatory Internship Request (AppEx-A) module is now active. Submit your preferences immediately.'}
               </p>
             </div>
           </div>
 
-          {!isRequestSubmitted ? (
-            <a href="/student/internship-assessment" className="flex-shrink-0">
-              <button className={`font-black text-xs px-10 py-5 rounded-2xl shadow-xl transition-all active:scale-95 border-0 cursor-pointer uppercase tracking-widest ${facultyRejected ? 'bg-rose-500 text-white shadow-rose-200' : 'bg-primary text-white shadow-primary/20'}`}>
-                {facultyRejected ? 'Edit Request' : 'Start Assessment'} <i className="fas fa-arrow-right ml-2 text-[10px]"></i>
-              </button>
-            </a>
-          ) : (
-            <div className="flex items-center gap-2 px-6 py-3 bg-emerald-100 text-emerald-700 rounded-full font-black text-[10px] uppercase tracking-widest border border-emerald-200">
-              <i className="fas fa-check-circle"></i> Request Logged
-            </div>
-          )}
+          <a href="/student/internship-assessment" className="flex-shrink-0">
+            <button className={`font-black text-xs px-10 py-5 rounded-2xl shadow-xl transition-all active:scale-95 border-0 cursor-pointer uppercase tracking-widest ${facultyRejected ? 'bg-rose-500 text-white shadow-rose-200' : isOfficiallyAssigned ? 'bg-primary text-white shadow-primary/20' : isRequestInLog ? 'bg-white border border-emerald-200 text-emerald-600 shadow-emerald-50' : 'bg-primary text-white shadow-primary/20'}`}>
+              {isOfficiallyAssigned ? 'View Official Details' : isRequestInLog ? 'View/Edit Request' : facultyRejected ? 'Edit Request' : 'Start Assessment'} <i className={`fas ${isOfficiallyAssigned ? 'fa-certificate' : 'fa-arrow-right'} ml-2 text-[10px]`}></i>
+            </button>
+          </a>
         </div>
       )}
 
