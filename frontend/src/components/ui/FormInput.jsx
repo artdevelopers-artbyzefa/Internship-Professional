@@ -19,7 +19,7 @@ export function InputWrap({ iconLeft, iconRight, onToggleRight, children }) {
       {children}
       {iconRight && (
         <i className={`fas ${iconRight} absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm cursor-pointer`}
-           onClick={onToggleRight}></i>
+          onClick={onToggleRight}></i>
       )}
     </div>
   );
@@ -27,9 +27,9 @@ export function InputWrap({ iconLeft, iconRight, onToggleRight, children }) {
 
 const inputBase = 'w-full border border-gray-200 rounded-xl font-poppins text-sm text-gray-700 outline-none transition-all duration-200 focus:border-secondary focus:ring-2 focus:ring-blue-500/10 py-2.5';
 
-export function TextInput({ iconLeft, iconRight, onToggleRight, type = 'text', placeholder, value, onChange, className = '' }) {
-  const pl = iconLeft  ? 'pl-9'  : 'pl-3.5';
-  const pr = iconRight ? 'pr-9'  : 'pr-3.5';
+export function TextInput({ iconLeft, iconRight, onToggleRight, type = 'text', placeholder, value, onChange, className = '', ...props }) {
+  const pl = iconLeft ? 'pl-9' : 'pl-3.5';
+  const pr = iconRight ? 'pr-9' : 'pr-3.5';
   return (
     <InputWrap iconLeft={iconLeft} iconRight={iconRight} onToggleRight={onToggleRight}>
       <input
@@ -38,12 +38,13 @@ export function TextInput({ iconLeft, iconRight, onToggleRight, type = 'text', p
         value={value}
         onChange={onChange}
         className={`${inputBase} ${pl} ${pr} ${className}`}
+        {...props}
       />
     </InputWrap>
   );
 }
 
-export function SelectInput({ iconLeft, value, onChange, children, className = '' }) {
+export function SelectInput({ iconLeft, value, onChange, children, className = '', ...props }) {
   const pl = iconLeft ? 'pl-9' : 'pl-3.5';
   return (
     <InputWrap iconLeft={iconLeft}>
@@ -51,7 +52,8 @@ export function SelectInput({ iconLeft, value, onChange, children, className = '
         value={value}
         onChange={onChange}
         className={`${inputBase} ${pl} pr-9 bg-white appearance-none ${className}`}
-        style={{ backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%236B7280'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 12px center' }}
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%236B7280'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+        {...props}
       >
         {children}
       </select>
@@ -59,7 +61,7 @@ export function SelectInput({ iconLeft, value, onChange, children, className = '
   );
 }
 
-export function TextareaInput({ value, onChange, rows = 3, placeholder, className = '' }) {
+export function TextareaInput({ value, onChange, rows = 3, placeholder, className = '', ...props }) {
   return (
     <textarea
       value={value}
@@ -67,6 +69,7 @@ export function TextareaInput({ value, onChange, rows = 3, placeholder, classNam
       rows={rows}
       placeholder={placeholder}
       className={`${inputBase} pl-3.5 pr-3.5 resize-vertical ${className}`}
+      {...props}
     />
   );
 }

@@ -56,4 +56,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`\n[${getPKTTime()}] DIMS Server effectively running on port ${PORT}`);
     console.log(`[${getPKTTime()}] Database: Connected to MongoDB`);
+    // Triggering server restart to pick up student eligibility logic changes.
 });

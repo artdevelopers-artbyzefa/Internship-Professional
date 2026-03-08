@@ -174,7 +174,13 @@ router.post('/forgot-password', async (req, res) => {
         const { email } = req.body;
         const emailLower = email.toLowerCase().trim();
 
-        const user = await User.findOne({ email: emailLower });
+        const user = await User.findOne({
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        });
+
         if (!user) {
             // Security response: don't reveal if user exists
             return res.json({ message: 'If an account exists with this email, a verification code has been sent.' });
@@ -192,7 +198,11 @@ router.post('/forgot-password', async (req, res) => {
 
         console.log(`[FORGOT-PW] Code ${code} saved for ${emailLower}, expires ${expiry}`);
 
-        await sendPasswordResetCode(emailLower, code);
+        const mailResult = await sendPasswordResetCode(emailLower, code);
+
+        if (!mailResult.success) {
+            return res.status(500).json({ message: 'Failed to send verification code. Please try again later.' });
+        }
 
         res.json({ message: 'Verification code sent to your email.' });
     } catch (err) {
@@ -273,10 +283,19 @@ router.post('/login', async (req, res) => {
         console.log(`\n[${getPKTTime()}] AUTH: Login attempt for ${email} with role ${role}`);
         const emailLower = email.toLowerCase().trim();
 
-        const user = await User.findOne({ email: emailLower });
+        // Find by primary OR secondary email
+        const user = await User.findOne({
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        });
+
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials.' });
         }
+
+        const isSecondaryLogin = user.secondaryEmail === emailLower && user.email !== emailLower;
 
         // Role Verification: Ensure user is logging into the correct portal
         if (role && user.role !== role) {
@@ -290,17 +309,31 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Please verify your email before logging in.' });
         }
 
-        if (user.role !== 'student' && user.status === 'Pending Activation') {
-            return res.status(401).json({ message: 'Your account is pending activation. Please use the nomination link sent to your email.' });
-        }
-
-        if (user.status === 'Inactive') {
-            return res.status(401).json({ message: 'Your account has been deactivated. Please contact the Internship Office.' });
-        }
-
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid credentials.' });
+        }
+
+        // Secondary Email Flow: Require OTP
+        if (isSecondaryLogin) {
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+
+            user.secondaryEmailVerificationCode = code;
+            user.secondaryEmailVerificationExpires = expiry;
+            await user.save();
+
+            // Send OTP
+            const mailResult = await sendPasswordResetCode(emailLower, code);
+            if (!mailResult.success) {
+                return res.status(500).json({ message: 'Failed to send verification code. Please try again later.' });
+            }
+
+            return res.json({
+                status: 'otp_required',
+                message: 'Verification code sent to your secondary email.',
+                secondaryEmail: emailLower
+            });
         }
 
         const token = jwt.sign(
@@ -348,6 +381,64 @@ router.post('/login', async (req, res) => {
         });
 
     } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/auth/verify-secondary
+// @desc    Verify OTP for secondary email login
+router.post('/verify-secondary', async (req, res) => {
+    try {
+        const { email, code } = req.body;
+        const user = await User.findOne({
+            secondaryEmail: email.toLowerCase().trim(),
+            secondaryEmailVerificationCode: code,
+            secondaryEmailVerificationExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired verification code.' });
+        }
+
+        // Clear code after use
+        user.secondaryEmailVerificationCode = undefined;
+        user.secondaryEmailVerificationExpires = undefined;
+
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production'
+        });
+
+        user.lastLogin = Date.now();
+        await user.save();
+
+        const populatedUser = await User.findById(user._id).populate('assignedFaculty', 'name email whatsappNumber');
+
+        res.json({
+            user: {
+                id: populatedUser._id,
+                name: populatedUser.name,
+                email: populatedUser.email,
+                secondaryEmail: populatedUser.secondaryEmail,
+                role: populatedUser.role,
+                reg: populatedUser.reg,
+                status: populatedUser.status,
+                fatherName: populatedUser.fatherName,
+                section: populatedUser.section,
+                dateOfBirth: populatedUser.dateOfBirth,
+                profilePicture: populatedUser.profilePicture,
+                assignedFaculty: populatedUser.assignedFaculty,
+                assignedCompany: populatedUser.assignedCompany,
+                assignedCompanySupervisor: populatedUser.assignedCompanySupervisor
+            }
+        });
+    } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 });

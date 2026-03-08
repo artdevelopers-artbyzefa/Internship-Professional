@@ -7,23 +7,23 @@ const REPORT_OPTIONS = [
   {
     group: 'Academic Reports',
     reports: [
-      { id: 'student-list',         label: 'Student Completion Registry',       icon: 'fa-users',              desc: 'All students with company, department, and internship status.', hasProgram: true },
-      { id: 'evaluation-summary',   label: 'Evaluation Summary Report',         icon: 'fa-star-half-stroke',   desc: 'Full marks breakdown per student per assignment, submitted by faculty.', hasProgram: true },
-      { id: 'results-by-supervisor',label: 'Results Report (by Supervisor)',    icon: 'fa-chart-bar',          desc: 'Assignment marks per student grouped by faculty supervisor, with optional single-assignment filter.', hasSupervisor: true, hasAssignment: true },
-      { id: 'assigned-students',    label: 'Assigned Students Report',          icon: 'fa-user-check',         desc: 'Students assigned under a supervisor with company, mode, and type details.', hasSupervisor: true },
+      { id: 'student-list', label: 'Student Completion Registry', icon: 'fa-users', desc: 'All students with company, department, and internship status.', hasProgram: true },
+      { id: 'evaluation-summary', label: 'Evaluation Summary Report', icon: 'fa-star-half-stroke', desc: 'Full marks breakdown per student per assignment, submitted by faculty.', hasProgram: true },
+      { id: 'results-by-supervisor', label: 'Results Report (by Supervisor)', icon: 'fa-chart-bar', desc: 'Assignment marks per student grouped by faculty supervisor, with optional single-assignment filter.', hasSupervisor: true, hasAssignment: true },
+      { id: 'assigned-students', label: 'Assigned Students Report', icon: 'fa-user-check', desc: 'Students assigned under a supervisor with company, mode, and type details.', hasSupervisor: true },
     ]
   },
   {
     group: 'Supervisor Reports',
     reports: [
-      { id: 'supervisors-overview', label: 'Supervisors Overview Report',       icon: 'fa-chalkboard-user',    desc: 'All faculty supervisors, assigned student counts, and average scores.' },
-      { id: 'faculty-workload',     label: 'Faculty Workload Report',           icon: 'fa-user-tie',           desc: 'Supervision load summary — High / Normal / Low per faculty.', hasProgram: true },
+      { id: 'supervisors-overview', label: 'Supervisors Overview Report', icon: 'fa-chalkboard-user', desc: 'All faculty supervisors, assigned student counts, and average scores.' },
+      { id: 'faculty-workload', label: 'Faculty Workload Report', icon: 'fa-user-tie', desc: 'Supervision load summary — High / Normal / Low per faculty.', hasProgram: true },
     ]
   },
   {
     group: 'Industry Reports',
     reports: [
-      { id: 'company-placement',    label: 'Company Placement Report',          icon: 'fa-building',           desc: 'Partner companies ranked by student count with placement share %.', hasProgram: true },
+      { id: 'company-placement', label: 'Company Placement Report', icon: 'fa-building', desc: 'Partner companies ranked by student count with placement share %.', hasProgram: true },
     ]
   }
 ];
@@ -59,9 +59,30 @@ function StyledSelect({ label, value, onChange, children, loading }) {
 
 export default function OfficeReports({ user }) {
   const [loading, setLoading] = useState(false);
+  const [activePhase, setActivePhase] = useState(null);
+  const [regStats, setRegStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   // Step 1 — Report type
   const [reportId, setReportId] = useState('');
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const [phase, stats] = await Promise.all([
+          apiRequest('/phases/current'),
+          apiRequest('/analytics/registration-stats')
+        ]);
+        setActivePhase(phase);
+        setRegStats(stats);
+      } catch (err) {
+        console.error('Init Error:', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    init();
+  }, []);
 
   // Step 2 — Supervisor (for results + assigned-students)
   const [supervisorId, setSupervisorId] = useState('all');
@@ -249,14 +270,14 @@ export default function OfficeReports({ user }) {
 
       // ─── Send to PDF generator ───
       const safeTitle = (payload.reportTitle || 'Report').replace(/[^\x00-\x7F]/g, '-').replace(/[\s/]+/g, '_');
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/reports/generate-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(payload)
       });
-      
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || `Server Error (${response.status})`);
@@ -286,16 +307,72 @@ export default function OfficeReports({ user }) {
       {/* ── Page Header ── */}
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Download Reports</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">Generate official COMSATS-branded PDF reports for internship records and analysis.</p>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">System Analytics & Reports</h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Generate official COMSATS PDF reports and track real-time portal statistics.</p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-500">
           <i className="fas fa-file-pdf text-red-400"></i> PDF · A4 · COMSATS Branded
         </div>
       </div>
 
+      {/* ── Phase 1: Student Registration Stats ── */}
+      {activePhase?.key === 'registration' && regStats && (
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-primary/20 p-8 overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-3">
+            <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full tracking-widest uppercase">
+              Phase 1 Active
+            </span>
+          </div>
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary text-xl">
+              <i className="fas fa-chart-line"></i>
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-gray-800">Student Registration Statistics</h3>
+              <p className="text-sm text-gray-400 font-medium">Real-time breakdown of internship eligibility during Phase 1.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="text-3xl font-black text-gray-800 mb-1">{regStats.total}</div>
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Registered</div>
+            </div>
+            <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+              <div className="text-3xl font-black text-emerald-600 mb-1">{regStats.eligible}</div>
+              <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                Eligible Students
+                <i className="fas fa-check-circle text-[10px]"></i>
+              </div>
+            </div>
+            <div className="p-6 bg-rose-50 rounded-2xl border border-rose-100">
+              <div className="text-3xl font-black text-rose-600 mb-1">{regStats.ineligible}</div>
+              <div className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2">
+                Ineligible Students
+                <i className="fas fa-times-circle text-[10px]"></i>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 flex items-start gap-3">
+            <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
+            <p className="text-xs text-blue-600 leading-relaxed font-medium">
+              Eligibility is calculated based on verified accounts from students in <b>Semesters 4-8</b> with a <b>CGPA of 2.0 or higher</b>.
+              Full reporting modules below will populate as data flows through the next phases.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Main Form Card ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+      <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-8 ${activePhase?.key === 'registration' ? 'opacity-70 grayscale shadow-none border-dashed' : ''}`}>
+
+        {activePhase?.key === 'registration' && (
+          <div className="mb-6 pb-6 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-black text-gray-400 tracking-widest uppercase">Legacy Reports (Secondary)</span>
+            <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-bold italic">Unlocks fully in Phase 2</span>
+          </div>
+        )}
 
         {/* ── STEP 1: Report Type ── */}
         <div className="mb-6">

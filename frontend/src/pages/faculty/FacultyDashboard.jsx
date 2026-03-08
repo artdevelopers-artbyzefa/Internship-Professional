@@ -1,14 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import WelcomeBanner from '../../components/ui/WelcomeBanner.jsx';
+import Card from '../../components/ui/Card.jsx';
 import { StatsGrid } from '../../components/ui/StatCard.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
+import NoticeItem from '../../components/notice/NoticeItem.jsx';
+import WelcomeBanner from '../../components/ui/WelcomeBanner.jsx';
 import { apiRequest } from '../../utils/api.js';
 
-export default function FacultyDashboard({ user }) {
-  const [activePhase, setActivePhase] = useState(undefined); // undefined = loading
+export default function FacultyDashboard({ user, activePhase: propPhase }) {
+  const [activePhase, setActivePhase] = useState(propPhase || undefined); // use prop or fallback
   const [allPhases, setAllPhases] = useState([]);
+  const [notices, setNotices] = useState([]);
 
-  useEffect(() => { fetchPhase(); }, []);
+  useEffect(() => {
+    if (!propPhase) fetchPhase();
+    else fetchAllPhases();
+    fetchNotices();
+  }, [propPhase]);
+
+  const fetchNotices = async () => {
+    try {
+      const data = await apiRequest('/notices/my');
+      setNotices(data);
+    } catch (err) {
+      console.error('Failed to fetch notices:', err);
+    }
+  };
 
   const fetchPhase = async () => {
     try {
@@ -23,9 +39,15 @@ export default function FacultyDashboard({ user }) {
     }
   };
 
-  // Find phase 1 specifically
-  const phase1 = allPhases.find(p => p.key === 'registration');
-  const phase1Done = phase1?.status === 'completed';
+  const fetchAllPhases = async () => {
+    try {
+      const phases = await apiRequest('/phases');
+      setAllPhases(phases);
+    } catch (err) { }
+  };
+
+  // Lock logic: Full dashboard activates after Phase 6 (order >= 7)
+  const isLocked = activePhase !== undefined && (!activePhase || activePhase.order < 7);
   const isPhase1Active = activePhase?.key === 'registration';
   const noPhaseActive = activePhase === null;
 
@@ -52,43 +74,30 @@ export default function FacultyDashboard({ user }) {
 
       <NoticeModal />
 
-      {/* ── Phase 1 Waiting Banner ── */}
-      {activePhase !== undefined && (isPhase1Active || noPhaseActive) && (
-        <div className={`rounded-2xl border-2 overflow-hidden ${isPhase1Active ? 'border-amber-200' : 'border-gray-200'
-          }`}>
-          <div className={`p-6 flex items-start gap-4 ${isPhase1Active ? 'bg-amber-50' : 'bg-gray-50'
-            }`}>
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl ${isPhase1Active ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'
-              }`}>
+      {/* ── Waiting Banner ── */}
+      {isLocked && (
+        <div className={`rounded-2xl border-2 overflow-hidden ${!noPhaseActive ? 'border-amber-200' : 'border-gray-200'}`}>
+          <div className={`p-6 flex items-start gap-4 ${!noPhaseActive ? 'bg-amber-50' : 'bg-gray-50'}`}>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl ${!noPhaseActive ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>
               <i className="fas fa-hourglass-half"></i>
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded-full border ${isPhase1Active
-                    ? 'bg-amber-100 text-amber-700 border-amber-200'
-                    : 'bg-gray-100 text-gray-500 border-gray-200'
-                  }`}>
-                  PHASE 1 — STUDENT REGISTRATION
+                <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded-full border ${!noPhaseActive ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                  {activePhase?.label?.toUpperCase() || 'PHASE 1 — STUDENT REGISTRATION'}
                 </span>
-                {isPhase1Active && (
+                {!noPhaseActive && (
                   <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-white border border-amber-200 px-2 py-0.5 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                     In Progress
                   </span>
                 )}
-                {noPhaseActive && (
-                  <span className="text-[10px] font-bold text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
-                    Not Started
-                  </span>
-                )}
               </div>
-              <h3 className={`text-base font-black ${isPhase1Active ? 'text-amber-900' : 'text-gray-600'}`}>
-                {isPhase1Active
-                  ? 'Student Registration Phase is Currently Underway'
-                  : 'Internship Cycle Has Not Started Yet'}
+              <h3 className={`text-base font-black ${!noPhaseActive ? 'text-amber-900' : 'text-gray-600'}`}>
+                {!noPhaseActive ? `${activePhase.label} Phase is Currently Underway` : 'Internship Cycle Has Not Started Yet'}
               </h3>
-              <p className={`text-sm mt-1 ${isPhase1Active ? 'text-amber-700' : 'text-gray-400'}`}>
-                {isPhase1Active
+              <p className={`text-sm mt-1 ${!noPhaseActive ? 'text-amber-700' : 'text-gray-400'}`}>
+                {!noPhaseActive
                   ? 'The Internship Office is onboarding eligible students. Your supervisor dashboard will activate once students are assigned to you after Phase 6.'
                   : 'The Internship Office has not initiated any phase yet. You will be notified when a cycle begins.'}
               </p>
@@ -96,23 +105,18 @@ export default function FacultyDashboard({ user }) {
           </div>
 
           {/* Phase progression preview */}
-          {isPhase1Active && allPhases.length > 0 && (
+          {!noPhaseActive && allPhases.length > 0 && (
             <div className="bg-white border-t border-amber-100 p-4 px-6">
               <p className="text-[10px] font-black text-gray-400 tracking-widest mb-3">UPCOMING PHASES</p>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {allPhases.map((p, idx) => (
                   <div key={p._id} className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border text-center min-w-[90px] ${p.status === 'active' ? 'bg-amber-50 border-amber-200' :
-                      p.status === 'completed' ? 'bg-blue-50 border-blue-200' :
-                        'bg-gray-50 border-gray-100'
-                    }`}>
+                    p.status === 'completed' ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}>
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${p.status === 'active' ? 'bg-amber-400 text-white' :
-                        p.status === 'completed' ? 'bg-blue-500 text-white' :
-                          'bg-gray-200 text-gray-500'
-                      }`}>
+                      p.status === 'completed' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
                       {p.status === 'completed' ? <i className="fas fa-check text-[8px]"></i> : p.order}
                     </div>
-                    <span className={`text-[9px] font-bold leading-tight ${p.status === 'active' ? 'text-amber-700' : p.status === 'completed' ? 'text-blue-600' : 'text-gray-400'
-                      }`}>{p.label}</span>
+                    <span className={`text-[9px] font-bold leading-tight ${p.status === 'active' ? 'text-amber-700' : p.status === 'completed' ? 'text-blue-600' : 'text-gray-400'}`}>{p.label}</span>
                   </div>
                 ))}
               </div>
@@ -121,12 +125,43 @@ export default function FacultyDashboard({ user }) {
         </div>
       )}
 
-      <StatsGrid stats={[
-        { icon: 'fa-users', cls: 'blue', val: 'Active', label: 'Assigned Students' },
-        { icon: 'fa-file-lines', cls: 'green', val: 'Ready', label: 'Assignments Reviewed' },
-        { icon: 'fa-clipboard-list', cls: 'yellow', val: 'Pending', label: 'Evaluations' },
-        { icon: 'fa-award', cls: 'purple', val: 'Track', label: 'Results' },
-      ]} />
+      {!isLocked && (
+        <StatsGrid stats={[
+          { icon: 'fa-users', cls: 'blue', val: 'Active', label: 'Assigned Students' },
+          { icon: 'fa-file-lines', cls: 'green', val: 'Ready', label: 'Assignments Reviewed' },
+          { icon: 'fa-clipboard-list', cls: 'yellow', val: 'Pending', label: 'Evaluations' },
+          { icon: 'fa-award', cls: 'purple', val: 'Track', label: 'Results' },
+        ]} />
+      )}
+
+      {/* ── Announcements Section (Always Visible) ── */}
+      <Card title="Updates from Internship Office" icon="fa-bullhorn" className="border-l-4 border-l-blue-500">
+        {notices.length > 0 ? (
+          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            {notices.map(notice => (
+              <NoticeItem key={notice._id} notice={notice} />
+            ))}
+          </div>
+        ) : (
+          <div className="py-10 text-center text-gray-400 italic text-sm">
+            <i className="fas fa-comment-slash text-2xl mb-3 block opacity-20"></i>
+            No recent updates from the Internship Office.
+          </div>
+        )}
+      </Card>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 }

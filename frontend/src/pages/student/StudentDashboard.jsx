@@ -3,10 +3,32 @@ import Card from '../../components/ui/Card.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
+import NoticeItem from '../../components/notice/NoticeItem.jsx'; // Added import
+import { apiRequest } from '../../utils/api.js';
 
-export default function StudentDashboard({ user }) {
+export default function StudentDashboard({ user, isEligible, isPhase1 }) {
   const [showAlert, setShowAlert] = React.useState(true);
   const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
+
+  // They are completely locked down if they are ineligible during Phase 1
+  const isLocked = isPhase1 && !isEligible;
+
+  const [notices, setNotices] = React.useState([]);
+  const [loadingNotices, setLoadingNotices] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const data = await apiRequest('/notices/my');
+        if (data) setNotices(data);
+      } catch (err) {
+        console.error('Announcements Fetch Error:', err);
+      } finally {
+        setLoadingNotices(false);
+      }
+    };
+    fetchNotices();
+  }, []);
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -64,10 +86,10 @@ export default function StudentDashboard({ user }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+      <div className="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student Dashboard</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">Institutional profile and academic overview at CUI Abbottabad.</p>
+          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Student Dashboard</h2>
+          <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Institutional profile and academic overview at CUI Abbottabad.</p>
         </div>
       </div>
 
@@ -76,7 +98,7 @@ export default function StudentDashboard({ user }) {
       {/* Phase 1 Eligibility Banner — only visible when registration phase is active */}
       <Phase1EligibilityBanner user={user} />
 
-      {(!isProfileComplete && showAlert) && (
+      {(!isProfileComplete && showAlert && !isLocked) && (
         <Alert type="error" className="mb-8" onClose={() => setShowAlert(false)}>
           <div className="flex items-center justify-between">
             <span><strong>Profile Incomplete:</strong> Please update your Father's Name, Section, Date of Birth, and Profile Picture to unlock all portal features.</span>
@@ -84,40 +106,44 @@ export default function StudentDashboard({ user }) {
         </Alert>
       )}
 
-      <ProfileTable />
+      {!isLocked && <ProfileTable />}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <Card className="border-l-4 border-l-blue-500">
-            <h3 className="text-sm font-black text-primary tracking-widest mb-4 flex items-center justify-between">
-              <span><i className="fas fa-bullhorn text-secondary mr-2"></i> Announcements</span>
-              <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Recent</span>
+      <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
+          <Card className="border-l-4 border-l-blue-500 shadow-xl border-primary/10">
+            <h3 className="text-sm font-black text-primary tracking-widest mb-6 flex items-center justify-between px-2">
+              <span><i className="fas fa-bullhorn text-secondary mr-2"></i> Official Announcements</span>
+              <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase font-black tracking-widest">
+                {notices.length} New Feed
+              </span>
             </h3>
-            <div className="py-10 text-center text-gray-400 italic text-sm">
-              No recent announcements from the Internship Office.
+
+            <div className="space-y-4">
+              {loadingNotices ? (
+                <div className="py-20 text-center">
+                  <i className="fas fa-circle-notch fa-spin text-3xl text-primary/20 mb-4"></i>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Syncing Feed...</p>
+                </div>
+              ) : notices.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {notices.map(notice => (
+                    <NoticeItem key={notice._id} notice={notice} />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-16 text-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 mx-2">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                    <i className="fas fa-check-double text-gray-200 text-2xl"></i>
+                  </div>
+                  <p className="text-sm font-bold text-gray-400">All caught up! No recent announcements.</p>
+                  <p className="text-[10px] text-gray-300 uppercase tracking-widest mt-1">Check back later for updates</p>
+                </div>
+              )}
             </div>
           </Card>
         </div>
-
-        <Card title="Portal Quick Links" className="h-full">
-          <div className="space-y-2">
-            <QuickLink icon="fa-user-pen" label="Update My Profile" path="/student/profile" color="blue" />
-            <QuickLink icon="fa-file-signature" label="Internship Approval" path="/student/request" color="green" />
-            <QuickLink icon="fa-file-contract" label="Student Agreement" path="/student/agreement" color="amber" />
-            <QuickLink icon="fa-chart-pie" label="Academic Results" path="/student/results" color="purple" />
-          </div>
-        </Card>
       </div>
     </div>
   );
 }
 
-const QuickLink = ({ icon, label, path, color }) => (
-  <a href={path} className={`flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-gray-100 hover:bg-gray-50 transition-all group`}>
-    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs shadow-sm bg-white border group-hover:scale-110 transition-transform`}>
-      <i className={`fas ${icon} text-${color}-500`}></i>
-    </div>
-    <span className="text-sm font-bold text-gray-600 group-hover:text-primary transition-colors">{label}</span>
-    <i className="fas fa-chevron-right ml-auto text-[10px] text-gray-300"></i>
-  </a>
-);
