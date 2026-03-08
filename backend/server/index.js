@@ -53,9 +53,21 @@ app.use('/api/supervisor', supervisorRoutes);
 
 // Simple Health Check
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
+app.get('/', (req, res) => res.json({ message: 'DIMS Backend Running on Vercel' }));
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`\n[${getPKTTime()}] DIMS Server effectively running on port ${PORT}`);
-    console.log(`[${getPKTTime()}] Database: Connected to MongoDB`);
-});
+// Database Connection
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('MongoDB Connected to DIMS Database'))
+    .catch(err => console.error('MongoDB Connection Error:', err));
+
+// Export app for Vercel
+export default app;
+
+// Only listen if not running on Vercel (for local development)
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+        console.log(`\n[${getPKTTime()}] DIMS Server effectively running on port ${PORT}`);
+        console.log(`[${getPKTTime()}] Database: Connected to MongoDB`);
+    });
+}
