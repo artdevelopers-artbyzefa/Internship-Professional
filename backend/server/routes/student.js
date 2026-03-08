@@ -8,24 +8,9 @@ import Assignment from '../models/Assignment.js';
 import Submission from '../models/Submission.js';
 import { protect } from '../middleware/auth.js';
 import { getPKTTime } from '../utils/time.js';
+import { uploadCloudinary } from '../utils/cloudinary.js';
 
 const router = express.Router();
-
-// Multer Setup for Student Submissions
-const submissionStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/submissions';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `student-${Date.now()}-${file.originalname}`);
-    }
-});
-const uploadSubmission = multer({
-    storage: submissionStorage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
 
 // @route   POST api/student/submit-request
 // @desc    Submit Internship Approval Form
@@ -111,7 +96,20 @@ router.put('/update-profile', protect, async (req, res) => {
         if (fatherName) user.fatherName = fatherName;
         if (section) user.section = section;
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
-        if (profilePicture) user.profilePicture = profilePicture;
+
+        // Check if the uploaded string is a new Base64 image
+        if (profilePicture && profilePicture.startsWith('data:image')) {
+            // Upload to Cloudinary using their uploader
+            const uploadRes = await import('../utils/cloudinary.js').then(m => m.cloudinary.uploader.upload(profilePicture, {
+                folder: 'dims/profiles',
+                filename_override: `profile_${req.user.id}`
+            }));
+
+            user.profilePicture = uploadRes.secure_url;
+        } else if (profilePicture) {
+            // Unchanged url
+            user.profilePicture = profilePicture;
+        }
 
         await user.save();
 
@@ -192,7 +190,7 @@ router.get('/assignments', protect, async (req, res) => {
 
 // @route   POST api/student/submit-assignment/:assignmentId
 // @desc    Upload assignment submission
-router.post('/submit-assignment/:assignmentId', protect, uploadSubmission.single('file'), async (req, res) => {
+router.post('/submit-assignment/:assignmentId', protect, uploadCloudinary.single('file'), async (req, res) => {
     try {
         const { assignmentId } = req.params;
         const assignment = await Assignment.findById(assignmentId);
@@ -208,11 +206,8 @@ router.post('/submit-assignment/:assignmentId', protect, uploadSubmission.single
         let submission = await Submission.findOne({ assignment: assignmentId, student: req.user.id });
 
         if (submission) {
-            // Delete old file if updating
-            const oldPath = submission.fileUrl.startsWith('/') ? submission.fileUrl.substring(1) : submission.fileUrl;
-            if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-
-            submission.fileUrl = `/uploads/submissions/${req.file.filename}`;
+            // Note: Old file won't be deleted automatically from Cloudinary without explicit API call, saving DB operations
+            submission.fileUrl = req.file.path;
             submission.fileName = req.file.originalname;
             submission.submissionDate = now;
             submission.status = status;
@@ -220,7 +215,7 @@ router.post('/submit-assignment/:assignmentId', protect, uploadSubmission.single
             submission = new Submission({
                 assignment: assignmentId,
                 student: req.user.id,
-                fileUrl: `/uploads/submissions/${req.file.filename}`,
+                fileUrl: req.file.path,
                 fileName: req.file.originalname,
                 submissionDate: now,
                 status

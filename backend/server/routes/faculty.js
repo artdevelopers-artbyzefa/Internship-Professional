@@ -9,6 +9,8 @@ import Submission from '../models/Submission.js';
 import Mark from '../models/Mark.js';
 import AuditLog from '../models/AuditLog.js';
 import { protect } from '../middleware/auth.js';
+import { uploadCloudinary } from '../utils/cloudinary.js';
+import https from 'https';
 
 const router = express.Router();
 
@@ -19,19 +21,6 @@ const isFaculty = (req, res, next) => {
     }
     next();
 };
-
-// Multer Setup for Faculty Assignments
-const assignmentStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/assignments';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `faculty-${Date.now()}-${file.originalname}`);
-    }
-});
-const uploadAssignment = multer({ storage: assignmentStorage });
 
 // @route   GET api/faculty/assignments
 // @desc    Get assignments with supervisor-specific deadlines
@@ -233,7 +222,7 @@ router.post('/bulk-submit-marks', protect, isFaculty, async (req, res) => {
 
 // @route   POST api/faculty/create-assignment
 // @desc    Create a new assignment by faculty
-router.post('/create-assignment', protect, isFaculty, uploadAssignment.single('file'), async (req, res) => {
+router.post('/create-assignment', protect, isFaculty, uploadCloudinary.single('file'), async (req, res) => {
     try {
         const { title, description, startDate, deadline, totalMarks } = req.body;
 
@@ -245,7 +234,7 @@ router.post('/create-assignment', protect, isFaculty, uploadAssignment.single('f
             deadline,
             totalMarks: totalMarks || 100,
             createdBy: req.user.id,
-            fileUrl: req.file ? `/uploads/assignments/${req.file.filename}` : null
+            fileUrl: req.file ? req.file.path : null
         });
 
         await assignment.save();
@@ -327,11 +316,33 @@ router.post('/bulk-download-submissions', protect, isFaculty, async (req, res) =
         res.attachment(`submissions-${Date.now()}.zip`);
         archive.pipe(res);
 
+        // Utility to fetch stream from Cloudinary HTTPS URL
+        const fetchFileStream = (url) => {
+            return new Promise((resolve, reject) => {
+                https.get(url, (response) => {
+                    if (response.statusCode === 200) {
+                        resolve(response);
+                    } else {
+                        reject(new Error(`Failed to get '${url}' (${response.statusCode})`));
+                    }
+                }).on('error', reject);
+            });
+        };
+
         for (const sub of submissions) {
-            const filePath = sub.fileUrl.startsWith('/') ? sub.fileUrl.substring(1) : sub.fileUrl;
-            if (fs.existsSync(filePath)) {
-                const extension = path.extname(filePath);
-                archive.file(filePath, { name: `${sub.student.reg}-${sub.student.name.replace(/\s+/g, '_')}${extension}` });
+            if (sub.fileUrl) {
+                try {
+                    const fileStream = await fetchFileStream(sub.fileUrl);
+                    // Cloudinary URLs preserve extensions, but let's safely append one if missing
+                    let extension = path.extname(new URL(sub.fileUrl).pathname) || '.pdf';
+                    if (extension === '') extension = '.pdf'; // Fallback
+
+                    const fileName = `${sub.student.reg}-${sub.student.name.replace(/\s+/g, '_')}${extension}`;
+                    archive.append(fileStream, { name: fileName });
+                } catch (err) {
+                    console.error('Error fetching file for zip:', sub.fileUrl, err);
+                    // Skip broken files but don't break the whole zip
+                }
             }
         }
 
@@ -346,7 +357,7 @@ router.post('/bulk-download-submissions', protect, isFaculty, async (req, res) =
 
 // @route   PUT api/faculty/update-assignment/:id
 // @desc    Update an existing assignment by faculty
-router.put('/update-assignment/:id', protect, isFaculty, uploadAssignment.single('file'), async (req, res) => {
+router.put('/update-assignment/:id', protect, isFaculty, uploadCloudinary.single('file'), async (req, res) => {
     try {
         const { title, description, startDate, deadline, totalMarks } = req.body;
         const assignment = await Assignment.findOne({ _id: req.params.id, createdBy: req.user.id });
@@ -360,12 +371,8 @@ router.put('/update-assignment/:id', protect, isFaculty, uploadAssignment.single
         assignment.totalMarks = totalMarks || assignment.totalMarks;
 
         if (req.file) {
-            // Delete old file if exists
-            if (assignment.fileUrl) {
-                const oldPath = assignment.fileUrl.startsWith('/') ? assignment.fileUrl.substring(1) : assignment.fileUrl;
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            assignment.fileUrl = `/uploads/assignments/${req.file.filename}`;
+            // Note: Cloudinary doesn't automatically delete the old file without using its API directly
+            assignment.fileUrl = req.file.path;
         }
 
         await assignment.save();
@@ -398,11 +405,8 @@ router.delete('/delete-assignment/:id', protect, isFaculty, async (req, res) => 
             return res.status(400).json({ message: 'Cannot delete assignment with existing student submissions.' });
         }
 
-        // Delete associated file
-        if (assignment.fileUrl) {
-            const filePath = assignment.fileUrl.startsWith('/') ? assignment.fileUrl.substring(1) : assignment.fileUrl;
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }
+        // Delete associated file (Only removing from DB, Cloudinary handles actual storage)
+        // If we want to strictly delete from Cloudinary we need the public_id, but it's optional for now
 
         await Assignment.deleteOne({ _id: req.params.id });
 
