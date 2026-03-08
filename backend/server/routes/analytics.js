@@ -7,17 +7,62 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Role Check Middleware (Internship Office Only)
-const isOffice = (req, res, next) => {
-    if (req.user.role !== 'internship_office') {
-        return res.status(403).json({ message: 'Access denied. Internship Office only.' });
+// Role Check Middleware (Management Only)
+const isManagement = (req, res, next) => {
+    if (req.user.role !== 'internship_office' && req.user.role !== 'hod') {
+        return res.status(403).json({ message: 'Access denied. Authorized management only.' });
     }
     next();
 };
 
+// @route   GET api/analytics/registration-stats
+// @desc    Get stats for Phase 1: Total Registered, Eligible, Ineligible, Supervisors
+router.get('/registration-stats', protect, isManagement, async (req, res) => {
+    try {
+        const students = await User.find({ role: 'student' }).select('semester status cgpa assignedCompanySupervisor internshipAgreement.companySupervisorName');
+        const facultyCount = await User.countDocuments({ role: 'faculty_supervisor' });
+
+        // Count distinct site supervisors from both assignments and agreements
+        const siteSupSet = new Set();
+        students.forEach(s => {
+            if (s.assignedCompanySupervisor) siteSupSet.add(s.assignedCompanySupervisor);
+            if (s.internshipAgreement?.companySupervisorName) siteSupSet.add(s.internshipAgreement.companySupervisorName);
+        });
+
+        const eligibleSemesters = ['4', '5', '6', '7', '8'];
+        let total = students.length;
+        let eligible = 0;
+        let ineligible = 0;
+
+        students.forEach(s => {
+            const semOk = eligibleSemesters.includes(s.semester);
+            const verified = s.status !== 'unverified';
+            const cgpaVal = parseFloat(s.cgpa) || 0;
+            const cgpaOk = cgpaVal >= 2.0;
+
+            if (semOk && verified && cgpaOk) {
+                eligible++;
+            } else {
+                ineligible++;
+            }
+        });
+
+        res.json({
+            total,
+            eligible,
+            ineligible,
+            facultyCount,
+            siteSupervisorCount: siteSupSet.size
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET api/analytics/summary
 // @desc    Get counts and summary stats for dashboard cards
-router.get('/summary', protect, isOffice, async (req, res) => {
+router.get('/summary', protect, isManagement, async (req, res) => {
     try {
         const totalStudents = await User.countDocuments({ role: 'student' });
         const completedInternships = await User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } }); // Simplified completion logic
@@ -43,7 +88,7 @@ router.get('/summary', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/completion-analysis
 // @desc    Get internship completion by department and semester
-router.get('/completion-analysis', protect, isOffice, async (req, res) => {
+router.get('/completion-analysis', protect, isManagement, async (req, res) => {
     try {
         const { program, semester } = req.query;
         let query = { role: 'student' };
@@ -106,7 +151,7 @@ router.get('/completion-analysis', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/evaluation-comparison
 // @desc    Compare Faculty vs Site Supervisor scores
-router.get('/evaluation-comparison', protect, isOffice, async (req, res) => {
+router.get('/evaluation-comparison', protect, isManagement, async (req, res) => {
     try {
         // Since we don't have separate site supervisor scores in the DB yet,
         // we'll return the faculty marks and some simulated variations for demo 
@@ -133,7 +178,7 @@ router.get('/evaluation-comparison', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/company-distribution
 // @desc    Placement stats per company
-router.get('/company-distribution', protect, isOffice, async (req, res) => {
+router.get('/company-distribution', protect, isManagement, async (req, res) => {
     try {
         const { program, semester } = req.query;
         let query = { role: 'student', assignedCompany: { $exists: true, $ne: null } };
@@ -171,7 +216,7 @@ router.get('/company-distribution', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/criteria-performance
 // @desc    Average performance per criteria (simulated for now)
-router.get('/criteria-performance', protect, isOffice, async (req, res) => {
+router.get('/criteria-performance', protect, isManagement, async (req, res) => {
     try {
         // Since detailed criteria are not in schema, we provide normalized averages
         const criteria = [
@@ -190,7 +235,7 @@ router.get('/criteria-performance', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/faculty-performance
 // @desc    Stats for faculty supervisors
-router.get('/faculty-performance', protect, isOffice, async (req, res) => {
+router.get('/faculty-performance', protect, isManagement, async (req, res) => {
     try {
         const { semester, program } = req.query;
         let query = { role: 'student', assignedFaculty: { $exists: true, $ne: null } };
@@ -236,7 +281,7 @@ router.get('/faculty-performance', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/registry
 // @desc    Detailed placement data for companies
-router.get('/registry', protect, isOffice, async (req, res) => {
+router.get('/registry', protect, isManagement, async (req, res) => {
     try {
         const { program, semester } = req.query;
         let query = { role: 'student', assignedCompany: { $exists: true, $ne: null } };
@@ -293,7 +338,7 @@ router.get('/registry', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/report/supervisors
 // @desc    Get all faculty supervisors with their student counts and avg scores
-router.get('/report/supervisors', protect, isOffice, async (req, res) => {
+router.get('/report/supervisors', protect, isManagement, async (req, res) => {
     try {
         const facultyList = await User.aggregate([
             { $match: { role: 'student', assignedFaculty: { $exists: true, $ne: null } } },
@@ -356,7 +401,7 @@ router.get('/report/supervisors', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/report/assignments-by-supervisor
 // @desc    Get distinct assignments that have marks submitted by a supervisor
-router.get('/report/assignments-by-supervisor', protect, isOffice, async (req, res) => {
+router.get('/report/assignments-by-supervisor', protect, isManagement, async (req, res) => {
     try {
         const { supervisorId } = req.query;
         let markQuery = {};
@@ -392,7 +437,7 @@ router.get('/report/assignments-by-supervisor', protect, isOffice, async (req, r
 // @route   GET api/analytics/report/results-by-supervisor
 // @desc    Get assignment marks grouped by supervisor, with assignment breakdown
 //          Supports optional assignmentId filter to narrow to a single assignment
-router.get('/report/results-by-supervisor', protect, isOffice, async (req, res) => {
+router.get('/report/results-by-supervisor', protect, isManagement, async (req, res) => {
     try {
         const { supervisorId, assignmentId } = req.query;
 
@@ -442,7 +487,7 @@ router.get('/report/results-by-supervisor', protect, isOffice, async (req, res) 
 
 // @route   GET api/analytics/report/assigned-students
 // @desc    Get students assigned under a supervisor (or all)
-router.get('/report/assigned-students', protect, isOffice, async (req, res) => {
+router.get('/report/assigned-students', protect, isManagement, async (req, res) => {
     try {
         const { supervisorId } = req.query;
         let query = { role: 'student', status: 'Assigned' };
@@ -475,7 +520,7 @@ router.get('/report/assigned-students', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/report/session-analysis
 // @desc    Breakdown by admission session (FA23, SP24, etc.) derived from reg number
-router.get('/report/session-analysis', protect, isOffice, async (req, res) => {
+router.get('/report/session-analysis', protect, isManagement, async (req, res) => {
     try {
         const students = await User.find({ role: 'student' }).select('reg status internshipRequest');
 
@@ -502,7 +547,7 @@ router.get('/report/session-analysis', protect, isOffice, async (req, res) => {
 
 // @route   GET api/analytics/report/internship-type
 // @desc    Breakdown by internship mode (Onsite, Remote, Hybrid, Freelance)
-router.get('/report/internship-type', protect, isOffice, async (req, res) => {
+router.get('/report/internship-type', protect, isManagement, async (req, res) => {
     try {
         const students = await User.find({
             role: 'student',
@@ -529,6 +574,137 @@ router.get('/report/internship-type', protect, isOffice, async (req, res) => {
         });
     } catch (err) {
         console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/students-paginated
+// @desc    Get paginated list of students with eligibility info
+router.get('/students-paginated', protect, isManagement, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const search = req.query.search || '';
+        const skip = (page - 1) * limit;
+
+        let query = { role: 'student' };
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { reg: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const students = await User.find(query)
+            .select('name reg email semester cgpa status')
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        const total = await User.countDocuments(query);
+        const eligibleSemesters = ['4', '5', '6', '7', '8'];
+
+        const data = students.map(s => {
+            const semOk = eligibleSemesters.includes(s.semester);
+            const verified = s.status !== 'unverified';
+            const cgpaVal = parseFloat(s.cgpa) || 0;
+            const cgpaOk = cgpaVal >= 2.0;
+            const eligible = semOk && verified && cgpaOk;
+
+            return {
+                ...s.toObject(),
+                eligible,
+                reasons: { semOk, verified, cgpaOk }
+            };
+        });
+
+        res.json({
+            data,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/faculty-paginated
+// @desc    Get paginated list of faculty
+router.get('/faculty-paginated', protect, isManagement, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const search = req.query.search || '';
+        const skip = (page - 1) * limit;
+
+        let query = { role: 'faculty_supervisor' };
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const faculty = await User.find(query)
+            .select('name email whatsappNumber status')
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        const total = await User.countDocuments(query);
+
+        res.json({
+            data: faculty,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/site-supervisors-paginated
+// @desc    Get paginated list of site supervisors
+router.get('/site-supervisors-paginated', protect, isManagement, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const search = req.query.search?.toLowerCase() || '';
+
+        // Fetch all students to extract distinct site supervisors
+        const students = await User.find({ role: 'student' })
+            .select('assignedCompany assignedCompanySupervisor internshipAgreement.companySupervisorName internshipAgreement.companySupervisorEmail internshipAgreement.companyName');
+
+        const siteSupMap = new Map();
+        students.forEach(s => {
+            const name = s.assignedCompanySupervisor || s.internshipAgreement?.companySupervisorName;
+            const company = s.assignedCompany || s.internshipAgreement?.companyName;
+            const email = s.internshipAgreement?.companySupervisorEmail || '';
+
+            if (name) {
+                if (search && !name.toLowerCase().includes(search) && !company?.toLowerCase().includes(search) && !email.toLowerCase().includes(search)) {
+                    return;
+                }
+                if (!siteSupMap.has(name)) {
+                    siteSupMap.set(name, { name, company: company || 'N/A', email });
+                }
+            }
+        });
+
+        const allSups = Array.from(siteSupMap.values());
+        const total = allSups.length;
+        const paginatedSups = allSups.slice((page - 1) * limit, page * limit);
+
+        res.json({
+            data: paginatedSups,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 });

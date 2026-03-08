@@ -251,15 +251,15 @@ router.get('/eligibility/:userId', async (req, res) => {
         const checks = [];
         let eligible = true;
 
-        // 1. Eligible semester (7 or 8)
-        const eligibleSemesters = ['7', '8'];
+        // 1. Eligible semester (4-8)
+        const eligibleSemesters = ['4', '5', '6', '7', '8'];
         const semOk = eligibleSemesters.includes(user.semester);
         checks.push({
             key: 'semester',
             label: 'Academic Semester',
             detail: semOk
                 ? `Currently in Semester ${user.semester} — eligible for internship.`
-                : `Semester ${user.semester || 'N/A'} is not eligible. Internship is only available for 7th and 8th semester students.`,
+                : `Semester ${user.semester || 'N/A'} is not eligible. Internship is only available for 4th semester students and onwards.`,
             passed: semOk
         });
         if (!semOk) eligible = false;

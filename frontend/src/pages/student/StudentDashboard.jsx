@@ -3,6 +3,8 @@ import Card from '../../components/ui/Card.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
+import NoticeItem from '../../components/notice/NoticeItem.jsx'; // Added import
+import { apiRequest } from '../../utils/api.js';
 
 export default function StudentDashboard({ user, isEligible, isPhase1 }) {
   const [showAlert, setShowAlert] = React.useState(true);
@@ -10,6 +12,23 @@ export default function StudentDashboard({ user, isEligible, isPhase1 }) {
 
   // They are completely locked down if they are ineligible during Phase 1
   const isLocked = isPhase1 && !isEligible;
+
+  const [notices, setNotices] = React.useState([]);
+  const [loadingNotices, setLoadingNotices] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const data = await apiRequest('/notices/my');
+        if (data) setNotices(data);
+      } catch (err) {
+        console.error('Announcements Fetch Error:', err);
+      } finally {
+        setLoadingNotices(false);
+      }
+    };
+    fetchNotices();
+  }, []);
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -67,10 +86,10 @@ export default function StudentDashboard({ user, isEligible, isPhase1 }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+      <div className="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student Dashboard</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">Institutional profile and academic overview at CUI Abbottabad.</p>
+          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Student Dashboard</h2>
+          <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Institutional profile and academic overview at CUI Abbottabad.</p>
         </div>
       </div>
 
@@ -91,13 +110,35 @@ export default function StudentDashboard({ user, isEligible, isPhase1 }) {
 
       <div className="grid grid-cols-1 gap-6">
         <div className="space-y-6">
-          <Card className="border-l-4 border-l-blue-500">
-            <h3 className="text-sm font-black text-primary tracking-widest mb-4 flex items-center justify-between">
-              <span><i className="fas fa-bullhorn text-secondary mr-2"></i> Announcements</span>
-              <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Recent</span>
+          <Card className="border-l-4 border-l-blue-500 shadow-xl border-primary/10">
+            <h3 className="text-sm font-black text-primary tracking-widest mb-6 flex items-center justify-between px-2">
+              <span><i className="fas fa-bullhorn text-secondary mr-2"></i> Official Announcements</span>
+              <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase font-black tracking-widest">
+                {notices.length} New Feed
+              </span>
             </h3>
-            <div className="py-10 text-center text-gray-400 italic text-sm">
-              No recent announcements from the Internship Office.
+
+            <div className="space-y-4">
+              {loadingNotices ? (
+                <div className="py-20 text-center">
+                  <i className="fas fa-circle-notch fa-spin text-3xl text-primary/20 mb-4"></i>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Syncing Feed...</p>
+                </div>
+              ) : notices.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {notices.map(notice => (
+                    <NoticeItem key={notice._id} notice={notice} />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-16 text-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 mx-2">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                    <i className="fas fa-check-double text-gray-200 text-2xl"></i>
+                  </div>
+                  <p className="text-sm font-bold text-gray-400">All caught up! No recent announcements.</p>
+                  <p className="text-[10px] text-gray-300 uppercase tracking-widest mt-1">Check back later for updates</p>
+                </div>
+              )}
             </div>
           </Card>
         </div>

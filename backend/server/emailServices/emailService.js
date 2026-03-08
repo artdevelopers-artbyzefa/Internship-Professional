@@ -1,6 +1,12 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Use absolute path for .env to ensure it loads correctly regardless of where the process starts
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 /**
  * Central helper to send transactional emails via Brevo API
@@ -11,7 +17,7 @@ const brevoSend = async (to, subject, html) => {
   const API_KEY = process.env.BREVO_API_KEY;
 
   if (!API_KEY || !SENDER_NAME || !SENDER_EMAIL) {
-    console.error('[EMAIL ERROR] Brevo configuration (API Key, SENDER_NAME, or SENDER_EMAIL) is missing.');
+    console.error(`[EMAIL ERROR] Brevo configuration missing! SENDER_NAME: ${SENDER_NAME}, SENDER_EMAIL: ${SENDER_EMAIL}, API_KEY: ${API_KEY ? 'Present' : 'Missing'}`);
     return { success: false, error: 'Brevo config missing' };
   }
 
@@ -37,11 +43,11 @@ const brevoSend = async (to, subject, html) => {
       console.log(`[EMAIL SUCCESS] Sent to: ${to} (MessageId: ${data.messageId || 'N/A'})`);
       return { success: true };
     } else {
-      console.error('[EMAIL ERROR] Brevo API failed:', data);
+      console.error('[EMAIL ERROR] Brevo API failed:', JSON.stringify(data, null, 2));
       return { success: false, error: data };
     }
   } catch (error) {
-    console.error('[EMAIL ERROR] Connection failed:', error);
+    console.error('[EMAIL ERROR] Fetch/Connection failed:', error);
     return { success: false, error };
   }
 };

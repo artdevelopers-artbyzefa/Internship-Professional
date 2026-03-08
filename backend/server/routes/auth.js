@@ -174,7 +174,13 @@ router.post('/forgot-password', async (req, res) => {
         const { email } = req.body;
         const emailLower = email.toLowerCase().trim();
 
-        const user = await User.findOne({ email: emailLower });
+        const user = await User.findOne({
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        });
+
         if (!user) {
             // Security response: don't reveal if user exists
             return res.json({ message: 'If an account exists with this email, a verification code has been sent.' });
@@ -192,7 +198,11 @@ router.post('/forgot-password', async (req, res) => {
 
         console.log(`[FORGOT-PW] Code ${code} saved for ${emailLower}, expires ${expiry}`);
 
-        await sendPasswordResetCode(emailLower, code);
+        const mailResult = await sendPasswordResetCode(emailLower, code);
+
+        if (!mailResult.success) {
+            return res.status(500).json({ message: 'Failed to send verification code. Please try again later.' });
+        }
 
         res.json({ message: 'Verification code sent to your email.' });
     } catch (err) {
@@ -314,7 +324,10 @@ router.post('/login', async (req, res) => {
             await user.save();
 
             // Send OTP
-            await import('../emailServices/emailService.js').then(m => m.sendPasswordResetCode(emailLower, code)); // Reuse reset code layout for simplicity
+            const mailResult = await sendPasswordResetCode(emailLower, code);
+            if (!mailResult.success) {
+                return res.status(500).json({ message: 'Failed to send verification code. Please try again later.' });
+            }
 
             return res.json({
                 status: 'otp_required',
