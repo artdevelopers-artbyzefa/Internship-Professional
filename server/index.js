@@ -53,6 +53,31 @@ app.use('/api/supervisor', supervisorRoutes);
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
 app.get('/', (req, res) => res.json({ message: 'DIMS Backend Running on Vercel' }));
 
+// Diagnostic DB Test Route
+app.get('/api/db-test', async (req, res) => {
+    try {
+        const state = mongoose.connection.readyState;
+        const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+
+        // Try a manual ping if not connected
+        if (state !== 1) {
+            await mongoose.connect(process.env.MONGODB_URI);
+        }
+
+        res.json({
+            success: true,
+            status: states[mongoose.connection.readyState],
+            usingUri: process.env.MONGODB_URI ? 'Yes (hidden for security)' : 'MISSING!'
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message,
+            stack: err.stack.split('\n')[0]
+        });
+    }
+});
+
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('MongoDB Connected to DIMS Database'))
