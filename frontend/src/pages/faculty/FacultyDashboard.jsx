@@ -10,11 +10,14 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
   const [activePhase, setActivePhase] = useState(propPhase || undefined); // use prop or fallback
   const [allPhases, setAllPhases] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
 
   useEffect(() => {
     if (!propPhase) fetchPhase();
     else fetchAllPhases();
     fetchNotices();
+    fetchRequests();
   }, [propPhase]);
 
   const fetchNotices = async () => {
@@ -23,6 +26,31 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       setNotices(data);
     } catch (err) {
       console.error('Failed to fetch notices:', err);
+    }
+  };
+
+  const fetchRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      const data = await apiRequest('/faculty/pending-requests');
+      setRequests(data);
+    } catch (err) {
+      console.error('Failed to fetch requests:', err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleRequest = async (studentId, action) => {
+    try {
+      await apiRequest('/faculty/handle-request', {
+        method: 'POST',
+        body: { studentId, action }
+      });
+      // Success: Refetch and inform
+      fetchRequests();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -73,6 +101,65 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       </div>
 
       <NoticeModal />
+
+      {/* ── Pending Supervision Invitations Section ── */}
+      {(requests.length > 0 || (activePhase?.order >= 2 && activePhase?.order <= 6)) && (
+        <Card title="Pending Supervision Requests" icon="fa-user-pen" className="border-l-4 border-l-emerald-500 bg-emerald-50/10">
+          <div className="p-1 px-2 border border-emerald-100 bg-emerald-50 rounded-lg inline-flex items-center gap-2 mb-6">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Action Required: First Come First Serve Queue</span>
+          </div>
+
+          {requests.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {requests.map(request => (
+                <div key={request._id} className="bg-white p-6 rounded-2xl border-2 border-emerald-100 shadow-sm hover:shadow-md transition-all group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="text-sm font-black text-gray-800">{request.name}</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{request.reg}</p>
+                    </div>
+                    <div className="text-[9px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded">
+                      {new Date(request.internshipRequest.submittedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-6">
+                    <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">
+                      <i className="fas fa-building w-4 text-emerald-500"></i>
+                      {request.internshipRequest.companyName}
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">
+                      <i className="fas fa-briefcase w-4 text-emerald-500"></i>
+                      {request.internshipRequest.type} — {request.internshipRequest.mode}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleRequest(request._id, 'Accepted')}
+                      className="py-2.5 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-200"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => handleRequest(request._id, 'Rejected')}
+                      className="py-2.5 rounded-xl border-2 border-rose-100 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center text-gray-400 italic text-sm bg-white/50 rounded-2xl border border-dashed border-gray-100">
+              <i className="fas fa-user-clock text-2xl mb-3 block opacity-20"></i>
+              No pending supervision invitations in your current queue.
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* ── Waiting Banner ── */}
       {isLocked && (
@@ -165,3 +252,4 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     </div>
   );
 }
+

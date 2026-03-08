@@ -12,6 +12,8 @@ export default function SiteSupervisorManagement({ user }) {
     const [supervisors, setSupervisors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingSupervisor, setEditingSupervisor] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
     const initialForm = {
@@ -86,6 +88,63 @@ export default function SiteSupervisorManagement({ user }) {
         }
     };
 
+    const handleEditInit = (sup) => {
+        setEditingSupervisor(sup);
+        setForm({
+            companyId: sup.companyId || '',
+            name: sup.name,
+            email: sup.email,
+            whatsappNumber: sup.whatsappNumber
+        });
+        setShowEditModal(true);
+        setErrorDictionary({});
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        if (!validateForm()) return;
+        setSubmitting(true);
+        try {
+            await apiRequest(`/office/edit-site-supervisor/${editingSupervisor._id || editingSupervisor.email}`, {
+                method: 'POST',
+                body: { ...form, officeId: user?.id || user?._id }
+            });
+            showToast.success('Supervisor details updated successfully.');
+            setShowEditModal(false);
+            setEditingSupervisor(null);
+            setForm(initialForm);
+            fetchInitialData();
+        } catch (err) {
+            // Handled
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDeleteSupervisor = async (sup) => {
+        const confirmed = await showAlert.confirm(
+            'Remove Supervisor?',
+            `Are you sure you want to remove ${sup.name} from the registry? This will also unlink them from ${sup.companyName}.`,
+            'Yes, Remove'
+        );
+        if (!confirmed) return;
+
+        try {
+            await apiRequest('/office/remove-site-supervisor', {
+                method: 'POST',
+                body: {
+                    email: sup.email,
+                    companyId: sup.companyId,
+                    officeId: user?.id || user?._id
+                }
+            });
+            showToast.success('Supervisor removed successfully.');
+            fetchInitialData();
+        } catch (err) {
+            // Handled
+        }
+    };
+
     const columns = [
         { key: 'name', label: 'Full Name' },
         { key: 'email', label: 'Official Email' },
@@ -95,15 +154,22 @@ export default function SiteSupervisorManagement({ user }) {
             key: 'actions',
             label: 'Actions',
             render: (_, row) => (
-                <button
-                    onClick={() => {
-                        // Future: Edit supervisor logic
-                        showToast.info('Edit functionality planned for Phase 2');
-                    }}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-100 text-gray-400 hover:text-primary transition-all shadow-sm"
-                >
-                    <i className="fas fa-pen-nib text-xs"></i>
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => handleEditInit(row)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-100 text-gray-400 hover:text-primary hover:border-primary transition-all shadow-sm"
+                        title="Edit Details"
+                    >
+                        <i className="fas fa-pen-nib text-xs"></i>
+                    </button>
+                    <button
+                        onClick={() => handleDeleteSupervisor(row)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-100 text-gray-400 hover:text-danger hover:border-danger transition-all shadow-sm"
+                        title="Remove Supervisor"
+                    >
+                        <i className="fas fa-trash-can text-xs"></i>
+                    </button>
+                </div>
             )
         }
     ];
@@ -216,6 +282,82 @@ export default function SiteSupervisorManagement({ user }) {
                     <DataTable columns={columns} data={supervisors} />
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {showEditModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+                                    <i className="fas fa-user-pen text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-gray-800 tracking-tight">Edit Supervisor</h3>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Modifying records for {editingSupervisor?.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowEditModal(false)} className="w-10 h-10 rounded-xl hover:bg-white flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div className="p-8">
+                            <form onSubmit={handleEditSubmit} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <FormGroup label="Full Name" error={errorDictionary.name}>
+                                        <TextInput
+                                            value={form.name}
+                                            onChange={e => setForm({ ...form, name: e.target.value })}
+                                            className="rounded-xl"
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Email Address (Login ID)" error={errorDictionary.email}>
+                                        <TextInput
+                                            type="email"
+                                            value={form.email}
+                                            onChange={e => setForm({ ...form, email: e.target.value })}
+                                            disabled={true} // Usually email/ID shouldn't change easily to avoid auth breaks
+                                            className="rounded-xl bg-gray-50 text-gray-400 cursor-not-allowed"
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="WhatsApp / Contact" error={errorDictionary.whatsappNumber}>
+                                        <TextInput
+                                            value={form.whatsappNumber}
+                                            onChange={e => setForm({ ...form, whatsappNumber: e.target.value })}
+                                            className="rounded-xl"
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Affiliated Company" error={errorDictionary.companyId}>
+                                        <SelectInput
+                                            value={form.companyId}
+                                            onChange={e => setForm({ ...form, companyId: e.target.value })}
+                                            className="rounded-xl font-bold"
+                                        >
+                                            <option value="">Update Company...</option>
+                                            {companies.map(c => (
+                                                <option key={c._id} value={c._id}>{c.name}</option>
+                                            ))}
+                                        </SelectInput>
+                                    </FormGroup>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-6">
+                                    <Button variant="outline" onClick={() => setShowEditModal(false)} className="rounded-xl px-8 h-12">Cancel</Button>
+                                    <Button
+                                        variant="primary"
+                                        type="submit"
+                                        loading={submitting}
+                                        className="rounded-xl px-12 h-12 bg-gray-900 border-0"
+                                    >
+                                        Update Record
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

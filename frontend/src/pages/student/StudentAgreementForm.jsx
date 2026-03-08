@@ -126,10 +126,18 @@ export default function StudentAgreementForm({ user }) {
               </button>
               <button
                 type="button"
+                disabled={user.internshipRequest?.mode === 'Freelance'}
                 onClick={() => setFormType('University Assigned')}
-                className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all ${formType === 'University Assigned' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all relative ${formType === 'University Assigned' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'} ${user.internshipRequest?.mode === 'Freelance' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
-                <i className="fas fa-university mr-2"></i> University-Assigned
+                <i className="fas fa-university mr-2"></i>
+                University-Assigned
+                {user.internshipRequest?.mode === 'Freelance' && (
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                  </span>
+                )}
               </button>
             </div>
 

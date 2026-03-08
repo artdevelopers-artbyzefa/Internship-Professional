@@ -13,6 +13,11 @@ export default function CompanyManagement({ view, user }) {
   const [loading, setLoading] = useState(true);
   const [errorDictionary, setErrorDictionary] = useState({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingCompanyId, setEditingCompanyId] = useState(null);
+  const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [selectedSupervisorForStudents, setSelectedSupervisorForStudents] = useState(null);
+  const [studentsList, setStudentsList] = useState([]);
+  const [fetchingStudents, setFetchingStudents] = useState(false);
 
   const initialForm = {
     name: '',
@@ -21,6 +26,7 @@ export default function CompanyManagement({ view, user }) {
     scope: '',
     hrEmail: '',
     mouSignedDate: '',
+    isMOUSigned: false,
     siteSupervisors: [
       { name: '', email: '', whatsappNumber: '' }
     ]
@@ -86,6 +92,30 @@ export default function CompanyManagement({ view, user }) {
     setForm({ ...form, siteSupervisors: list });
   };
 
+  const handleEditInit = (company) => {
+    setEditingCompanyId(company._id);
+    setForm({
+      ...company,
+      mouSignedDate: company.mouSignedDate ? new Date(company.mouSignedDate).toISOString().split('T')[0] : ''
+    });
+    setShowAddForm(true);
+    setErrorDictionary({});
+  };
+
+  const handleViewStudents = async (companyName, supervisorName) => {
+    setSelectedSupervisorForStudents({ company: companyName, name: supervisorName });
+    setShowStudentsModal(true);
+    setFetchingStudents(true);
+    try {
+      const data = await apiRequest(`/office/supervisor-students?company=${encodeURIComponent(companyName)}&supervisor=${encodeURIComponent(supervisorName)}`);
+      setStudentsList(data || []);
+    } catch (err) {
+      // handled
+    } finally {
+      setFetchingStudents(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
@@ -94,12 +124,21 @@ export default function CompanyManagement({ view, user }) {
     }
     setSubmitting(true);
     try {
-      await apiRequest('/office/add-company', {
-        method: 'POST',
-        body: { ...form, officeId: user?.id || user?._id }
-      });
-      showToast.success('Company MOU partner registered successfully.');
+      if (editingCompanyId) {
+        await apiRequest(`/office/edit-company/${editingCompanyId}`, {
+          method: 'POST',
+          body: { ...form, officeId: user?.id || user?._id }
+        });
+        showToast.success('Company partner details updated successfully.');
+      } else {
+        await apiRequest('/office/add-company', {
+          method: 'POST',
+          body: { ...form, officeId: user?.id || user?._id }
+        });
+        showToast.success('Company MOU partner registered successfully.');
+      }
       setShowAddForm(false);
+      setEditingCompanyId(null);
       setForm(initialForm);
       setErrorDictionary({});
       fetchCompanies();
@@ -131,19 +170,44 @@ export default function CompanyManagement({ view, user }) {
   };
 
   const columns = [
-    { key: 'name', label: 'Company Name' },
+    {
+      key: 'name',
+      label: 'Company Name',
+      render: (val, row) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-gray-800">{val}</span>
+          {row.assignedStudents > 0 && <span className="text-[10px] text-blue-500 font-bold"><i className="fas fa-users mr-1"></i>{row.assignedStudents} assigned</span>}
+        </div>
+      )
+    },
     { key: 'scope', label: 'Domain/Scope' },
     {
       key: 'siteSupervisors',
       label: 'Supervisors',
-      render: (val) => (
-        <div className="flex flex-col gap-1">
-          {val?.slice(0, 2).map((s, i) => (
-            <span key={i} className="text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-              {s.name}
-            </span>
+      render: (val, row) => (
+        <div className="flex flex-col gap-1.5">
+          {val?.slice(0, 3).map((s, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 p-1.5 bg-gray-50 hover:bg-blue-50/50 rounded-xl border border-gray-100 transition-all group/sup">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] font-black text-gray-700 truncate">{s.name}</span>
+                <span className="text-[8px] text-gray-400 font-medium truncate">{s.email}</span>
+              </div>
+              <button
+                onClick={() => handleViewStudents(row.name, s.name)}
+                className={`h-7 px-2 rounded-lg flex items-center gap-1.5 transition-all font-black text-[10px] ${s.assignedStudents > 0 ? 'bg-primary text-white shadow-sm hover:scale-105' : 'bg-gray-100 text-gray-300'}`}
+                title={s.assignedStudents > 0 ? `View ${s.assignedStudents} assigned students` : "No placements yet"}
+              >
+                <i className="fas fa-users-rectangle"></i>
+                {s.assignedStudents || 0}
+              </button>
+            </div>
           ))}
-          {val?.length > 2 && <span className="text-[9px] text-primary italic">+{val.length - 2} more</span>}
+          {val?.length > 3 && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-white border border-dashed border-gray-200 rounded-lg">
+              <span className="text-[9px] text-gray-400 font-black italic">+{val.length - 3} others</span>
+              <button onClick={() => handleEditInit(row)} className="text-[9px] font-black text-primary hover:underline">View All</button>
+            </div>
+          )}
         </div>
       )
     },
@@ -174,9 +238,9 @@ export default function CompanyManagement({ view, user }) {
         return (
           <div className="flex gap-2">
             <button
-              disabled={isFromStudent}
               title={isFromStudent ? "Self-Arranged companies cannot be edited by the office" : "Edit Details"}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all ${isFromStudent ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed' : 'bg-white border-gray-200 text-gray-600 hover:border-primary hover:text-primary cursor-pointer'}`}
+              onClick={() => handleEditInit(row)}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all ${isFromStudent ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed hidden' : 'bg-white border-gray-200 text-gray-600 hover:border-primary hover:text-primary cursor-pointer'}`}
             >
               <i className="fas fa-pen-to-square text-xs"></i>
             </button>
@@ -202,7 +266,11 @@ export default function CompanyManagement({ view, user }) {
           <p className="text-xs md:text-sm text-gray-500">Manage institutional partners and student-submitted internship sites.</p>
         </div>
         <button
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => {
+            setShowAddForm(!showAddForm);
+            setEditingCompanyId(null);
+            setForm(initialForm);
+          }}
           className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl font-bold transition-all h-fit ${showAddForm ? 'bg-gray-100 text-gray-600' : 'bg-primary text-white shadow-lg shadow-blue-600/20'}`}
         >
           <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`}></i>
@@ -214,8 +282,8 @@ export default function CompanyManagement({ view, user }) {
         <div className="overflow-hidden">
           <div className="bg-gray-50/50 rounded-2xl border-2 border-primary/20 p-4 md:p-8 shadow-xl shadow-primary/5">
             <div className="mb-6">
-              <h3 className="text-lg font-black text-primary tracking-tight">Register MOU Company</h3>
-              <p className="text-xs text-gray-500 font-medium font-poppins">Add an official institutional partner for university-assigned internships</p>
+              <h3 className="text-lg font-black text-primary tracking-tight">{editingCompanyId ? 'Update Company Details' : 'Register MOU Company'}</h3>
+              <p className="text-xs text-gray-500 font-medium font-poppins">{editingCompanyId ? 'Modify official institutional partner information' : 'Add an official institutional partner for university-assigned internships'}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-8">
@@ -231,6 +299,18 @@ export default function CompanyManagement({ view, user }) {
                 </FormGroup>
                 <FormGroup label="MOU Signed Date" error={errorDictionary.mouSignedDate}>
                   <TextInput type="date" value={form.mouSignedDate} onChange={e => setForm({ ...form, mouSignedDate: e.target.value })} />
+                </FormGroup>
+                <FormGroup label="MOU Status">
+                  <div className="flex items-center gap-3 h-[42px]">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, isMOUSigned: !form.isMOUSigned })}
+                      className={`flex-1 h-full rounded-xl border-2 flex items-center justify-center gap-2 font-black text-xs transition-all ${form.isMOUSigned ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+                    >
+                      <i className={`fas ${form.isMOUSigned ? 'fa-check-circle' : 'fa-circle-xmark'}`}></i>
+                      {form.isMOUSigned ? 'MOU SIGNED' : 'UNSIGNED'}
+                    </button>
+                  </div>
                 </FormGroup>
                 <div className="md:col-span-2">
                   <FormGroup label="Office Address">
@@ -308,7 +388,7 @@ export default function CompanyManagement({ view, user }) {
                   disabled={submitting}
                   className="px-8 py-3 rounded-xl font-bold bg-primary text-white hover:bg-blue-800 transition-all text-sm shadow-lg shadow-blue-600/20 disabled:opacity-50"
                 >
-                  {submitting ? 'Activating...' : 'Register & Activate Partner'}
+                  {submitting ? 'Processing...' : editingCompanyId ? 'Save Changes' : 'Register & Activate Partner'}
                 </button>
               </div>
             </form>
@@ -319,6 +399,51 @@ export default function CompanyManagement({ view, user }) {
       <div className="overflow-x-auto -mx-4 md:mx-0">
         <DataTable columns={columns} data={companies} />
       </div>
+      {showStudentsModal && (
+        <Modal onClose={() => setShowStudentsModal(false)} size="lg">
+          <ModalTitle>Assigned Students: {selectedSupervisorForStudents?.name}</ModalTitle>
+          <ModalSub>{selectedSupervisorForStudents?.company} · Technical Placement List</ModalSub>
+
+          <div className="mt-8 max-h-[60vh] overflow-y-auto pr-2">
+            {fetchingStudents ? (
+              <div className="text-center py-10">
+                <i className="fas fa-circle-notch fa-spin text-2xl text-primary mb-2 block"></i>
+                <span className="text-xs text-gray-400 font-medium tracking-tight">Accessing company records...</span>
+              </div>
+            ) : studentsList.length > 0 ? (
+              <div className="space-y-3">
+                {studentsList.map((s, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-md hover:shadow-gray-200/50 transition-all group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
+                        <i className="fas fa-user-graduate"></i>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-gray-800">{s.name}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mt-1">{s.reg} · Semester {s.semester}</p>
+                      </div>
+                    </div>
+                    <div className="text-right flex flex-col items-end">
+                      <p className="text-[10px] font-black text-gray-400 mb-1 group-hover:text-primary transition-colors">{s.email}</p>
+                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-indigo-50 text-indigo-600 border border-indigo-100 tracking-wider">
+                        Industry Intern
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/30">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-gray-200 text-3xl mx-auto mb-4 border border-gray-100 shadow-sm">
+                  <i className="fas fa-user-slash"></i>
+                </div>
+                <p className="text-sm font-black text-gray-400">Registry Entry Empty</p>
+                <p className="text-[10px] text-gray-300 font-medium mt-1">No students have been officially assigned to this supervisor yet.</p>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

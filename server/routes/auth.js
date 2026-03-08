@@ -458,12 +458,28 @@ router.post('/verify-secondary', async (req, res) => {
 });
 
 // @route   GET api/auth/faculty-list
-// @desc    Get all faculty members for assignment dropdowns
+// @desc    Get all faculty members for assignment dropdowns with their assigned student count
 router.get('/faculty-list', async (req, res) => {
     try {
-        const faculty = await User.find({ role: 'faculty_supervisor' }, 'name email status whatsappNumber');
-        res.json(faculty);
+        const facultyList = await User.find({ role: 'faculty_supervisor' }, 'name email status whatsappNumber');
+        const assignmentsCount = await User.aggregate([
+            { $match: { role: 'student', assignedFaculty: { $exists: true, $ne: null } } },
+            { $group: { _id: '$assignedFaculty', count: { $sum: 1 } } }
+        ]);
+
+        const countMap = assignmentsCount.reduce((acc, curr) => {
+            acc[curr._id.toString()] = curr.count;
+            return acc;
+        }, {});
+
+        const facultyWithCount = facultyList.map(faculty => ({
+            ...faculty.toObject(),
+            assignedStudents: countMap[faculty._id.toString()] || 0
+        }));
+
+        res.json(facultyWithCount);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });

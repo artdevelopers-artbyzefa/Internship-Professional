@@ -17,6 +17,35 @@ import { getPKTTime } from '../utils/time.js';
 
 const router = express.Router();
 
+// @route   GET api/office/all-students
+// @desc    Get all student accounts (for registry)
+router.get('/all-students', async (req, res) => {
+    try {
+        const students = await User.find({ role: 'student' })
+            .select('name email reg semester status createdAt')
+            .sort({ createdAt: -1 });
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/office/internship-request-students
+// @desc    Get all students who have submitted, approved, or rejected internship requests
+router.get('/internship-request-students', async (req, res) => {
+    try {
+        const students = await User.find({
+            role: 'student',
+            status: { $in: ['Internship Request Submitted', 'Internship Approved', 'Internship Rejected'] }
+        })
+            .populate('assignedFaculty', 'name email')
+            .sort({ 'internshipRequest.submittedAt': -1 });
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET api/office/pending-requests
 // @desc    Get all students with pending internship requests
 router.get('/pending-requests', async (req, res) => {
@@ -27,6 +56,254 @@ router.get('/pending-requests', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// @route   GET api/office/check-faculty-by-email
+// @desc    Check if a faculty exists in the DB by email
+router.get('/check-faculty-by-email', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email) return res.status(400).json({ message: 'Email is required' });
+        const faculty = await User.findOne({ email: email.toLowerCase().trim(), role: 'faculty_supervisor' })
+            .select('name email status');
+        if (!faculty) return res.json({ found: false });
+        res.json({ found: true, faculty: { id: faculty._id, name: faculty.name, email: faculty.email, status: faculty.status } });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/assign-company
+// @desc    Assign company to student (independently), upsert into Company registry as Student-SelfAssigned
+router.post('/assign-company', async (req, res) => {
+    try {
+        const { studentId, companyName, officeId } = req.body;
+        if (!studentId || !companyName) return res.status(400).json({ message: 'studentId and companyName are required' });
+
+        const student = await User.findById(studentId);
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+
+        // Upsert into Company registry with student_submission source
+        await Company.findOneAndUpdate(
+            { name: companyName.trim() },
+            {
+                $setOnInsert: {
+                    name: companyName.trim(),
+                    source: 'student_submission',
+                    isMOUSigned: false,
+                    category: 'Student Self-Assigned'
+                }
+            },
+            { upsert: true, new: true }
+        );
+
+        student.assignedCompany = companyName.trim();
+        await student.save();
+
+        await new AuditLog({
+            action: 'COMPANY_ASSIGNED',
+            performedBy: officeId,
+            targetUser: student._id,
+            details: `Assigned company "${companyName}" to ${student.name}`,
+            ipAddress: req.ip
+        }).save();
+
+        console.log(`[${getPKTTime()}] [OFFICE] Company "${companyName}" assigned to ${student.email}`);
+        res.json({ message: 'Company assigned successfully.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/assign-site-supervisor
+// @desc    Assign site supervisor to student independently
+router.post('/assign-site-supervisor', async (req, res) => {
+    try {
+        const { studentId, siteSupervisorName, siteSupervisorEmail, siteSupervisorPhone, officeId } = req.body;
+        if (!studentId || !siteSupervisorName) return res.status(400).json({ message: 'studentId and siteSupervisorName are required' });
+
+        const student = await User.findById(studentId);
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+
+        student.assignedCompanySupervisor = siteSupervisorName;
+        // Also update internship request fields for record
+        if (student.internshipRequest) {
+            student.internshipRequest.siteSupervisorName = siteSupervisorName;
+            student.internshipRequest.siteSupervisorEmail = siteSupervisorEmail || student.internshipRequest.siteSupervisorEmail;
+            student.internshipRequest.siteSupervisorPhone = siteSupervisorPhone || student.internshipRequest.siteSupervisorPhone;
+        }
+        await student.save();
+
+        await new AuditLog({
+            action: 'SITE_SUPERVISOR_ASSIGNED',
+            performedBy: officeId,
+            targetUser: student._id,
+            details: `Assigned site supervisor "${siteSupervisorName}" to ${student.name}`,
+            ipAddress: req.ip
+        }).save();
+
+        console.log(`[${getPKTTime()}] [OFFICE] Site Supervisor "${siteSupervisorName}" assigned to ${student.email}`);
+        res.json({ message: 'Site supervisor assigned successfully.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/assign-faculty-override
+// @desc    Force-assign an existing faculty supervisor to a student (only if in DB)
+router.post('/assign-faculty-override', async (req, res) => {
+    try {
+        const { studentId, facultyId, officeId } = req.body;
+        if (!studentId || !facultyId) return res.status(400).json({ message: 'studentId and facultyId are required' });
+
+        const student = await User.findById(studentId);
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+
+        const faculty = await User.findById(facultyId);
+        if (!faculty || faculty.role !== 'faculty_supervisor') return res.status(404).json({ message: 'Faculty supervisor not found' });
+
+        student.assignedFaculty = facultyId;
+        if (student.internshipRequest) student.internshipRequest.facultyStatus = 'Accepted';
+        await student.save();
+
+        await new AuditLog({
+            action: 'FACULTY_ASSIGNED_OVERRIDE',
+            performedBy: officeId,
+            targetUser: student._id,
+            details: `Office assigned faculty "${faculty.name}" to ${student.name}`,
+            ipAddress: req.ip
+        }).save();
+
+        console.log(`[${getPKTTime()}] [OFFICE] Faculty "${faculty.name}" force-assigned to ${student.email}`);
+        res.json({ message: 'Faculty supervisor assigned successfully.', faculty: { id: faculty._id, name: faculty.name } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/office/check-site-supervisor-by-email
+// @desc    Check if a site supervisor exists in the DB by email
+router.get('/check-site-supervisor-by-email', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email) return res.status(400).json({ message: 'Email is required' });
+        const supervisor = await User.findOne({ email: email.toLowerCase().trim(), role: 'site_supervisor' })
+            .select('name email status whatsappNumber');
+        if (!supervisor) return res.json({ found: false });
+        res.json({ found: true, supervisor: { id: supervisor._id, name: supervisor.name, email: supervisor.email, status: supervisor.status, phone: supervisor.whatsappNumber } });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/onboard-and-assign-site-supervisor
+// @desc    Onboard a new site supervisor, assigned them to a company, and assign to student
+router.post('/onboard-and-assign-site-supervisor', async (req, res) => {
+    try {
+        const { studentId, siteSupervisorName, siteSupervisorEmail, siteSupervisorPhone, companyName, officeId } = req.body;
+        if (!studentId || !siteSupervisorName || !siteSupervisorEmail || !companyName) {
+            return res.status(400).json({ message: 'Mandatory fields missing' });
+        }
+
+        const student = await User.findById(studentId);
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+
+        const emailLower = siteSupervisorEmail.toLowerCase().trim();
+
+        // 1. Create/Find Company and link
+        const company = await Company.findOneAndUpdate(
+            { name: companyName.trim() },
+            {
+                $setOnInsert: { name: companyName.trim(), source: 'student_submission', category: 'Student Self-Assigned' },
+                $addToSet: { siteSupervisors: { name: siteSupervisorName, email: emailLower, whatsappNumber: siteSupervisorPhone || '' } }
+            },
+            { upsert: true, new: true }
+        );
+
+        // 2. See if user exists, if not onboard
+        let user = await User.findOne({ email: emailLower });
+        if (!user) {
+            const rawToken = crypto.randomBytes(32).toString('hex');
+            const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+            const expiry = Date.now() + 24 * 60 * 60 * 1000;
+
+            user = new User({
+                name: siteSupervisorName,
+                email: emailLower,
+                whatsappNumber: siteSupervisorPhone || '',
+                role: 'site_supervisor',
+                status: 'Pending Activation',
+                activationToken: tokenHash,
+                activationExpires: expiry,
+                password: crypto.randomBytes(16).toString('hex')
+            });
+            await user.save();
+            await sendCompanySupervisorActivationEmail(emailLower, rawToken, siteSupervisorName, company.name);
+        }
+
+        // 3. Update Student
+        student.assignedCompanySupervisor = siteSupervisorName;
+        if (student.internshipRequest) {
+            student.internshipRequest.siteSupervisorName = siteSupervisorName;
+            student.internshipRequest.siteSupervisorEmail = emailLower;
+            student.internshipRequest.siteSupervisorPhone = siteSupervisorPhone || '';
+        }
+        await student.save();
+
+        res.json({ message: 'Supervisor onboarded and assigned.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/onboard-and-assign-faculty
+// @desc    Onboard a new faculty and force-assign them to a student
+router.post('/onboard-and-assign-faculty', async (req, res) => {
+    try {
+        const { studentId, name, email, department, officeId } = req.body;
+        if (!studentId || !name || !email) return res.status(400).json({ message: 'studentId, name, and email are required' });
+
+        const student = await User.findById(studentId);
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+
+        const emailLower = email.toLowerCase().trim();
+
+        // Check if exists
+        let faculty = await User.findOne({ email: emailLower });
+        if (!faculty) {
+            const rawToken = crypto.randomBytes(32).toString('hex');
+            const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+            const expiry = Date.now() + 30 * 60 * 1000;
+
+            faculty = new User({
+                name,
+                email: emailLower,
+                role: 'faculty_supervisor',
+                status: 'Pending Activation',
+                activationToken: tokenHash,
+                activationExpires: expiry,
+                password: crypto.randomBytes(16).toString('hex')
+            });
+            await faculty.save();
+            await sendFacultyNominationEmail(emailLower, rawToken, name);
+        }
+
+        // Assign to student
+        student.assignedFaculty = faculty._id;
+        if (student.internshipRequest) student.internshipRequest.facultyStatus = 'Accepted';
+        await student.save();
+
+        res.json({ message: 'Faculty onboarded and assigned to student.', faculty: { id: faculty._id, name: faculty.name } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+
 
 // @route   POST api/office/decide-request
 // @desc    Approve or Reject internship request
@@ -191,13 +468,86 @@ router.post('/assign-student', async (req, res) => {
     }
 });
 
+// @route   GET api/office/faculty-students/:facultyId
+// @desc    Get all students assigned to a specific faculty supervisor
+router.get('/faculty-students/:facultyId', async (req, res) => {
+    try {
+        const students = await User.find({
+            role: 'student',
+            assignedFaculty: req.params.facultyId
+        }).select('name email reg semester status');
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/office/supervisor-students
+// @desc    Get all students assigned to a specific site supervisor within a company
+router.get('/supervisor-students', async (req, res) => {
+    try {
+        const { company, supervisor } = req.query;
+        if (!company || !supervisor) {
+            return res.status(400).json({ message: 'Company and Supervisor name are required.' });
+        }
+
+        const students = await User.find({
+            role: 'student',
+            assignedCompany: company,
+            assignedCompanySupervisor: supervisor
+        }).select('name email reg semester status');
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET api/office/companies
-// @desc    Get all registered companies
+// @desc    Get all registered companies with assigned student counts
 router.get('/companies', async (req, res) => {
     try {
         const companies = await Company.find().sort({ createdAt: -1 });
-        res.json(companies);
+
+        // Aggregate students assigned to each company supervisor email
+        const assignmentsCount = await User.aggregate([
+            { $match: { role: 'student', assignedCompanySupervisor: { $exists: true, $ne: null } } },
+            // Group by the name strictly, since email might not be directly assigned on student level.
+            // But since assignedCompany is there, we can group by both.
+            { $group: { _id: { company: '$assignedCompany', supervisor: '$assignedCompanySupervisor' }, count: { $sum: 1 } } }
+        ]);
+
+        const countMap = {};
+        const companyCountMap = {};
+
+        assignmentsCount.forEach(curr => {
+            const comp = curr._id.company || 'Unknown';
+            const sup = curr._id.supervisor || 'Unknown';
+
+            if (!companyCountMap[comp]) companyCountMap[comp] = 0;
+            companyCountMap[comp] += curr.count;
+
+            const supKey = `${comp}_${sup.toLowerCase().trim()}`;
+            countMap[supKey] = curr.count;
+        });
+
+        const companiesWithCounts = companies.map(company => {
+            const companyObj = company.toObject();
+            companyObj.assignedStudents = companyCountMap[company.name] || 0;
+
+            companyObj.siteSupervisors = companyObj.siteSupervisors.map(sup => {
+                const supKey = `${company.name}_${sup.name.toLowerCase().trim()}`;
+                return {
+                    ...sup,
+                    assignedStudents: countMap[supKey] || 0
+                };
+            });
+
+            return companyObj;
+        });
+
+        res.json(companiesWithCounts);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -273,6 +623,45 @@ router.post('/add-company', async (req, res) => {
     }
 });
 
+// @route   POST api/office/edit-company/:id
+// @desc    Update company details and its supervisor list
+router.post('/edit-company/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, address, regNo, scope, hrEmail, mouSignedDate, siteSupervisors, officeId } = req.body;
+
+        const company = await Company.findById(id);
+        if (!company) return res.status(404).json({ message: 'Company not found.' });
+
+        // Update fields
+        company.name = name || company.name;
+        company.address = address || company.address;
+        company.regNo = regNo || company.regNo;
+        company.scope = scope || company.scope;
+        company.hrEmail = hrEmail || company.hrEmail;
+        company.mouSignedDate = mouSignedDate || company.mouSignedDate;
+
+        // Handle site supervisor list updates
+        // For simplicity, we replace the list. In a real app, we might want to sync with User accounts.
+        company.siteSupervisors = siteSupervisors;
+
+        await company.save();
+
+        // Audit Log
+        await new AuditLog({
+            action: 'COMPANY_UPDATED',
+            performedBy: officeId,
+            details: `Updated company: ${company.name}`,
+            ipAddress: req.ip
+        }).save();
+
+        res.json({ message: 'Company details updated successfully.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   POST api/office/add-site-supervisor
 // @desc    Add a supervisor to an existing company and onboard them
 router.post('/add-site-supervisor', async (req, res) => {
@@ -330,6 +719,79 @@ router.post('/add-site-supervisor', async (req, res) => {
 
     } catch (err) {
         console.error('[ADD SUPERVISOR ERROR]', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/edit-site-supervisor/:id
+// @desc    Update site supervisor details across User and Company models
+router.post('/edit-site-supervisor/:id', async (req, res) => {
+    try {
+        const { id } = req.params; // Can be email or ID
+        const { name, email, whatsappNumber, companyId, officeId } = req.body;
+
+        const emailLower = (email || id).toLowerCase().trim();
+
+        // 1. Update User Record
+        const user = await User.findOne({ email: emailLower });
+        if (user) {
+            user.name = name || user.name;
+            user.whatsappNumber = whatsappNumber || user.whatsappNumber;
+            await user.save();
+        }
+
+        // 2. Update Company Record
+        if (companyId) {
+            const company = await Company.findById(companyId);
+            if (company) {
+                const supIndex = company.siteSupervisors.findIndex(s => s.email === emailLower);
+                if (supIndex > -1) {
+                    company.siteSupervisors[supIndex].name = name || company.siteSupervisors[supIndex].name;
+                    company.siteSupervisors[supIndex].whatsappNumber = whatsappNumber || company.siteSupervisors[supIndex].whatsappNumber;
+                    await company.save();
+                }
+            }
+        }
+
+        // 3. Audit Log
+        await new AuditLog({
+            action: 'SUPERVISOR_UPDATED',
+            performedBy: officeId,
+            details: `Updated site supervisor: ${name} (${emailLower})`,
+            ipAddress: req.ip
+        }).save();
+
+        res.json({ message: 'Supervisor updated successfully.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/remove-site-supervisor
+// @desc    Unlink supervisor from company
+router.post('/remove-site-supervisor', async (req, res) => {
+    try {
+        const { email, companyId, officeId } = req.body;
+        if (!email || !companyId) return res.status(400).json({ message: 'Email and companyId are required' });
+
+        const company = await Company.findById(companyId);
+        if (!company) return res.status(404).json({ message: 'Company not found' });
+
+        company.siteSupervisors = company.siteSupervisors.filter(s => s.email !== email.toLowerCase().trim());
+        await company.save();
+
+        // Audit Log
+        await new AuditLog({
+            action: 'SUPERVISOR_REMOVED',
+            performedBy: officeId,
+            details: `Removed supervisor ${email} from company ${company.name}`,
+            ipAddress: req.ip
+        }).save();
+
+        res.json({ message: 'Supervisor removed from company registry.' });
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });

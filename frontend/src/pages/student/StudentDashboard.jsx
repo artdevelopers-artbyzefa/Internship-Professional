@@ -3,36 +3,15 @@ import Card from '../../components/ui/Card.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
-import NoticeItem from '../../components/notice/NoticeItem.jsx'; // Added import
 import { apiRequest } from '../../utils/api.js';
 
 export default function StudentDashboard({ user, isEligible, isPhase1, activePhase }) {
   const [showAlert, setShowAlert] = React.useState(true);
   const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
 
-  // Decision logic for Phase 2+ progress
-  const isRequestSubmitted = user.status === 'Internship Request Submitted' || user.status === 'Internship Approved' || user.status.includes('Agreement');
-  const isPhase2Plus = activePhase?.order >= 2;
-
-  // They are completely locked down if they are ineligible during Phase 1
-  const isLocked = isPhase1 && !isEligible;
-
-  const [notices, setNotices] = React.useState([]);
-  const [loadingNotices, setLoadingNotices] = React.useState(true);
-
-  React.useEffect(() => {
-    const fetchNotices = async () => {
-      try {
-        const data = await apiRequest('/notices/my');
-        if (data) setNotices(data);
-      } catch (err) {
-        console.error('Announcements Fetch Error:', err);
-      } finally {
-        setLoadingNotices(false);
-      }
-    };
-    fetchNotices();
-  }, []);
+  // Authority Progression Counter: The primary driver for dashboard projection
+  const phaseOrder = activePhase?.order || 1;
+  const isLocked = phaseOrder === 1 && !isEligible;
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -47,144 +26,183 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
   };
 
   const InfoItem = ({ label, value, grow = 0 }) => (
-    <div className={`p-3.5 border-b border-r last:border-r-0 flex flex-col justify-center min-h-[60px] ${grow ? 'md:col-span-2' : ''}`}>
-      <span className="text-[10px] font-black text-gray-400 tracking-widest leading-none mb-1.5">{label} :</span>
-      <span className="font-bold text-gray-700 truncate">{value || 'N/A'}</span>
+    <div className={`p-4 border-b border-r last:border-r-0 flex flex-col justify-center min-h-[70px] ${grow ? 'md:col-span-2' : ''}`}>
+      <span className="text-[10px] font-black text-gray-400 tracking-[0.2em] leading-none mb-2 uppercase">{label}</span>
+      <span className="font-black text-gray-800 truncate tracking-tight">{value || 'NOT SET'}</span>
     </div>
   );
 
   const ProfileTable = () => (
-    <div className="bg-white border rounded-xl overflow-hidden shadow-sm text-[13px] mb-8">
+    <div className="bg-white border-2 border-gray-100 rounded-3xl overflow-hidden shadow-sm text-[13px] mb-8">
       <div className="flex flex-col lg:flex-row">
-        {/* Profile Image Section */}
-        <div className="lg:w-40 bg-gray-50 flex items-center justify-center p-4 border-r">
-          <div className="w-32 h-32 rounded-xl bg-white border shadow-sm overflow-hidden flex items-center justify-center group relative">
+        <div className="lg:w-48 bg-gray-50/50 flex items-center justify-center p-6 border-r-2 border-gray-100">
+          <div className="w-32 h-32 rounded-[2rem] bg-white border-4 border-white shadow-xl overflow-hidden flex items-center justify-center group relative ring-1 ring-gray-100">
             {user.profilePicture ? (
               <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              <i className="fas fa-user text-4xl text-gray-200"></i>
+              <i className="fas fa-user text-5xl text-gray-200"></i>
             )}
           </div>
         </div>
-
-        {/* Info Grid Section */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 border-t lg:border-t-0">
-          <InfoItem label="Name" value={user.name} grow={1} />
-          <InfoItem label="Roll No" value={user.reg} />
-
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-4">
+          <InfoItem label="Full Name" value={user.name} grow={1} />
+          <InfoItem label="Registration No" value={user.reg} />
           <InfoItem label="Father Name" value={user.fatherName} />
-          <InfoItem label="Registered Course" value={user.registeredCourse || 'Internship'} />
-
           <InfoItem label="Program" value={extractProgram(user.reg)} />
-          <InfoItem label="Current Section" value={user.section} />
-
-          <InfoItem label="Date of Birth" value={formatDate(user.dateOfBirth)} />
-          <InfoItem label="Faculty Supervisor" value={user.assignedFaculty?.name || user.internshipAgreement?.officeFacultySupervisor || 'N/A'} />
-
-          <InfoItem label="Site Supervisor" value={user.assignedCompanySupervisor || user.internshipAgreement?.officeSiteSupervisor || 'N/A'} />
-          <InfoItem label="Company Name" value={user.assignedCompany || user.internshipRequest?.companyName || 'N/A'} grow={1} />
+          <InfoItem label="Section" value={user.section} />
+          <InfoItem label="DOB" value={formatDate(user.dateOfBirth)} />
+          <InfoItem label="Institutional Email" value={user.email} grow={1} />
+          {user.secondaryEmail && (
+            <InfoItem
+              label="Secondary Email"
+              value={
+                <span className="flex items-center gap-2">
+                  <span className="truncate">{user.secondaryEmail}</span>
+                  <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0">Linked</span>
+                </span>
+              }
+              grow={1}
+            />
+          )}
+          <InfoItem
+            label="Faculty Supervisor"
+            value={
+              user.assignedFaculty?.name ||
+              (user.internshipRequest?.facultyStatus === 'Pending' ? 'Pending Approval' :
+                user.internshipRequest?.facultyStatus === 'Rejected' ? 'Rejected - Reassign Needed' : 'Not Assigned')
+            }
+            grow={1}
+          />
         </div>
       </div>
     </div>
   );
 
-  return (
-    <div className="space-y-6">
-      <div className="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
-        <div>
-          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Student Dashboard</h2>
-          <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Institutional profile and academic overview at CUI Abbottabad.</p>
+  // ── PHASE 1: REGISTRATION & ELIGIBILITY DESIGN ──
+  const Phase1Dashboard = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-8 p-8 bg-gradient-to-br from-white to-blue-50/30 rounded-[2.5rem] border-2 border-blue-100 shadow-xl shadow-blue-50/20 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Phase 1</span>
+            <span className="text-sm font-bold text-primary">Self-Registration & Verification</span>
+          </div>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-3">Welcome to DIMS Portal</h2>
+          <p className="text-gray-500 font-medium max-w-xl">
+            You are currently in the initial onboarding phase. Ensure your institutional profile is accurate to maintain eligibility for the internship cycle.
+          </p>
         </div>
       </div>
 
-      <NoticeModal />
-
-      {/* Phase 1 Eligibility Banner — only visible when registration phase is active */}
       <Phase1EligibilityBanner user={user} />
 
       {(!isProfileComplete && showAlert && !isLocked) && (
-        <Alert type="error" className="mb-8" onClose={() => setShowAlert(false)}>
-          <div className="flex items-center justify-between">
-            <span><strong>Profile Incomplete:</strong> Please update your Father's Name, Section, Date of Birth, and Profile Picture to unlock all portal features.</span>
+        <Alert type="warning" className="mb-8 rounded-[1.5rem] border-2 shadow-lg" onClose={() => setShowAlert(false)}>
+          <div className="flex items-center gap-4 py-1">
+            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 flex-shrink-0">
+              <i className="fas fa-user-pen"></i>
+            </div>
+            <p className="font-bold text-amber-900">
+              Institutional Profile Incomplete: <span className="font-medium text-amber-700">Please provide your Father's Name, Section, and DOB in the Profile section to unlock Phase 2.</span>
+            </p>
           </div>
         </Alert>
       )}
 
       {!isLocked && <ProfileTable />}
+    </div>
+  );
 
-      {/* Phase 2+ Progress Tracker */}
-      {(!isLocked && isPhase2Plus) && (
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
-          <div className={`p-6 rounded-2xl border-2 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all shadow-lg ${isRequestSubmitted ? 'bg-emerald-50 border-emerald-100 shadow-emerald-50' : 'bg-blue-50 border-blue-100 shadow-blue-50'}`}>
-            <div className="flex items-center gap-5">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl shadow-md ${isRequestSubmitted ? 'bg-emerald-500' : 'bg-blue-500'}`}>
-                <i className={`fas ${isRequestSubmitted ? 'fa-clipboard-check' : 'fa-file-export'}`}></i>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Institutional Workflow</span>
-                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${isRequestSubmitted ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 'bg-blue-100 text-blue-600 border-blue-200'}`}>
-                    Phase {activePhase.order}: {activePhase.label}
-                  </span>
-                </div>
-                <h3 className="text-xl font-black text-gray-800 tracking-tight">
-                  {isRequestSubmitted ? '✅ Internship Request Submitted' : '⏳ Action Required: Submit Approval Form'}
-                </h3>
-                <p className="text-sm text-gray-500 font-medium mt-1">
-                  {isRequestSubmitted
-                    ? `Current System Status: "${user.status}". Please wait for departmental verification.`
-                    : 'The Internship Office is now accepting (AppEx-A) forms. Submit your preference details immediately.'
-                  }
-                </p>
-              </div>
-            </div>
-            {!isRequestSubmitted && (
-              <a href="/student/internship-request" className="flex-shrink-0">
-                <button className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-8 py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95 border-0 cursor-pointer">
-                  INITIATE WORKFLOW <i className="fas fa-chevron-right ml-2"></i>
-                </button>
-              </a>
-            )}
+  // Decision logic for Phase 2+ progress
+  const facultyRejected = user.internshipRequest?.facultyStatus === 'Rejected';
+  const isRequestSubmitted = (user.status === 'Internship Request Submitted' || user.status === 'Internship Approved' || user.status.includes('Agreement')) && !facultyRejected;
+
+  // ── PHASE 2+: WORKFLOW & ONBOARDING DESIGN ──
+  const Phase2PlusDashboard = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 p-8 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Internship Cycle Active</span>
           </div>
+          <h3 className="text-2xl font-black text-gray-800 tracking-tight mb-2">Internship Phase 2</h3>
+          <p className="text-gray-500 text-sm font-medium max-w-md leading-relaxed">
+            The internship cycle is now open. Complete the steps below to submit and finalize your placement.
+          </p>
+        </div>
+
+        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-center">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Current Phase</p>
+          <p className="text-xl font-black text-primary tracking-tight">{activePhase?.label || 'In Progress'}</p>
+          <div className="mt-4 w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+            <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${(phaseOrder / 9) * 100}%` }}></div>
+          </div>
+        </div>
+      </div>
+
+      {facultyRejected && showAlert && (
+        <Alert type="danger" className="mb-8 rounded-[1.5rem] border-2 shadow-lg" onClose={() => setShowAlert(false)}>
+          <div className="flex items-center gap-4 py-1">
+            <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center text-rose-600 flex-shrink-0">
+              <i className="fas fa-user-xmark"></i>
+            </div>
+            <div>
+              <p className="font-black text-rose-900 uppercase text-[10px] tracking-widest">Supervision Rejected</p>
+              <p className="font-bold text-rose-700 text-sm italic">
+                The requested Faculty Supervisor has declined your request. You must select a different supervisor to proceed.
+              </p>
+            </div>
+          </div>
+        </Alert>
+      )}
+
+      {/* Dynamic Workflow Trigger Card */}
+      {!isLocked && (
+        <div className={`p-8 rounded-[2.5rem] border-2 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all shadow-xl mb-8 ${isRequestSubmitted ? 'bg-emerald-50/50 border-emerald-100 shadow-emerald-50/50' : 'bg-primary/5 border-primary/10 shadow-primary/5'}`}>
+          <div className="flex items-center gap-6">
+            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white text-3xl shadow-2xl ${isRequestSubmitted ? 'bg-emerald-500 rotate-3' : 'bg-primary -rotate-3'}`}>
+              <i className={`fas ${isRequestSubmitted ? 'fa-clipboard-check' : 'fa-rocket'}`}></i>
+            </div>
+            <div>
+              <h4 className="text-2xl font-black text-gray-800 tracking-tight">
+                {isRequestSubmitted ? 'Application Transmitted' : facultyRejected ? 'Reassignment Required' : 'Initialize Workflow'}
+              </h4>
+              <p className="text-sm text-gray-500 font-medium mt-1 max-w-sm">
+                {isRequestSubmitted
+                  ? 'Your AppEx-A request is currently under departmental review. Monitor your status page for updates.'
+                  : facultyRejected
+                    ? 'Your supervision request was rejected. Please resubmit your form with an available faculty member.'
+                    : 'The mandatory Internship Request (AppEx-A) module is now active. Submit your preferences immediately.'}
+              </p>
+            </div>
+          </div>
+
+          {!isRequestSubmitted ? (
+            <a href="/student/internship-assessment" className="flex-shrink-0">
+              <button className={`font-black text-xs px-10 py-5 rounded-2xl shadow-xl transition-all active:scale-95 border-0 cursor-pointer uppercase tracking-widest ${facultyRejected ? 'bg-rose-500 text-white shadow-rose-200' : 'bg-primary text-white shadow-primary/20'}`}>
+                {facultyRejected ? 'Edit Request' : 'Start Assessment'} <i className="fas fa-arrow-right ml-2 text-[10px]"></i>
+              </button>
+            </a>
+          ) : (
+            <div className="flex items-center gap-2 px-6 py-3 bg-emerald-100 text-emerald-700 rounded-full font-black text-[10px] uppercase tracking-widest border border-emerald-200">
+              <i className="fas fa-check-circle"></i> Request Logged
+            </div>
+          )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6">
-        <div className="space-y-6">
-          <Card className="border-l-4 border-l-blue-500 shadow-xl border-primary/10">
-            <h3 className="text-sm font-black text-primary tracking-widest mb-6 flex items-center justify-between px-2">
-              <span><i className="fas fa-bullhorn text-secondary mr-2"></i> Official Announcements</span>
-              <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase font-black tracking-widest">
-                {notices.length} New Feed
-              </span>
-            </h3>
+      {!isLocked && <ProfileTable />}
+    </div>
+  );
 
-            <div className="space-y-4">
-              {loadingNotices ? (
-                <div className="py-20 text-center">
-                  <i className="fas fa-circle-notch fa-spin text-3xl text-primary/20 mb-4"></i>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Syncing Feed...</p>
-                </div>
-              ) : notices.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {notices.map(notice => (
-                    <NoticeItem key={notice._id} notice={notice} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-16 text-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 mx-2">
-                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                    <i className="fas fa-check-double text-gray-200 text-2xl"></i>
-                  </div>
-                  <p className="text-sm font-bold text-gray-400">All caught up! No recent announcements.</p>
-                  <p className="text-[10px] text-gray-300 uppercase tracking-widest mt-1">Check back later for updates</p>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      </div>
+  return (
+    <div className="max-w-7xl mx-auto py-2">
+      <NoticeModal />
+
+      {/* Dynamic Phase Router (Counter Based) */}
+      {phaseOrder === 1 ? <Phase1Dashboard /> : <Phase2PlusDashboard />}
     </div>
   );
 }
-
