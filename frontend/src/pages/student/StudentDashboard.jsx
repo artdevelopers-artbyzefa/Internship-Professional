@@ -4,9 +4,12 @@ import Alert from '../../components/ui/Alert.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
 
-export default function StudentDashboard({ user }) {
+export default function StudentDashboard({ user, isEligible, isPhase1 }) {
   const [showAlert, setShowAlert] = React.useState(true);
   const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
+
+  // They are completely locked down if they are ineligible during Phase 1
+  const isLocked = isPhase1 && !isEligible;
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -76,7 +79,7 @@ export default function StudentDashboard({ user }) {
       {/* Phase 1 Eligibility Banner — only visible when registration phase is active */}
       <Phase1EligibilityBanner user={user} />
 
-      {(!isProfileComplete && showAlert) && (
+      {(!isProfileComplete && showAlert && !isLocked) && (
         <Alert type="error" className="mb-8" onClose={() => setShowAlert(false)}>
           <div className="flex items-center justify-between">
             <span><strong>Profile Incomplete:</strong> Please update your Father's Name, Section, Date of Birth, and Profile Picture to unlock all portal features.</span>
@@ -84,10 +87,10 @@ export default function StudentDashboard({ user }) {
         </Alert>
       )}
 
-      <ProfileTable />
+      {!isLocked && <ProfileTable />}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      <div className={`grid grid-cols-1 gap-6 ${isLocked ? '' : 'md:grid-cols-3'}`}>
+        <div className={`${isLocked ? 'md:col-span-1' : 'md:col-span-2'} space-y-6`}>
           <Card className="border-l-4 border-l-blue-500">
             <h3 className="text-sm font-black text-primary tracking-widest mb-4 flex items-center justify-between">
               <span><i className="fas fa-bullhorn text-secondary mr-2"></i> Announcements</span>
@@ -99,14 +102,16 @@ export default function StudentDashboard({ user }) {
           </Card>
         </div>
 
-        <Card title="Portal Quick Links" className="h-full">
-          <div className="space-y-2">
-            <QuickLink icon="fa-user-pen" label="Update My Profile" path="/student/profile" color="blue" />
-            <QuickLink icon="fa-file-signature" label="Internship Approval" path="/student/request" color="green" />
-            <QuickLink icon="fa-file-contract" label="Student Agreement" path="/student/agreement" color="amber" />
-            <QuickLink icon="fa-chart-pie" label="Academic Results" path="/student/results" color="purple" />
-          </div>
-        </Card>
+        {!isLocked && (
+          <Card title="Portal Quick Links" className="h-full">
+            <div className="space-y-2">
+              <QuickLink icon="fa-user-pen" label="Update My Profile" path="/student/profile" color="blue" />
+              <QuickLink icon="fa-file-signature" label="Internship Approval" path="/student/request" color="green" />
+              <QuickLink icon="fa-file-contract" label="Student Agreement" path="/student/agreement" color="amber" />
+              <QuickLink icon="fa-chart-pie" label="Academic Results" path="/student/results" color="purple" />
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

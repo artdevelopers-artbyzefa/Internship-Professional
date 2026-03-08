@@ -14,11 +14,19 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
   const location = useLocation();
   const status = user.status || 'verified';
 
-  const [activePhase, setActivePhase] = useState(undefined); // undefined = loading
+  const [activePhase, setActivePhase] = useState(undefined);
+  const [isEligible, setIsEligible] = useState(true); // default allow until loaded
 
   useEffect(() => {
-    apiRequest('/phases/current')
-      .then(p => setActivePhase(p))
+    const userId = user.id || user._id;
+    Promise.all([
+      apiRequest('/phases/current'),
+      apiRequest(`/student/eligibility/${userId}`)
+    ])
+      .then(([phase, eligData]) => {
+        setActivePhase(phase);
+        setIsEligible(eligData?.eligible ?? true);
+      })
       .catch(() => setActivePhase(null));
   }, []);
 
@@ -64,11 +72,13 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
   const isWorkflowComplete = user.status === 'Agreement Approved' || user.status === 'Assigned';
   const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
 
-  // During Phase 1: sidebar shows only Dashboard and Profile
+  const isLocked = isPhase1 && !isEligible;
+
+  // During Phase 1: sidebar shows only Dashboard (and Profile if eligible)
   const studentNav = isPhase1
     ? [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
-      { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' },
+      ...(isLocked ? [] : [{ id: 'profile', label: 'My Profile', icon: 'fa-user-pen' }]),
     ]
     : isWorkflowComplete
       ? [
@@ -96,8 +106,8 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       <div className="p-6">
         <Routes>
           {/* Dashboard & Profile — always accessible */}
-          <Route path="dashboard" element={<StudentDashboard user={user} />} />
-          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} />} />
+          <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} />} />
+          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} isEligible={isEligible} isPhase1={isPhase1} />} />
 
           {/* Workflow Routes — blocked during Phase 1 */}
           <Route path="internship-request" element={
