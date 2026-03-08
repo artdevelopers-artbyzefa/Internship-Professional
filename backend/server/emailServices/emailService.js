@@ -212,3 +212,43 @@ export const sendStudentActivationEmail = async (email, token, name) => {
   `;
   return await brevoSend(email, 'Portal Access: Student Internship Management System', html);
 };
+/**
+ * Sends a formal activation email to Site Supervisors (MOU Companies)
+ */
+export const sendCompanySupervisorActivationEmail = async (email, token, name, companyName) => {
+  const activationUrl = `${process.env.FRONTEND_URL}/supervisor/activate/${token}`;
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f0f9ff; padding: 40px; border-radius: 20px; border: 1px solid #e0f2fe;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #0369a1; margin: 0; font-size: 26px; font-weight: 800;">Digital Internship Portal</h1>
+        <p style="color: #64748b; font-size: 14px; margin-top: 5px; font-weight: 600;">COMSATS University Islamabad, Abbottabad Campus</p>
+      </div>
+      <div style="background-color: #ffffff; padding: 35px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
+        <h2 style="color: #0f172a; font-size: 20px; margin-bottom: 20px; font-weight: 700;">Partner Onboarding: Site Supervisor</h2>
+        <p style="color: #334155; font-size: 15px; line-height: 26px;">
+          Dear <strong>${name}</strong>,<br/><br/>
+          Welcome to the official internship network of COMSATS University. Your organization, <strong>${companyName}</strong>, has been registered as an institutional partner.
+          <br/><br/>
+          You have been nominated as a <strong>Site Supervisor</strong>. Please complete your registration and secure your account by setting a password using the link below.
+          <br/><br/>
+          <strong style="color: #0284c7;">Security Note:</strong> This link is personal to your email and is valid for <strong>24 hours</strong>.
+        </p>
+        <div style="text-align: center; margin: 40px 0;">
+          <a href="${activationUrl}" style="background-color: #0284c7; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 700; display: inline-block; box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.3);">
+            Activate Supervisor Account
+          </a>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px; line-height: 20px; text-align: center;">
+          If the button above does not work, please copy and paste this link into your browser:<br/>
+          <a href="${activationUrl}" style="color: #0284c7; word-break: break-all;">${activationUrl}</a>
+        </p>
+      </div>
+      <div style="text-align: center; margin-top: 30px; color: #94a3b8; font-size: 11px; font-weight: 500;">
+        <p>This is a system-generated communication for official university partners.</p>
+        <p>&copy; 2026 CUI Abbottabad - Internship Management Office</p>
+      </div>
+    </div>
+  `;
+  return await brevoSend(email, `Official Onboarding: Site Supervisor for ${companyName}`, html);
+};

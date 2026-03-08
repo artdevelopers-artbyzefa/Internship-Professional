@@ -6,9 +6,13 @@ import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityB
 import NoticeItem from '../../components/notice/NoticeItem.jsx'; // Added import
 import { apiRequest } from '../../utils/api.js';
 
-export default function StudentDashboard({ user, isEligible, isPhase1 }) {
+export default function StudentDashboard({ user, isEligible, isPhase1, activePhase }) {
   const [showAlert, setShowAlert] = React.useState(true);
   const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
+
+  // Decision logic for Phase 2+ progress
+  const isRequestSubmitted = user.status === 'Internship Request Submitted' || user.status === 'Internship Approved' || user.status.includes('Agreement');
+  const isPhase2Plus = activePhase?.order >= 2;
 
   // They are completely locked down if they are ineligible during Phase 1
   const isLocked = isPhase1 && !isEligible;
@@ -107,6 +111,43 @@ export default function StudentDashboard({ user, isEligible, isPhase1 }) {
       )}
 
       {!isLocked && <ProfileTable />}
+
+      {/* Phase 2+ Progress Tracker */}
+      {(!isLocked && isPhase2Plus) && (
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
+          <div className={`p-6 rounded-2xl border-2 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all shadow-lg ${isRequestSubmitted ? 'bg-emerald-50 border-emerald-100 shadow-emerald-50' : 'bg-blue-50 border-blue-100 shadow-blue-50'}`}>
+            <div className="flex items-center gap-5">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl shadow-md ${isRequestSubmitted ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+                <i className={`fas ${isRequestSubmitted ? 'fa-clipboard-check' : 'fa-file-export'}`}></i>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Institutional Workflow</span>
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${isRequestSubmitted ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 'bg-blue-100 text-blue-600 border-blue-200'}`}>
+                    Phase {activePhase.order}: {activePhase.label}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-gray-800 tracking-tight">
+                  {isRequestSubmitted ? '✅ Internship Request Submitted' : '⏳ Action Required: Submit Approval Form'}
+                </h3>
+                <p className="text-sm text-gray-500 font-medium mt-1">
+                  {isRequestSubmitted
+                    ? `Current System Status: "${user.status}". Please wait for departmental verification.`
+                    : 'The Internship Office is now accepting (AppEx-A) forms. Submit your preference details immediately.'
+                  }
+                </p>
+              </div>
+            </div>
+            {!isRequestSubmitted && (
+              <a href="/student/internship-request" className="flex-shrink-0">
+                <button className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-8 py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95 border-0 cursor-pointer">
+                  INITIATE WORKFLOW <i className="fas fa-chevron-right ml-2"></i>
+                </button>
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6">
         <div className="space-y-6">

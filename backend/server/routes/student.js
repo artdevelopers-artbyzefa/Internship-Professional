@@ -96,10 +96,27 @@ router.put('/update-profile', protect, async (req, res) => {
         if (fatherName) user.fatherName = fatherName;
         if (section) user.section = section;
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
-        if (secondaryEmail) user.secondaryEmail = secondaryEmail.toLowerCase().trim();
+        if (secondaryEmail) {
+            const lowerEmail = secondaryEmail.toLowerCase().trim();
+
+            // Crucial Security: Ensure secondary email is not already a PRIMARY email or someone else's secondary
+            const collision = await User.findOne({
+                _id: { $ne: user._id },
+                $or: [
+                    { email: lowerEmail },
+                    { secondaryEmail: lowerEmail }
+                ]
+            });
+
+            if (collision) {
+                return res.status(400).json({ message: 'The secondary email is already linked to another account.' });
+            }
+
+            user.secondaryEmail = lowerEmail;
+        }
 
         // Handle Password Change
-        if (newPassword) {
+        if (newPassword && newPassword.trim() !== "") {
             const bcrypt = await import('bcryptjs').then(m => m.default);
             user.password = await bcrypt.hash(newPassword, 12);
         }

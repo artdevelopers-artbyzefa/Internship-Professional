@@ -55,7 +55,13 @@ export default function Phase1EligibilityBanner({ user }) {
         </div>
     );
 
-    if (activePhase.key !== 'registration') return null; // only show for phase 1
+    // Conditional Visibility logic:
+    // 1. If global phase is "registration", always show the banner (advisory mode)
+    // 2. If global phase is NOT "registration", only show if student is INELIGIBLE (blocked mode)
+    const isGlobalPhase1 = activePhase?.key === 'registration';
+    const isBlocked = !isGlobalPhase1 && eligibility && !eligibility.eligible;
+
+    if (!isGlobalPhase1 && !isBlocked) return null;
 
     if (!eligibility) return null;
 
@@ -66,8 +72,8 @@ export default function Phase1EligibilityBanner({ user }) {
 
     return (
         <div className={`rounded-2xl border-2 overflow-hidden transition-all ${eligible
-                ? 'border-emerald-200 shadow-lg shadow-emerald-50'
-                : 'border-red-200 shadow-lg shadow-red-50'
+            ? 'border-emerald-200 shadow-lg shadow-emerald-50'
+            : 'border-red-200 shadow-lg shadow-red-50'
             }`}>
             {/* ── Header ── */}
             <div className={`p-6 flex items-start gap-4 ${eligible ? 'bg-emerald-50' : 'bg-red-50'
@@ -81,24 +87,36 @@ export default function Phase1EligibilityBanner({ user }) {
                 <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded-full border ${eligible
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                                : 'bg-red-100 text-red-700 border-red-200'
+                            ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                            : 'bg-red-100 text-red-700 border-red-200'
                             }`}>
-                            PHASE 1 — STUDENT REGISTRATION
+                            {isGlobalPhase1 ? 'PHASE 1 — STUDENT REGISTRATION' : 'VERIFICATION FAILED — SESSION LOCKED'}
                         </span>
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                            Currently Active
-                        </span>
+                        {isGlobalPhase1 ? (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                Currently Active
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                                <i className="fas fa-lock"></i>
+                                Enrollment Closed
+                            </span>
+                        )}
                     </div>
 
                     <h3 className={`text-lg font-black ${eligible ? 'text-emerald-900' : 'text-red-900'}`}>
-                        {eligible ? '✅ You Are Eligible for This Internship Cycle' : '❌ You Are Not Eligible for This Internship Cycle'}
+                        {isGlobalPhase1
+                            ? (eligible ? '✅ You Are Eligible for This Internship Cycle' : '❌ You Are Not Eligible for This Internship Cycle')
+                            : '❌ Internship Participation Denied'
+                        }
                     </h3>
                     <p className={`text-sm mt-1 ${eligible ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {eligible
-                            ? `All mandatory criteria are satisfied, ${user.name?.split(' ')[0]}. You may proceed when Phase 2 begins.`
-                            : `${hardFails.length} mandatory requirement(s) are not met. You cannot participate in this internship cycle.`
+                        {isGlobalPhase1
+                            ? (eligible
+                                ? `All mandatory criteria are satisfied, ${user.name?.split(' ')[0]}. You may proceed when Phase 2 begins.`
+                                : `${hardFails.length} mandatory requirement(s) are not met. You cannot participate in this internship cycle.`)
+                            : `This internship cycle has moved past Phase 1. Since you did not meet the eligibility requirements, your portal access is restricted.`
                         }
                     </p>
                 </div>
@@ -119,25 +137,25 @@ export default function Phase1EligibilityBanner({ user }) {
                     {checks.map(check => (
                         <div key={check.key}
                             className={`flex items-start gap-3 p-4 rounded-xl border ${!check.passed && !check.warning ? 'bg-red-50 border-red-100' :
-                                    !check.passed && check.warning ? 'bg-amber-50 border-amber-100' :
-                                        'bg-green-50 border-green-100'
+                                !check.passed && check.warning ? 'bg-amber-50 border-amber-100' :
+                                    'bg-green-50 border-green-100'
                                 }`}
                         >
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm ${!check.passed && !check.warning ? 'bg-red-100 text-red-500' :
-                                    !check.passed && check.warning ? 'bg-amber-100 text-amber-600' :
-                                        'bg-green-100 text-green-600'
+                                !check.passed && check.warning ? 'bg-amber-100 text-amber-600' :
+                                    'bg-green-100 text-green-600'
                                 }`}>
                                 <i className={`fas ${CHECK_ICONS[check.key] || 'fa-circle'}`}></i>
                             </div>
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-0.5">
                                     <p className={`text-xs font-black ${!check.passed && !check.warning ? 'text-red-700' :
-                                            !check.passed && check.warning ? 'text-amber-700' :
-                                                'text-green-700'
+                                        !check.passed && check.warning ? 'text-amber-700' :
+                                            'text-green-700'
                                         }`}>{check.label}</p>
                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${!check.passed && !check.warning ? 'bg-red-100 text-red-600' :
-                                            !check.passed && check.warning ? 'bg-amber-100 text-amber-600' :
-                                                'bg-green-100 text-green-700'
+                                        !check.passed && check.warning ? 'bg-amber-100 text-amber-600' :
+                                            'bg-green-100 text-green-700'
                                         }`}>
                                         {!check.passed && !check.warning ? 'FAILED' :
                                             !check.passed && check.warning ? 'WARNING' : 'PASSED'}

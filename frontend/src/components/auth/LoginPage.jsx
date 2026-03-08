@@ -19,7 +19,8 @@ export default function LoginPage({ onLogin }) {
     { id: 'student', label: 'Student' },
     { id: 'hod', label: 'HOD' },
     { id: 'internship_office', label: 'Internship Office' },
-    { id: 'faculty_supervisor', label: 'Faculty Supervisor' }
+    { id: 'faculty_supervisor', label: 'Faculty Supervisor' },
+    { id: 'site_supervisor', label: 'Site Supervisor' }
   ];
 
   const handleValidation = () => {

@@ -46,7 +46,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['student', 'hod', 'internship_office', 'faculty_supervisor'],
+        enum: ['student', 'hod', 'internship_office', 'faculty_supervisor', 'site_supervisor'],
         default: 'student'
     },
     whatsappNumber: {
@@ -67,7 +67,7 @@ const userSchema = new mongoose.Schema({
 
     // NEW: Student Profile Specific Mandatory Fields
     fatherName: { type: String, trim: true },
-    secondaryEmail: { type: String, trim: true, lowercase: true, index: true, sparse: true },
+    secondaryEmail: { type: String, trim: true, lowercase: true, unique: true, sparse: true, index: true },
     secondaryEmailVerificationCode: { type: String },
     secondaryEmailVerificationExpires: { type: Date },
     section: { type: String, trim: true },

@@ -58,11 +58,11 @@ export default function ManageAssignments({ user }) {
     try {
       await apiRequest('/office/create-assignment', {
         method: 'POST',
-        body: { 
-          ...form, 
+        body: {
+          ...form,
           // Ensure startDate and deadline are sent correctly as date objects if needed, 
           // or just string ISO from datetime-local
-          officeId: user.id || user._id 
+          officeId: user.id || user._id
         }
       });
       setShowAddModal(false);
@@ -96,44 +96,43 @@ export default function ManageAssignments({ user }) {
     e.preventDefault();
     setSubmitting(true);
     try {
-        await apiRequest('/office/override-deadline', {
-            method: 'POST',
-            body: { ...overrideForm, officeId: user.id || user._id }
-        });
-        setShowOverrideModal(false);
-        setOverrideForm({ assignmentId: '', facultyId: '', newDeadline: '' });
-        fetchData();
+      await apiRequest('/office/override-deadline', {
+        method: 'POST',
+        body: { ...overrideForm, officeId: user.id || user._id }
+      });
+      setShowOverrideModal(false);
+      setOverrideForm({ assignmentId: '', facultyId: '', newDeadline: '' });
+      fetchData();
     } catch (err) {
-        alert(err.message);
+      alert(err.message);
     } finally {
-        setSubmitting(false);
+      setSubmitting(false);
     }
   };
 
   const columns = [
     { key: 'title', label: 'Assignment Title' },
     { key: 'totalMarks', label: 'Total Marks', render: (val) => <span className="font-bold text-primary">{val}</span> },
-    { 
-      key: 'startDate', 
+    {
+      key: 'startDate',
       label: 'Scheduled Start',
       render: (val) => new Date(val).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
     },
-    { 
-      key: 'deadline', 
+    {
+      key: 'deadline',
       label: 'Global Deadline',
       render: (val) => (
         <span className="font-bold text-gray-700">
-            {new Date(val).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+          {new Date(val).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
         </span>
       )
     },
-    { 
-      key: 'status', 
+    {
+      key: 'status',
       label: 'Status',
       render: (val) => (
-        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-          val === 'Active' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-        }`}>
+        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${val === 'Active' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+          }`}>
           {val}
         </span>
       )
@@ -143,28 +142,28 @@ export default function ManageAssignments({ user }) {
       label: 'Actions',
       render: (_, row) => (
         <div className="flex gap-2">
-          <Button 
-            size="sm" variant="outline" 
+          <Button
+            size="sm" variant="outline"
             onClick={() => {
-                setOverrideForm({ ...overrideForm, assignmentId: row._id });
-                setShowOverrideModal(true);
+              setOverrideForm({ ...overrideForm, assignmentId: row._id });
+              setShowOverrideModal(true);
             }}
             className="text-[10px] py-1 h-8"
           >
             <i className="fas fa-clock mr-1"></i> Override
           </Button>
-          <button 
+          <button
             onClick={() => {
-                setEditingAssignment(row);
-                setForm({
-                    title: row.title,
-                    description: row.description || '',
-                    startDate: new Date(row.startDate).toISOString().slice(0, 16),
-                    deadline: new Date(row.deadline).toISOString().slice(0, 16),
-                    totalMarks: row.totalMarks || 100,
-                    status: row.status
-                });
-                setShowEditModal(true);
+              setEditingAssignment(row);
+              setForm({
+                title: row.title,
+                description: row.description || '',
+                startDate: new Date(row.startDate).toISOString().slice(0, 16),
+                deadline: new Date(row.deadline).toISOString().slice(0, 16),
+                totalMarks: row.totalMarks || 100,
+                status: row.status
+              });
+              setShowEditModal(true);
             }}
             className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-600 hover:border-primary hover:text-primary cursor-pointer transition-all"
           >
@@ -175,64 +174,123 @@ export default function ManageAssignments({ user }) {
     }
   ];
 
-  if (loading) return <div className="text-center py-10"><i className="fas fa-circle-notch fa-spin text-2xl text-primary"></i></div>;
+  if (loading) return <div className="text-center py-20 bg-white rounded-3xl border shadow-sm"><i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i><p className="mt-4 text-gray-400 font-bold uppercase tracking-widest text-xs">Syncing Academic Engine...</p></div>;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Assignment Management</h2>
-          <p className="text-sm text-gray-500 font-medium">Create and regulate academic evaluations for Internship.</p>
+    <div className="space-y-8">
+      <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 p-8 overflow-hidden transition-all duration-500">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div>
+            <h2 className="text-3xl font-black text-gray-800 tracking-tight">Academic Evaluations</h2>
+            <p className="text-sm text-gray-500 font-medium mt-1">Regulate internship reports and formal evaluation milestones.</p>
+          </div>
+          <Button
+            variant={showAddModal ? "outline" : "primary"}
+            onClick={() => {
+              setForm({ title: '', description: '', startDate: '', deadline: '', totalMarks: 100, status: 'Active' });
+              setShowAddModal(!showAddModal);
+            }}
+            className="rounded-2xl px-8 h-12 shadow-lg shadow-primary/10 transition-all font-black text-xs uppercase tracking-widest"
+          >
+            {showAddModal ? (
+              <><i className="fas fa-times mr-2"></i> Close Creator</>
+            ) : (
+              <><i className="fas fa-plus mr-2"></i> Create Assignment</>
+            )}
+          </Button>
         </div>
-        <Button variant="primary" onClick={() => {
-            setForm({ title: '', description: '', startDate: '', deadline: '', totalMarks: 100, status: 'Active' });
-            setShowAddModal(true);
-        }}>
-          <i className="fas fa-plus mr-2"></i> Create Assignment
-        </Button>
-      </div>
 
-      {error && <Alert type="danger" className="mb-4">{error}</Alert>}
-
-      <DataTable columns={columns} data={assignments} />
-
-      {/* Create Modal */}
-      {showAddModal && (
-        <Modal onClose={() => setShowAddModal(false)}>
-          <ModalTitle>New Assignment</ModalTitle>
-          <ModalSub>Define evaluation criteria and precise deadline (PKT)</ModalSub>
-
-          <form onSubmit={handleCreate} className="mt-6 space-y-5">
-            <FormGroup label="Assignment Title">
-              <TextInput required value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Monthly Report - June" />
-            </FormGroup>
-            
-            <div className="grid grid-cols-2 gap-4">
-                <FormGroup label="Start Date & Time">
-                    <TextInput type="datetime-local" required value={form.startDate} onChange={e => setForm({...form, startDate: e.target.value})} />
-                </FormGroup>
-                <FormGroup label="Deadline Date & Time">
-                    <TextInput type="datetime-local" required value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})} />
-                </FormGroup>
+        {/* Toggleable Create Form */}
+        <div className={`transition-all duration-700 ease-in-out ${showAddModal ? 'max-h-[800px] opacity-100 mb-12' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
+          <div className="bg-gradient-to-br from-gray-50 to-white rounded-[32px] p-8 border border-gray-100 shadow-inner">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+                <i className="fas fa-file-signature text-xl"></i>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-800 tracking-tight">Global Assignment Creator</h3>
+                <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">Define evaluation criteria and precise deadline (PKT)</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleCreate} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <FormGroup label="Assignment Title" className="lg:col-span-2">
+                  <TextInput
+                    required
+                    value={form.title}
+                    onChange={e => setForm({ ...form, title: e.target.value })}
+                    placeholder="e.g. Monthly Professional Report - June"
+                    className="rounded-xl border-gray-100 bg-white"
+                  />
+                </FormGroup>
                 <FormGroup label="Total Marks">
-                    <TextInput type="number" required value={form.totalMarks} onChange={e => setForm({...form, totalMarks: Number(e.target.value)})} placeholder="100" />
+                  <TextInput
+                    type="number"
+                    required
+                    value={form.totalMarks}
+                    onChange={e => setForm({ ...form, totalMarks: Number(e.target.value) })}
+                    placeholder="100"
+                    className="rounded-xl border-gray-100 bg-white"
+                  />
                 </FormGroup>
-            </div>
+                <FormGroup label="Status">
+                  <SelectInput
+                    value={form.status}
+                    onChange={e => setForm({ ...form, status: e.target.value })}
+                    className="rounded-xl border-gray-100 bg-white"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </SelectInput>
+                </FormGroup>
+              </div>
 
-            <FormGroup label="Description (Optional)">
-              <TextInput value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Instructions for supervisors..." />
-            </FormGroup>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormGroup label="Opening (Start Date & Time)">
+                  <TextInput
+                    type="datetime-local"
+                    required
+                    value={form.startDate}
+                    onChange={e => setForm({ ...form, startDate: e.target.value })}
+                    className="rounded-xl border-gray-100 bg-white"
+                  />
+                </FormGroup>
+                <FormGroup label="Global Deadline (Date & Time)">
+                  <TextInput
+                    type="datetime-local"
+                    required
+                    value={form.deadline}
+                    onChange={e => setForm({ ...form, deadline: e.target.value })}
+                    className="rounded-xl border-gray-100 bg-white"
+                  />
+                </FormGroup>
+              </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" block onClick={() => setShowAddModal(false)}>Cancel</Button>
-              <Button variant="primary" block type="submit" loading={submitting}>Create Globally</Button>
-            </div>
-          </form>
-        </Modal>
-      )}
+              <FormGroup label="Instructions / Description (Optional)">
+                <TextInput
+                  value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  placeholder="Add specific instructions for supervisors and students..."
+                  className="rounded-xl border-gray-100 bg-white"
+                />
+              </FormGroup>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setShowAddModal(false)} className="rounded-xl px-8">Discard</Button>
+                <Button variant="primary" type="submit" loading={submitting} className="rounded-xl px-12 bg-gray-900 border-0 shadow-lg shadow-gray-200">
+                  Deploy Assignment
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-50 pt-8">
+          {error && <Alert type="danger" className="mb-6">{error}</Alert>}
+          <DataTable columns={columns} data={assignments} />
+        </div>
+      </div>
 
       {/* Edit Modal */}
       {showEditModal && (
@@ -242,28 +300,28 @@ export default function ManageAssignments({ user }) {
 
           <form onSubmit={handleUpdate} className="mt-6 space-y-5">
             <FormGroup label="Assignment Title">
-              <TextInput required value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+              <TextInput required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
             </FormGroup>
-            
+
             <div className="grid grid-cols-2 gap-4">
-                <FormGroup label="Start Date & Time">
-                    <TextInput type="datetime-local" required value={form.startDate} onChange={e => setForm({...form, startDate: e.target.value})} />
-                </FormGroup>
-                <FormGroup label="Deadline Date & Time">
-                    <TextInput type="datetime-local" required value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})} />
-                </FormGroup>
+              <FormGroup label="Start Date & Time">
+                <TextInput type="datetime-local" required value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+              </FormGroup>
+              <FormGroup label="Deadline Date & Time">
+                <TextInput type="datetime-local" required value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} />
+              </FormGroup>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-                <FormGroup label="Total Marks">
-                    <TextInput type="number" required value={form.totalMarks} onChange={e => setForm({...form, totalMarks: Number(e.target.value)})} />
-                </FormGroup>
-                <FormGroup label="Status">
-                    <SelectInput value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                    </SelectInput>
-                </FormGroup>
+              <FormGroup label="Total Marks">
+                <TextInput type="number" required value={form.totalMarks} onChange={e => setForm({ ...form, totalMarks: Number(e.target.value) })} />
+              </FormGroup>
+              <FormGroup label="Status">
+                <SelectInput value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </SelectInput>
+              </FormGroup>
             </div>
 
             <div className="flex gap-3 pt-4">
@@ -282,14 +340,14 @@ export default function ManageAssignments({ user }) {
 
           <form onSubmit={handleApplyOverride} className="mt-6 space-y-5">
             <FormGroup label="Select Faculty Advisor">
-                <SelectInput required value={overrideForm.facultyId} onChange={e => setOverrideForm({...overrideForm, facultyId: e.target.value})}>
-                    <option value="">Choose Supervisor...</option>
-                    {faculty.map(f => <option key={f._id} value={f._id}>{f.name} ({f.email})</option>)}
-                </SelectInput>
+              <SelectInput required value={overrideForm.facultyId} onChange={e => setOverrideForm({ ...overrideForm, facultyId: e.target.value })}>
+                <option value="">Choose Supervisor...</option>
+                {faculty.map(f => <option key={f._id} value={f._id}>{f.name} ({f.email})</option>)}
+              </SelectInput>
             </FormGroup>
 
             <FormGroup label="Extension Date & Time">
-              <TextInput type="datetime-local" required value={overrideForm.newDeadline} onChange={e => setOverrideForm({...overrideForm, newDeadline: e.target.value})} />
+              <TextInput type="datetime-local" required value={overrideForm.newDeadline} onChange={e => setOverrideForm({ ...overrideForm, newDeadline: e.target.value })} />
             </FormGroup>
 
             <div className="flex gap-3 pt-4">
@@ -302,3 +360,4 @@ export default function ManageAssignments({ user }) {
     </div>
   );
 }
+

@@ -47,14 +47,11 @@ export default function PhaseManagement({ user }) {
 
         if (action === 'start') confirmMsg = `Start Phase: "${phase.label}"?\n\nAny currently active phase will be automatically completed.`;
         if (action === 'complete') confirmMsg = `Mark "${phase.label}" as completed?`;
-        if (action === 'reset') confirmMsg = `Reset "${phase.label}" back to Pending?\n\nThis will erase its start/completion dates.`;
 
         const confirmed = await showAlert.confirm(
-            action === 'start' ? 'Activate Phase' :
-                action === 'complete' ? 'Complete Phase' : 'Reset Phase',
+            action === 'start' ? 'Activate Phase' : 'Complete Phase',
             confirmMsg,
-            action === 'start' ? 'Yes, Start Phase' :
-                action === 'complete' ? 'Yes, Complete' : 'Yes, Reset'
+            action === 'start' ? 'Yes, Start Phase' : 'Yes, Complete'
         );
         if (!confirmed) return;
 
@@ -87,7 +84,10 @@ export default function PhaseManagement({ user }) {
 
     const activePhase = phases.find(p => p.status === 'active');
     const completedCount = phases.filter(p => p.status === 'completed').length;
-    const progress = phases.length ? Math.round((completedCount / phases.length) * 100) : 0;
+
+    // Progress includes completed + currently active phases
+    const progressCount = phases.filter(p => p.status === 'completed' || p.status === 'active').length;
+    const progress = phases.length ? Math.round((progressCount / phases.length) * 100) : 0;
 
     if (loading) return (
         <div className="flex items-center justify-center py-20">
@@ -122,7 +122,7 @@ export default function PhaseManagement({ user }) {
                                     className="transition-all duration-700" />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-xs font-black text-primary">{completedCount}/{phases.length}</span>
+                                <span className="text-xs font-black text-primary">{progressCount}/{phases.length}</span>
                             </div>
                         </div>
                     </div>
@@ -162,7 +162,7 @@ export default function PhaseManagement({ user }) {
                     return (
                         <div key={phase._id}
                             className={`bg-white rounded-2xl border-2 transition-all duration-300 overflow-hidden ${phase.status === 'active' ? 'border-emerald-200 shadow-lg shadow-emerald-50' :
-                                    phase.status === 'completed' ? 'border-blue-100' : 'border-gray-100'
+                                phase.status === 'completed' ? 'border-blue-100' : 'border-gray-100'
                                 }`}
                         >
                             {/* ── Phase Header Row ── */}
@@ -172,8 +172,8 @@ export default function PhaseManagement({ user }) {
                             >
                                 {/* Step Number / Status Icon */}
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-lg transition-all ${phase.status === 'completed' ? 'bg-blue-600 text-white' :
-                                        phase.status === 'active' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
-                                            'bg-gray-100 text-gray-400'
+                                    phase.status === 'active' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
+                                        'bg-gray-100 text-gray-400'
                                     }`}>
                                     {phase.status === 'completed'
                                         ? <i className="fas fa-check text-sm"></i>
@@ -187,7 +187,7 @@ export default function PhaseManagement({ user }) {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <h3 className={`font-black text-sm ${phase.status === 'active' ? 'text-emerald-800' :
-                                                phase.status === 'completed' ? 'text-blue-800' : 'text-gray-600'
+                                            phase.status === 'completed' ? 'text-blue-800' : 'text-gray-600'
                                             }`}>{phase.label}</h3>
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
                                             {cfg.label}
@@ -298,18 +298,6 @@ export default function PhaseManagement({ user }) {
                                                     </Button>
                                                 )}
                                             </>
-                                        )}
-                                        {(phase.status === 'active' || phase.status === 'completed') && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                loading={isLoading('reset')}
-                                                onClick={() => handleAction(phase._id, 'reset')}
-                                                className="text-red-500 border-red-200 hover:bg-red-50"
-                                            >
-                                                <i className="fas fa-rotate-left mr-2"></i>
-                                                Reset Phase
-                                            </Button>
                                         )}
                                         {phase.status === 'completed' && (
                                             <span className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 border border-blue-100 px-3 py-2 rounded-xl font-bold">

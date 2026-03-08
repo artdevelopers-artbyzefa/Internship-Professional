@@ -10,7 +10,8 @@ import {
     sendFacultyNominationEmail,
     sendAssignmentConfirmationEmail,
     sendFacultyPasswordResetEmail,
-    sendStudentActivationEmail
+    sendStudentActivationEmail,
+    sendCompanySupervisorActivationEmail
 } from '../emailServices/emailService.js';
 import { getPKTTime } from '../utils/time.js';
 
@@ -202,17 +203,18 @@ router.get('/companies', async (req, res) => {
 });
 
 // @route   POST api/office/add-company
-// @desc    Manually add an MOU company
+// @desc    Manually add an MOU company and onboard site supervisors
 router.post('/add-company', async (req, res) => {
     try {
-        const { name, regNo } = req.body;
+        const { name, regNo, siteSupervisors, officeId } = req.body;
 
-        // Uniqueness check
+        // 1. Uniqueness check
         const existing = await Company.findOne({ $or: [{ name }, { regNo }] });
         if (existing) {
             return res.status(400).json({ message: 'Company name or Registration Number already exists.' });
         }
 
+        // 2. Save Company
         const company = new Company({
             ...req.body,
             source: 'manual',
@@ -220,17 +222,114 @@ router.post('/add-company', async (req, res) => {
         });
         await company.save();
 
-        // Audit Log
+        // 3. Automated Supervisor Onboarding
+        if (siteSupervisors && siteSupervisors.length > 0) {
+            for (const supervisor of siteSupervisors) {
+                try {
+                    const supervisorEmail = supervisor.email.toLowerCase().trim();
+
+                    // Check if user already exists
+                    let user = await User.findOne({ email: supervisorEmail });
+                    if (!user) {
+                        // Generate Activation Token
+                        const rawToken = crypto.randomBytes(32).toString('hex');
+                        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+                        const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 Hours
+
+                        user = new User({
+                            name: supervisor.name,
+                            email: supervisorEmail,
+                            whatsappNumber: supervisor.whatsappNumber,
+                            role: 'site_supervisor',
+                            status: 'Pending Activation',
+                            activationToken: tokenHash,
+                            activationExpires: expiry,
+                            password: crypto.randomBytes(16).toString('hex') // Placeholder
+                        });
+                        await user.save();
+
+                        // Send Formal Invitation
+                        await sendCompanySupervisorActivationEmail(supervisorEmail, rawToken, supervisor.name, name);
+                    }
+                } catch (emailErr) {
+                    console.error(`[SUPERVISOR ONBOARD FAIL] ${supervisor.email}:`, emailErr);
+                    // We continue the loop so other supervisors get their emails
+                }
+            }
+        }
+
+        // 4. Audit Log
         await new AuditLog({
             action: 'COMPANY_ADDED',
-            performedBy: req.body.officeId,
-            details: `Added MOU Company: ${name}`,
+            performedBy: officeId,
+            details: `Added MOU Company: ${name} with ${siteSupervisors?.length || 0} supervisors`,
             ipAddress: req.ip
         }).save();
 
-        res.json({ message: 'MOU Company added successfully' });
+        res.json({ message: 'MOU Company registered and Supervisor invitations sent.' });
     } catch (err) {
-        console.error(err);
+        console.error('[ADD COMPANY ERROR]', err);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+// @route   POST api/office/add-site-supervisor
+// @desc    Add a supervisor to an existing company and onboard them
+router.post('/add-site-supervisor', async (req, res) => {
+    try {
+        const { companyId, name, email, whatsappNumber, officeId } = req.body;
+
+        // 1. Find Company
+        const company = await Company.findById(companyId);
+        if (!company) return res.status(404).json({ message: 'Company not found.' });
+
+        const supervisorEmail = email.toLowerCase().trim();
+
+        // 2. Check if supervisor already exists in user database or company's list
+        const supervisorExistsInCompany = company.siteSupervisors.some(s => s.email === supervisorEmail);
+        if (supervisorExistsInCompany) {
+            return res.status(400).json({ message: 'Supervisor already linked to this company.' });
+        }
+
+        // 3. Update Company Record
+        company.siteSupervisors.push({ name, email: supervisorEmail, whatsappNumber });
+        await company.save();
+
+        // 4. Onboard User
+        let user = await User.findOne({ email: supervisorEmail });
+        if (!user) {
+            const rawToken = crypto.randomBytes(32).toString('hex');
+            const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+            const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 Hours
+
+            user = new User({
+                name,
+                email: supervisorEmail,
+                whatsappNumber,
+                role: 'site_supervisor',
+                status: 'Pending Activation',
+                activationToken: tokenHash,
+                activationExpires: expiry,
+                password: crypto.randomBytes(16).toString('hex')
+            });
+            await user.save();
+
+            // Send Activation Email
+            await sendCompanySupervisorActivationEmail(supervisorEmail, rawToken, name, company.name);
+        }
+
+        // 5. Audit Log
+        await new AuditLog({
+            action: 'SUPERVISOR_LINKED',
+            performedBy: officeId,
+            details: `Linked supervisor ${name} (${supervisorEmail}) to company ${company.name}`,
+            ipAddress: req.ip
+        }).save();
+
+        res.json({ message: 'Supervisor linked and invitation sent successfully.' });
+
+    } catch (err) {
+        console.error('[ADD SUPERVISOR ERROR]', err);
         res.status(500).json({ message: 'Server error' });
     }
 });

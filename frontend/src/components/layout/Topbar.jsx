@@ -11,6 +11,7 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
     student: '/student',
     internship_office: '/office',
     faculty_supervisor: '/faculty',
+    site_supervisor: '/supervisor',
     hod: '/hod'
   };
 
