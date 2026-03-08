@@ -12,8 +12,11 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
   const [form, setForm] = useState({
     fatherName: user.fatherName || '',
     section: user.section || '',
+    secondaryEmail: user.secondaryEmail || '',
     dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
-    profilePicture: user.profilePicture || ''
+    profilePicture: user.profilePicture || '',
+    newPassword: '',
+    confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -35,6 +38,11 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
   };
 
   const handleSave = async () => {
+    if (form.newPassword && form.newPassword !== form.confirmPassword) {
+      showToast.error('Passwords do not match!');
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await apiRequest('/student/update-profile', {
@@ -42,6 +50,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
         body: form
       });
       showToast.success('Profile updated successfully');
+      setForm(prev => ({ ...prev, newPassword: '', confirmPassword: '' })); // Clear passwords
       if (onUpdate) onUpdate(data.user);
     } catch (err) {
       // showToast.error(err.message); // apiRequest already handles this
@@ -110,10 +119,50 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
               <TextInput
                 iconLeft="fa-id-card"
                 value={user.reg}
-                disabled
+                readOnly
+                className="bg-gray-100 cursor-not-allowed opacity-75 font-bold"
               />
-              <p className="text-[10px] text-gray-400 mt-1 italic">Read-only field from registration</p>
+              <p className="text-[10px] text-gray-400 mt-1 italic">Read-only field derived from email</p>
             </FormGroup>
+          </div>
+
+          <div className="pt-6 border-t mt-4">
+            <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-4">Contact & Security</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormGroup label="Secondary Email (Alternative Login)">
+                <TextInput
+                  iconLeft="fa-envelope"
+                  placeholder="personal.email@gmail.com"
+                  value={form.secondaryEmail}
+                  onChange={e => setForm({ ...form, secondaryEmail: e.target.value })}
+                  disabled={isDisabled}
+                />
+                <p className="text-[10px] text-gray-400 mt-1 italic">Can be used to log in with OTP verification</p>
+              </FormGroup>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-1">
+                <FormGroup label="New Password">
+                  <TextInput
+                    type="password"
+                    iconLeft="fa-lock"
+                    placeholder="••••••••"
+                    value={form.newPassword}
+                    onChange={e => setForm({ ...form, newPassword: e.target.value })}
+                    disabled={isDisabled}
+                  />
+                </FormGroup>
+                <FormGroup label="Confirm Password">
+                  <TextInput
+                    type="password"
+                    iconLeft="fa-shield"
+                    placeholder="••••••••"
+                    value={form.confirmPassword}
+                    onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                    disabled={isDisabled}
+                  />
+                </FormGroup>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t">

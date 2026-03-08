@@ -8,7 +8,7 @@ import Assignment from '../models/Assignment.js';
 import Submission from '../models/Submission.js';
 import { protect } from '../middleware/auth.js';
 import { getPKTTime } from '../utils/time.js';
-import { uploadCloudinary } from '../utils/cloudinary.js';
+import { uploadCloudinary, cloudinary } from '../utils/cloudinary.js';
 
 const router = express.Router();
 
@@ -89,21 +89,28 @@ router.get('/my-marks', protect, async (req, res) => {
 // @desc    Update student profile information
 router.put('/update-profile', protect, async (req, res) => {
     try {
-        const { fatherName, section, dateOfBirth, profilePicture } = req.body;
+        const { fatherName, section, dateOfBirth, profilePicture, secondaryEmail, newPassword } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         if (fatherName) user.fatherName = fatherName;
         if (section) user.section = section;
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
+        if (secondaryEmail) user.secondaryEmail = secondaryEmail.toLowerCase().trim();
+
+        // Handle Password Change
+        if (newPassword) {
+            const bcrypt = await import('bcryptjs').then(m => m.default);
+            user.password = await bcrypt.hash(newPassword, 12);
+        }
 
         // Check if the uploaded string is a new Base64 image
         if (profilePicture && profilePicture.startsWith('data:image')) {
             // Upload to Cloudinary using their uploader
-            const uploadRes = await import('../utils/cloudinary.js').then(m => m.cloudinary.uploader.upload(profilePicture, {
+            const uploadRes = await cloudinary.uploader.upload(profilePicture, {
                 folder: 'dims/profiles',
-                filename_override: `profile_${req.user.id}`
-            }));
+                public_id: `profile_${user._id}`
+            });
 
             user.profilePicture = uploadRes.secure_url;
         } else if (profilePicture) {
@@ -127,6 +134,7 @@ router.put('/update-profile', protect, async (req, res) => {
                 reg: populatedUser.reg,
                 status: populatedUser.status,
                 fatherName: populatedUser.fatherName,
+                secondaryEmail: populatedUser.secondaryEmail,
                 section: populatedUser.section,
                 dateOfBirth: populatedUser.dateOfBirth,
                 profilePicture: populatedUser.profilePicture,

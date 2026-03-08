@@ -8,6 +8,8 @@ import { showToast } from '../../utils/notifications.jsx';
 
 export default function LoginPage({ onLogin }) {
   const [form, setForm] = useState({ email: '', password: '', role: 'student' });
+  const [otpMode, setOtpMode] = useState(false);
+  const [otp, setOtp] = useState('');
   const [errors, setErrors] = useState({});
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,10 +25,7 @@ export default function LoginPage({ onLogin }) {
   const handleValidation = () => {
     const e = {};
     if (!validate.required(form.email)) e.email = 'Email is required';
-    else if (!validate.email(form.email)) e.email = 'Invalid email format';
-
     if (!validate.required(form.password)) e.password = 'Password is required';
-
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -41,7 +40,30 @@ export default function LoginPage({ onLogin }) {
         method: 'POST',
         body: form
       });
-      showToast.success(`Welcome back, ${data.user.name || 'User'}!`);
+
+      if (data.status === 'otp_required') {
+        setOtpMode(true);
+        showToast.info(data.message);
+      } else {
+        showToast.success(`Welcome back, ${data.user.name || 'User'}!`);
+        onLogin(data.user);
+      }
+    } catch (err) {
+      setApiError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifySecondary = async () => {
+    if (!otp) return showToast.error('Please enter the verification code');
+    setLoading(true);
+    try {
+      const data = await apiRequest('/auth/verify-secondary', {
+        method: 'POST',
+        body: { email: form.email, code: otp }
+      });
+      showToast.success(`Verified! Welcome, ${data.user.name}`);
       onLogin(data.user);
     } catch (err) {
       setApiError(err.message);
@@ -50,6 +72,47 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
+  if (otpMode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary via-blue-700 to-blue-400 flex items-center justify-center p-5">
+        <div className="bg-white rounded-3xl p-10 w-full max-w-md shadow-2xl shadow-black/20 text-center">
+          <div className="mb-7">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-sm text-2xl">
+              <i className="fas fa-shield-halved"></i>
+            </div>
+            <h2 className="text-xl font-black text-gray-800 tracking-tight">Secondary Login</h2>
+            <p className="text-sm text-gray-400 mt-2 leading-relaxed">
+              For security, we sent a 6-digit code to <br />
+              <span className="text-primary font-bold">{form.email}</span>
+            </p>
+          </div>
+
+          {apiError && <Alert type="warning" className="mb-4">{apiError}</Alert>}
+
+          <FormGroup label="Verification Code">
+            <TextInput
+              iconLeft="fa-key"
+              placeholder="000000"
+              className="text-center text-xl tracking-[1em] font-black"
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            />
+          </FormGroup>
+
+          <Button variant="primary" block onClick={handleVerifySecondary} disabled={loading} className="mt-4">
+            {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'Verify & Sign In'}
+          </Button>
+
+          <button
+            className="mt-6 text-sm font-bold text-gray-400 hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto"
+            onClick={() => { setOtpMode(false); setApiError(''); }}
+          >
+            <i className="fas fa-arrow-left text-[10px]"></i> Back to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-blue-700 to-blue-400 flex items-center justify-center p-5">

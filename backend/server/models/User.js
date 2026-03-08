@@ -67,6 +67,9 @@ const userSchema = new mongoose.Schema({
 
     // NEW: Student Profile Specific Mandatory Fields
     fatherName: { type: String, trim: true },
+    secondaryEmail: { type: String, trim: true, lowercase: true, index: true, sparse: true },
+    secondaryEmailVerificationCode: { type: String },
+    secondaryEmailVerificationExpires: { type: Date },
     section: { type: String, trim: true },
     dateOfBirth: { type: Date },
     profilePicture: { type: String }, // URL or Base64
@@ -139,6 +142,14 @@ const userSchema = new mongoose.Schema({
     lastLogin: Date
 }, {
     timestamps: true
+});
+
+// Auto-extract and Enforce Roll Number from Email for Students
+userSchema.pre('save', async function () {
+    if (this.role === 'student' && this.email) {
+        const rollPart = this.email.split('@')[0].toUpperCase();
+        this.reg = `CIIT/${rollPart}/ATD`;
+    }
 });
 
 const User = mongoose.model('User', userSchema);

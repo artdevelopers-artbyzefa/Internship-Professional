@@ -89,8 +89,8 @@ export default function StudentDashboard({ user, isEligible, isPhase1 }) {
 
       {!isLocked && <ProfileTable />}
 
-      <div className={`grid grid-cols-1 gap-6 ${isLocked ? '' : 'md:grid-cols-3'}`}>
-        <div className={`${isLocked ? 'md:col-span-1' : 'md:col-span-2'} space-y-6`}>
+      <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
           <Card className="border-l-4 border-l-blue-500">
             <h3 className="text-sm font-black text-primary tracking-widest mb-4 flex items-center justify-between">
               <span><i className="fas fa-bullhorn text-secondary mr-2"></i> Announcements</span>
@@ -101,28 +101,8 @@ export default function StudentDashboard({ user, isEligible, isPhase1 }) {
             </div>
           </Card>
         </div>
-
-        {!isLocked && (
-          <Card title="Portal Quick Links" className="h-full">
-            <div className="space-y-2">
-              <QuickLink icon="fa-user-pen" label="Update My Profile" path="/student/profile" color="blue" />
-              <QuickLink icon="fa-file-signature" label="Internship Approval" path="/student/request" color="green" />
-              <QuickLink icon="fa-file-contract" label="Student Agreement" path="/student/agreement" color="amber" />
-              <QuickLink icon="fa-chart-pie" label="Academic Results" path="/student/results" color="purple" />
-            </div>
-          </Card>
-        )}
       </div>
     </div>
   );
 }
 
-const QuickLink = ({ icon, label, path, color }) => (
-  <a href={path} className={`flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-gray-100 hover:bg-gray-50 transition-all group`}>
-    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs shadow-sm bg-white border group-hover:scale-110 transition-transform`}>
-      <i className={`fas ${icon} text-${color}-500`}></i>
-    </div>
-    <span className="text-sm font-bold text-gray-600 group-hover:text-primary transition-colors">{label}</span>
-    <i className="fas fa-chevron-right ml-auto text-[10px] text-gray-300"></i>
-  </a>
-);

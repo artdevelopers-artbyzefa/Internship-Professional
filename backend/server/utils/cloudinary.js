@@ -4,7 +4,9 @@ import multer from 'multer';
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config();
+import { fileURLToPath } from 'url';
+
+dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 
 // Configure Cloudinary
 cloudinary.config({
