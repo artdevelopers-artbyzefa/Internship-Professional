@@ -9,6 +9,12 @@ export default function InternshipRequestForm({ user }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [facultyList, setFacultyList] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const isOfficiallyAssigned = user.status === 'Assigned' || (user.assignedCompany && user.assignedFaculty && user.assignedCompanySupervisor);
+  const hasOfficialCompany = !!user.assignedCompany;
+  const hasOfficialFaculty = !!user.assignedFaculty;
+  const hasOfficialSupervisor = !!user.assignedCompanySupervisor;
 
   const [form, setForm] = useState({
     internshipType: user.internshipRequest?.type || 'Self',
@@ -73,8 +79,8 @@ export default function InternshipRequestForm({ user }) {
   const facultyStatus = req?.facultyStatus;
   const facultyRejected = facultyStatus === 'Rejected';
 
-  // Show detail view if submitted and NOT rejected (rejected gets the re-submit form)
-  if ((user.status === 'Internship Request Submitted' || success) && !facultyRejected) {
+  // Toggle View/Edit
+  if (((user.status === 'Internship Request Submitted' || user.status === 'Internship Approved' || success) && !facultyRejected) && !isEditing) {
     const facultyBadge = {
       Pending: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: 'fa-hourglass-half', label: 'Awaiting Response' },
       Accepted: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', icon: 'fa-circle-check', label: 'Accepted' },
@@ -95,14 +101,46 @@ export default function InternshipRequestForm({ user }) {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex items-center justify-between gap-6">
           <div>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Internship Assessment</p>
-            <h2 className="text-2xl font-black text-gray-800 tracking-tight">Submitted Request Details</h2>
-            <p className="text-sm text-gray-400 font-medium mt-1">Your AppEx-A form has been submitted and is pending review.</p>
+            <h2 className="text-2xl font-black text-gray-800 tracking-tight">
+              {user.status === 'Internship Approved' ? 'Approved Request Details' : 'Submitted Request Details'}
+            </h2>
+            <p className="text-sm text-gray-400 font-medium mt-1">
+              {user.status === 'Internship Approved'
+                ? 'Your AppEx-A form has been officially approved by the Internship Office.'
+                : 'Your AppEx-A form has been submitted and is currently under review.'}
+            </p>
           </div>
-          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl">
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Under Review</span>
+          <div className="flex-shrink-0 flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl">
+              <span className={`w-2 h-2 rounded-full ${isOfficiallyAssigned ? 'bg-primary' : user.status === 'Internship Approved' ? 'bg-emerald-500' : 'bg-blue-500'} animate-pulse`}></span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isOfficiallyAssigned ? 'text-primary' : user.status === 'Internship Approved' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                {isOfficiallyAssigned ? 'Final Placement Confirmed' : user.status === 'Internship Approved' ? 'Internship Approved' : 'Under Review'}
+              </span>
+            </div>
+            {!isOfficiallyAssigned && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:border-primary transition-all shadow-sm flex items-center gap-2"
+              >
+                <i className="fas fa-edit"></i> Edit Request
+              </button>
+            )}
           </div>
         </div>
+
+        {isOfficiallyAssigned && (
+          <Alert type="success" className="mb-6 border-2 border-primary/20 bg-primary/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
+                <i className="fas fa-certificate"></i>
+              </div>
+              <div>
+                <p className="text-xs font-black text-gray-800 uppercase tracking-widest">Enrollment Confirmed</p>
+                <p className="text-[11px] text-gray-500 font-medium">Your final internship placement has been locked by the Internship Office. Details below are official.</p>
+              </div>
+            </div>
+          </Alert>
+        )}
 
         {/* Placement Details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
@@ -114,7 +152,13 @@ export default function InternshipRequestForm({ user }) {
             <Field label="Start Date" value={req?.startDate ? new Date(req.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null} />
             <Field label="End Date" value={req?.endDate ? new Date(req.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null} />
             <Field label="Submitted On" value={req?.submittedAt ? new Date(req.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null} />
-            {req?.companyName && <Field label="Organization" value={req.companyName} wide />}
+            {(user.assignedCompany || req?.companyName) && (
+              <Field
+                label="Official Organization"
+                value={user.assignedCompany || req.companyName}
+                wide
+              />
+            )}
           </div>
           {req?.description && (
             <div className="mt-6 pt-4 border-t border-gray-50">
@@ -129,7 +173,7 @@ export default function InternshipRequestForm({ user }) {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 pb-3 border-b border-gray-50">Site Supervisor</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-              <Field label="Name" value={req.siteSupervisorName} />
+              <Field label="Name" value={user.assignedCompanySupervisor || req.siteSupervisorName} />
               <Field label="Email" value={req.siteSupervisorEmail} />
               <Field label="Phone" value={req.siteSupervisorPhone} />
             </div>
@@ -145,7 +189,13 @@ export default function InternshipRequestForm({ user }) {
             </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            {req?.facultyType === 'Registered' ? (
+            {user.assignedFaculty ? (
+              <>
+                <Field label="Assigned Faculty" value={user.assignedFaculty.name} />
+                <Field label="Faculty Email" value={user.assignedFaculty.email} />
+                <Field label="Status" value="Officially Mapped" />
+              </>
+            ) : req?.facultyType === 'Registered' ? (
               <Field label="Selection Method" value="Registered Faculty" />
             ) : (
               <>
@@ -155,14 +205,14 @@ export default function InternshipRequestForm({ user }) {
               </>
             )}
           </div>
-          {facultyStatus === 'Pending' && (
+          {facultyStatus === 'Pending' && !user.assignedFaculty && (
             <p className="mt-4 text-xs text-amber-700 font-medium">
               Your supervision request has been sent. The faculty member will respond shortly.
             </p>
           )}
-          {facultyStatus === 'Accepted' && (
+          {(facultyStatus === 'Accepted' || user.assignedFaculty) && (
             <p className="mt-4 text-xs text-emerald-700 font-medium">
-              <i className="fas fa-circle-check mr-1"></i> Supervision confirmed. Your faculty supervisor has accepted your request.
+              <i className="fas fa-circle-check mr-1"></i> Supervision confirmed. {user.assignedFaculty ? 'Your faculty supervisor has been officially assigned.' : 'Your faculty supervisor has accepted your request.'}
             </p>
           )}
         </div>
@@ -184,6 +234,21 @@ export default function InternshipRequestForm({ user }) {
       </div>
 
       {error && <Alert type="danger" className="mb-6">{error}</Alert>}
+
+      {user.internshipRequest && (
+        <Alert type="info" className="mb-6 border-2 border-primary/20 bg-primary/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <i className="fas fa-history text-primary"></i>
+              <p className="text-xs font-bold text-gray-700 leading-none">Showing your existing request details. You can update and re-submit if needed.</p>
+            </div>
+            {isEditing && (
+              <button onClick={() => setIsEditing(false)} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Cancel Edit</button>
+            )}
+          </div>
+        </Alert>
+      )}
+
       {user.status === 'Internship Rejected' && (
         <Alert type="danger" title="Previous Request Rejected" className="mb-6">
           Reason: {user.internshipRequest?.rejectionReason || 'Not specified'}
@@ -203,6 +268,7 @@ export default function InternshipRequestForm({ user }) {
             <FormGroup label="Internship Category">
               <SelectInput
                 value={form.internshipType}
+                disabled={hasOfficialCompany}
                 onChange={e => {
                   const type = e.target.value;
                   const updates = { internshipType: type };
@@ -261,6 +327,7 @@ export default function InternshipRequestForm({ user }) {
                 <TextInput
                   placeholder="e.g. Google, Private Venture"
                   value={form.companyName}
+                  disabled={hasOfficialCompany}
                   onChange={e => setForm({ ...form, companyName: e.target.value })}
                   iconLeft="fa-building"
                   required
@@ -270,6 +337,7 @@ export default function InternshipRequestForm({ user }) {
                 <TextInput
                   placeholder="Supervisor Name"
                   value={form.siteSupervisorName}
+                  disabled={hasOfficialSupervisor}
                   onChange={e => setForm({ ...form, siteSupervisorName: e.target.value })}
                   iconLeft="fa-user-tie"
                   required
@@ -281,12 +349,14 @@ export default function InternshipRequestForm({ user }) {
                     type="email"
                     placeholder="Email Address"
                     value={form.siteSupervisorEmail}
+                    disabled={hasOfficialSupervisor}
                     onChange={e => setForm({ ...form, siteSupervisorEmail: e.target.value })}
                     required
                   />
                   <TextInput
                     placeholder="Phone/WhatsApp"
                     value={form.siteSupervisorPhone}
+                    disabled={hasOfficialSupervisor}
                     onChange={e => setForm({ ...form, siteSupervisorPhone: e.target.value })}
                     required
                   />
@@ -314,18 +384,27 @@ export default function InternshipRequestForm({ user }) {
             </button>
             <button
               type="button"
+              disabled={hasOfficialFaculty}
               onClick={() => setForm({ ...form, facultyType: 'Identify New' })}
-              className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${form.facultyType === 'Identify New' ? 'bg-white text-emerald-600 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
+              className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${hasOfficialFaculty ? 'opacity-50 cursor-not-allowed' : ''} ${form.facultyType === 'Identify New' ? 'bg-white text-emerald-600 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
             >
               <i className="fas fa-plus mr-2"></i> Identify Other
             </button>
           </div>
+
+          {hasOfficialFaculty && (
+            <div className="mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-3">
+              <i className="fas fa-lock text-emerald-500"></i>
+              <p className="text-[10px] text-emerald-800 font-bold tracking-tight uppercase">Faculty Selection Locked: Supervisor has been officially assigned by the department.</p>
+            </div>
+          )}
 
           {form.facultyType === 'Registered' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-500">
               <FormGroup label="Choose Faculty Supervisor">
                 <SelectInput
                   value={form.selectedFacultyId}
+                  disabled={hasOfficialFaculty}
                   onChange={e => setForm({ ...form, selectedFacultyId: e.target.value })}
                   iconLeft="fa-chalkboard-user"
                   required

@@ -15,6 +15,8 @@ export default function SupervisorActivation() {
     const [supervisorData, setSupervisorData] = useState(null);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         if (token) {
@@ -162,11 +164,13 @@ export default function SupervisorActivation() {
 
                             <FormGroup label="Establish Secure Password">
                                 <TextInput
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     required
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     iconLeft="fa-key"
+                                    iconRight={showPassword ? "fa-eye-slash" : "fa-eye"}
+                                    onToggleRight={() => setShowPassword(!showPassword)}
                                     placeholder="Enter secure password"
                                     className="py-4 rounded-xl border-slate-200 focus:ring-sky-500/20"
                                 />
@@ -174,11 +178,13 @@ export default function SupervisorActivation() {
 
                             <FormGroup label="Confirm Secure Password">
                                 <TextInput
-                                    type="password"
+                                    type={showConfirmPassword ? "text" : "password"}
                                     required
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
                                     iconLeft="fa-shield-halved"
+                                    iconRight={showConfirmPassword ? "fa-eye-slash" : "fa-eye"}
+                                    onToggleRight={() => setShowConfirmPassword(!showConfirmPassword)}
                                     placeholder="Verify password"
                                     className="py-4 rounded-xl border-slate-200 focus:ring-sky-500/20"
                                 />

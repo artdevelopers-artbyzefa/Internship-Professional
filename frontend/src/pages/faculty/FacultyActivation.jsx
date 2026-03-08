@@ -7,7 +7,7 @@ import Alert from '../../components/ui/Alert.jsx';
 export default function FacultyActivation() {
     // Manually extract token from URL since we don't use react-router-dom
     const token = window.location.pathname.split('/').filter(Boolean).pop();
-    
+
     const [loading, setLoading] = useState(true);
     const [verifying, setVerifying] = useState(false);
     const [error, setError] = useState('');
@@ -15,6 +15,8 @@ export default function FacultyActivation() {
     const [facultyData, setFacultyData] = useState(null);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         if (token) {
@@ -125,23 +127,28 @@ export default function FacultyActivation() {
                         </Alert>
 
                         <FormGroup label="New Password">
-                            <TextInput 
-                                type="password" 
-                                required 
-                                value={password} 
-                                onChange={e => setPassword(e.target.value)} 
-                                iconLeft="fa-lock" 
+                            <TextInput
+                                type={showPassword ? "text" : "password"}
+                                required
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                iconLeft="fa-lock"
+                                iconRight={showPassword ? "fa-eye-slash" : "fa-eye"}
+                                onToggleRight={() => setShowPassword(!showPassword)}
                                 placeholder="Min 8 characters"
                             />
                         </FormGroup>
 
                         <FormGroup label="Confirm Password">
-                            <TextInput 
-                                type="password" 
-                                required 
-                                value={confirmPassword} 
-                                onChange={e => setConfirmPassword(e.target.value)} 
-                                iconLeft="fa-shield-halved" 
+                            <TextInput
+                                type={showConfirmPassword ? "text" : "password"}
+                                required
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                                iconLeft="fa-shield-halved"
+                                iconRight={showConfirmPassword ? "fa-eye-slash" : "fa-eye"}
+                                onToggleRight={() => setShowConfirmPassword(!showConfirmPassword)}
+                                placeholder="Repeat password"
                             />
                         </FormGroup>
 

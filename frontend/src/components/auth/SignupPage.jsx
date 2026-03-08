@@ -26,6 +26,7 @@ export default function SignupPage({ onBack }) {
   };
   const [errors, setErrors] = useState({});
   const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
@@ -184,7 +185,9 @@ export default function SignupPage({ onBack }) {
               value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
           </FormGroup>
           <FormGroup label="Confirm Password" error={errors.confirmPw}>
-            <TextInput iconLeft="fa-lock" type="password" placeholder="Re-enter password"
+            <TextInput iconLeft="fa-lock" iconRight={showConfirmPw ? 'fa-eye-slash' : 'fa-eye'}
+              onToggleRight={() => setShowConfirmPw(!showConfirmPw)}
+              type={showConfirmPw ? 'text' : 'password'} placeholder="Re-enter password"
               value={form.confirmPw} onChange={e => setForm({ ...form, confirmPw: e.target.value })} />
           </FormGroup>
           <div className="text-[10px] text-gray-400 px-1">

@@ -357,7 +357,8 @@ router.post('/login', async (req, res) => {
         // Send token in httpOnly cookie
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production'
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
         user.lastLogin = Date.now();
@@ -425,7 +426,8 @@ router.post('/verify-secondary', async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production'
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
         user.lastLogin = Date.now();
