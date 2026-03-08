@@ -1,7 +1,7 @@
-export default {
-    async fetch(request) {
-        return new Response("Internship Portal API is running 🚀", {
-            headers: { "content-type": "text/plain" }
-        });
-    }
-};
+import app from "../../backend/server/index.js";
+
+// The guide says: Option 2: Express on Workers
+// export default app;
+// We'll follow that exactly.
+
+export default app;

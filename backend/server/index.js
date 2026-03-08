@@ -19,7 +19,7 @@ import { getPKTTime } from './utils/time.js';
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -65,3 +65,5 @@ mongoose.connect(process.env.MONGODB_URI)
         console.error('MongoDB Connection Error:', err);
         process.exit(1);
     });
+
+export default app;
