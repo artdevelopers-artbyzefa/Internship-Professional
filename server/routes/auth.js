@@ -357,7 +357,8 @@ router.post('/login', async (req, res) => {
         // Send token in httpOnly cookie
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: true,
+            sameSite: 'none',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
@@ -426,7 +427,8 @@ router.post('/verify-secondary', async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: true,
+            sameSite: 'none',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
@@ -602,7 +604,9 @@ router.post('/supervisor-set-password', async (req, res) => {
 router.post('/logout', (req, res) => {
     res.cookie('token', 'none', {
         expires: new Date(Date.now() + 10 * 1000),
-        httpOnly: true
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none'
     });
     res.status(200).json({ message: 'Logged out successfully' });
 });
