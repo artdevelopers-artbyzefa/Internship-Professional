@@ -19,7 +19,7 @@ import { getPKTTime } from './utils/time.js';
 
 dotenv.config();
 
-export const app = express();
+const app = express();
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -35,6 +35,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Database Connection
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('MongoDB Connected to DIMS Database'))
+    .catch(err => console.error('MongoDB Connection Error:', err));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
@@ -48,22 +53,9 @@ app.use('/api/supervisor', supervisorRoutes);
 
 // Simple Health Check
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
-app.get('/', (req, res) => res.json({ message: 'DIMS Backend Running on Render' }));
 
-// Database Connection & Server Start
-const PORT = process.env.PORT || 10000;
-
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => {
-        console.log('MongoDB Connected to DIMS Database');
-        app.listen(PORT, "0.0.0.0", () => {
-            console.log(`\n[${getPKTTime()}] DIMS Server effectively running on port ${PORT}`);
-            console.log(`[${getPKTTime()}] Binding Address: 0.0.0.0`);
-        });
-    })
-    .catch(err => {
-        console.error('MongoDB Connection Error:', err);
-        process.exit(1);
-    });
-
-export default app;
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`\n[${getPKTTime()}] DIMS Server effectively running on port ${PORT}`);
+    console.log(`[${getPKTTime()}] Database: Connected to MongoDB`);
+});
