@@ -40,6 +40,26 @@ app.use(cors({
 app.use(cookieParser());
 app.use(morgan('dev')); // Log ALL requests to the terminal
 
+// DB Connection Middleware for Serverless
+let cachedDB = null;
+const connectDB = async (req, res, next) => {
+    if (mongoose.connection.readyState >= 1) {
+        return next();
+    }
+
+    try {
+        console.log('[DB] Connecting to MongoDB...');
+        await mongoose.connect(process.env.MONGODB_URI);
+        console.log('[DB] Connected successfully.');
+        return next();
+    } catch (err) {
+        console.error('[DB] Connection Error:', err);
+        return res.status(500).json({ message: 'Database connection failed' });
+    }
+};
+
+app.use(connectDB);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -83,11 +103,6 @@ app.get('/api/db-test', async (req, res) => {
         });
     }
 });
-
-// Database Connection
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('MongoDB Connected to DIMS Database'))
-    .catch(err => console.error('MongoDB Connection Error:', err));
 
 // Export app for Vercel
 export default app;
