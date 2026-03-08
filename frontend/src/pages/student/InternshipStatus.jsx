@@ -6,105 +6,108 @@ export default function InternshipStatus({ user }) {
     const req = user.internshipRequest;
     const isSubmitted = !!req?.submittedAt;
     const isOfficiallyAssigned = status === 'Assigned' || (user.assignedCompany && user.assignedFaculty && user.assignedCompanySupervisor);
+    const isComplete = isOfficiallyAssigned || status === 'Assigned';
 
     // Collect all chronological events that have ACTUALLY happened
     const events = [];
 
     // 1. Always registered
-    events.push({
-        id: 'registration',
-        title: 'Initial Registration',
-        desc: 'Account verified and profile activated.',
-        icon: 'fa-user-check',
-        color: 'emerald',
-        date: user.createdAt
-    });
-
-    // 2. Request Submitted
-    if (isSubmitted) {
+    if (!isComplete) {
         events.push({
-            id: 'request_submitted',
-            title: 'Internship Request (AppEx-A) Submitted',
-            desc: `Requested placement details logged in the system.`,
-            icon: 'fa-file-export',
+            id: 'registration',
+            title: 'Initial Registration',
+            desc: 'Account verified and profile activated.',
+            icon: 'fa-user-check',
             color: 'emerald',
-            date: req.submittedAt
+            date: user.createdAt
         });
+
+        // 2. Request Submitted
+        if (isSubmitted) {
+            events.push({
+                id: 'request_submitted',
+                title: 'Internship Request (AppEx-A) Submitted',
+                desc: `Requested placement details logged in the system.`,
+                icon: 'fa-file-export',
+                color: 'emerald',
+                date: req.submittedAt
+            });
+        }
+
+        // 3. Faculty Action
+        if (req?.facultyStatus === 'Accepted') {
+            events.push({
+                id: 'faculty_accepted',
+                title: 'Faculty Supervisor Confirmed',
+                desc: user.assignedFaculty?.name ? `Your faculty supervisor is ${user.assignedFaculty.name}.` : 'Supervision accepted by chosen faculty.',
+                icon: 'fa-chalkboard-user',
+                color: 'emerald'
+            });
+        } else if (req?.facultyStatus === 'Rejected') {
+            events.push({
+                id: 'faculty_rejected',
+                title: 'Faculty Request Declined',
+                desc: 'Your chosen faculty supervisor could not accommodate the request.',
+                icon: 'fa-user-slash',
+                color: 'rose',
+                action: '/student/internship-assessment',
+                actionLabel: 'Reassign Supervisor',
+                isError: true
+            });
+        }
+
+        // 4. Site Supervisor
+        if (user.assignedCompanySupervisor) {
+            events.push({
+                id: 'site_supervisor',
+                title: 'Site Supervisor Assigned',
+                desc: `Site supervisor is set to ${user.assignedCompanySupervisor}.`,
+                icon: 'fa-user-tie',
+                color: 'emerald'
+            });
+        }
+
+        // 5. Company Assigned
+        if (user.assignedCompany) {
+            events.push({
+                id: 'company',
+                title: 'Company Assigned',
+                desc: `Your placement organization is ${user.assignedCompany}.`,
+                icon: 'fa-building',
+                color: 'emerald'
+            });
+        }
+
+        // 6. Departmental Action (AppEx-A)
+        if (status === 'Internship Approved' || status.includes('Agreement') || status === 'Assigned') {
+            events.push({
+                id: 'office_approved',
+                title: 'AppEx-A Approved',
+                desc: 'Your request has been verified by the Internship Office.',
+                icon: 'fa-building-circle-check',
+                color: 'emerald'
+            });
+        } else if (status === 'Internship Rejected') {
+            events.push({
+                id: 'office_rejected',
+                title: 'Request Rejected',
+                desc: req?.rejectionReason || 'Your request was rejected by the Internship Office.',
+                icon: 'fa-ban',
+                color: 'rose',
+                action: '/student/internship-assessment',
+                actionLabel: 'Update Request',
+                isError: true
+            });
+        }
     }
 
-    // 3. Faculty Action
-    if (req?.facultyStatus === 'Accepted') {
-        events.push({
-            id: 'faculty_accepted',
-            title: 'Faculty Supervisor Confirmed',
-            desc: user.assignedFaculty?.name ? `Your faculty supervisor is ${user.assignedFaculty.name}.` : 'Supervision accepted by chosen faculty.',
-            icon: 'fa-chalkboard-user',
-            color: 'emerald'
-        });
-    } else if (req?.facultyStatus === 'Rejected') {
-        events.push({
-            id: 'faculty_rejected',
-            title: 'Faculty Request Declined',
-            desc: 'Your chosen faculty supervisor could not accommodate the request.',
-            icon: 'fa-user-slash',
-            color: 'rose',
-            action: '/student/internship-assessment',
-            actionLabel: 'Reassign Supervisor',
-            isError: true
-        });
-    }
-
-    // 4. Site Supervisor
-    if (user.assignedCompanySupervisor) {
-        events.push({
-            id: 'site_supervisor',
-            title: 'Site Supervisor Assigned',
-            desc: `Site supervisor is set to ${user.assignedCompanySupervisor}.`,
-            icon: 'fa-user-tie',
-            color: 'emerald' // we'll map color class down below
-        });
-    }
-
-    // 5. Company Assigned
-    if (user.assignedCompany) {
-        events.push({
-            id: 'company',
-            title: 'Company Assigned',
-            desc: `Your placement organization is ${user.assignedCompany}.`,
-            icon: 'fa-building',
-            color: 'emerald'
-        });
-    }
-
-    // 6. Departmental Action (AppEx-A)
-    if (status === 'Internship Approved' || status.includes('Agreement') || status === 'Assigned') {
-        events.push({
-            id: 'office_approved',
-            title: 'AppEx-A Approved',
-            desc: 'Your request has been verified by the Internship Office.',
-            icon: 'fa-building-circle-check',
-            color: 'emerald'
-        });
-    } else if (status === 'Internship Rejected') {
-        events.push({
-            id: 'office_rejected',
-            title: 'Request Rejected',
-            desc: req?.rejectionReason || 'Your request was rejected by the Internship Office.',
-            icon: 'fa-ban',
-            color: 'rose',
-            action: '/student/internship-assessment',
-            actionLabel: 'Update Request',
-            isError: true
-        });
-    }
-
-    // 7. Placement Confirmed (If officially assigned)
-    if (isOfficiallyAssigned || status === 'Assigned') {
+    // 7. Placement Confirmed (Final State)
+    if (isComplete) {
         events.push({
             id: 'final_placement',
-            title: 'Internship Assigned & Confirmed',
-            desc: 'You are officially enrolled and assigned to your internship placement!',
-            icon: 'fa-briefcase',
+            title: 'Internship Officially Assigned',
+            desc: 'Your placement is confirmed. Please wait for the next phase to begin.',
+            icon: 'fa-check-double',
             color: 'primary'
         });
     }
@@ -115,9 +118,7 @@ export default function InternshipStatus({ user }) {
     if (user.assignedCompany || user.assignedCompanySupervisor || req?.facultyStatus === 'Accepted') progress = 70;
     if (status === 'Internship Approved') progress = 90;
     if (isOfficiallyAssigned) progress = 100;
-
     const hasError = events.some(e => e.isError);
-    const isComplete = isOfficiallyAssigned || status === 'Assigned';
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">

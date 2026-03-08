@@ -135,9 +135,14 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
                   placeholder="personal.email@gmail.com"
                   value={form.secondaryEmail}
                   onChange={e => setForm({ ...form, secondaryEmail: e.target.value })}
-                  disabled={isDisabled}
+                  disabled={isDisabled || !!user.secondaryEmail}
+                  className={user.secondaryEmail ? 'bg-gray-100 cursor-not-allowed opacity-75 font-bold' : ''}
                 />
-                <p className="text-[10px] text-gray-400 mt-1 italic">Can be used to log in with OTP verification</p>
+                <p className="text-[10px] text-gray-400 mt-1 italic">
+                  {user.secondaryEmail
+                    ? 'This email is officially linked for OTP recovery. Contact office to change.'
+                    : 'Can be used to log in with OTP verification'}
+                </p>
               </FormGroup>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-1">

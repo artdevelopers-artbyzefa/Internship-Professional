@@ -491,10 +491,12 @@ router.get('/supervisor-students', async (req, res) => {
             return res.status(400).json({ message: 'Company and Supervisor name are required.' });
         }
 
+        const escapeRegex = (string) => string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+
         const students = await User.find({
             role: 'student',
-            assignedCompany: company,
-            assignedCompanySupervisor: supervisor
+            assignedCompany: { $regex: new RegExp(`^${escapeRegex(company.trim())}$`, 'i') },
+            assignedCompanySupervisor: { $regex: new RegExp(`^${escapeRegex(supervisor.trim())}$`, 'i') }
         }).select('name email reg semester status');
         res.json(students);
     } catch (err) {
@@ -535,10 +537,15 @@ router.get('/companies', async (req, res) => {
             companyObj.assignedStudents = companyCountMap[company.name] || 0;
 
             companyObj.siteSupervisors = companyObj.siteSupervisors.map(sup => {
-                const supKey = `${company.name}_${sup.name.toLowerCase().trim()}`;
+                const supNameLower = sup.name.toLowerCase().trim();
+                const studentCount = assignmentsCount.find(a =>
+                    (a._id.company || '').toLowerCase().trim() === (company.name || '').toLowerCase().trim() &&
+                    (a._id.supervisor || '').toLowerCase().trim() === supNameLower
+                );
+
                 return {
                     ...sup,
-                    assignedStudents: countMap[supKey] || 0
+                    assignedStudents: studentCount ? studentCount.count : 0
                 };
             });
 

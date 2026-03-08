@@ -30,8 +30,9 @@ export default function HODPortal({ user, onLogout }) {
   // Determine current active page from URL
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
-  // Filter Nav Items based on Phase
-  const filteredNav = activePhase?.key === 'registration'
+  // Filter Nav Items based on Phase (Only show dashboard in Phase 1 & 2)
+  const isEarlyPhase = activePhase?.key === 'registration' || activePhase?.key === 'request_submission';
+  const filteredNav = isEarlyPhase
     ? hodNav.filter(item => item.id === 'dashboard')
     : hodNav;
 
@@ -46,8 +47,8 @@ export default function HODPortal({ user, onLogout }) {
       navigate('/hod/dashboard', { replace: true });
     }
 
-    // Redirect to dashboard if trying to access restricted pages in Phase 1
-    if (activePhase?.key === 'registration' && currentPath !== 'dashboard') {
+    // Redirect to dashboard if trying to access restricted pages in Phase 1 & 2
+    if (isEarlyPhase && currentPath !== 'dashboard') {
       navigate('/hod/dashboard', { replace: true });
     }
   }, [location.pathname, activePhase, loading, currentPath, navigate]);

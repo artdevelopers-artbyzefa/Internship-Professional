@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import SupervisorDashboard from './SupervisorDashboard.jsx';
+import FacultyStudents from '../faculty/FacultyStudents.jsx';
+import SupervisionRequests from '../faculty/SupervisionRequests.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 const supervisorNav = [
@@ -28,8 +30,8 @@ export default function SupervisorPortal({ user, onLogout }) {
     // For Phase 1 (Registration), this will be true
     const isLocked = activePhase !== undefined && (!activePhase || activePhase.order < 7);
 
-    const filteredNav = isLocked
-        ? supervisorNav.filter(item => item.id === 'dashboard')
+    const filteredNav = activePhase?.order < 7
+        ? supervisorNav.filter(item => ['dashboard', 'interns'].includes(item.id))
         : supervisorNav;
 
     const handlePageChange = (newPageId) => {
@@ -42,8 +44,11 @@ export default function SupervisorPortal({ user, onLogout }) {
             navigate('/supervisor/dashboard', { replace: true });
         }
 
-        // If locked and trying to access other pages, redirect to dashboard
-        if (isLocked && currentPath !== 'dashboard' && !isAtBase) {
+        // If locked and trying to access other pages (excluding dashboard and interns subpaths)
+        const segment = location.pathname.split('/')[2] || 'dashboard';
+        const allowed = ['dashboard', 'interns'].includes(segment);
+
+        if (isLocked && !allowed && !isAtBase) {
             navigate('/supervisor/dashboard', { replace: true });
         }
     }, [location.pathname, isLocked, currentPath]);
@@ -59,9 +64,8 @@ export default function SupervisorPortal({ user, onLogout }) {
             <div className="p-6">
                 <Routes>
                     <Route path="dashboard" element={<SupervisorDashboard user={user} activePhase={activePhase} />} />
-
-                    {/* Future Modules - Protected by the filteredNav/isLocked logic above */}
-                    <Route path="interns" element={<div className="p-8 text-center text-gray-500 font-bold">Intern Management Coming Soon</div>} />
+                    <Route path="requests" element={<SupervisionRequests user={user} />} />
+                    <Route path="interns" element={<FacultyStudents user={user} />} />
                     <Route path="evaluations" element={<div className="p-8 text-center text-gray-500 font-bold">Evaluation Module Coming Soon</div>} />
 
                     <Route path="*" element={<Navigate to="dashboard" replace />} />

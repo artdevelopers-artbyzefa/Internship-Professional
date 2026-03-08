@@ -75,4 +75,33 @@ router.post('/update-phone', protect, async (req, res) => {
     }
 });
 
+// @route   GET api/supervisor/my-students
+// @desc    Get all students assigned to this site supervisor
+router.get('/my-students', protect, async (req, res) => {
+    try {
+        if (req.user.role !== 'site_supervisor') {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        const escapeRegex = (string) => string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+
+        const students = await User.find({
+            assignedCompanySupervisor: { $regex: new RegExp(`^${escapeRegex(req.user.name.trim())}$`, 'i') },
+            role: 'student'
+        }).select('name reg internshipAgreement.companyName status assignedCompany');
+
+        const result = students.map(s => ({
+            id: s._id,
+            name: s.name,
+            reg: s.reg,
+            company: s.assignedCompany || s.internshipAgreement?.companyName || 'N/A',
+            status: s.status
+        }));
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 export default router;

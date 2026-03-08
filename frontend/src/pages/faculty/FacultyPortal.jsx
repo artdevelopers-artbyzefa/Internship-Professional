@@ -10,10 +10,12 @@ import AddAssignment from './AddAssignment.jsx';
 import AddMarks from './AddMarks.jsx';
 import FacultyReports from './FacultyReports.jsx';
 import StudentProfileDetail from './StudentProfileDetail.jsx';
+import SupervisionRequests from './SupervisionRequests.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 const facultyNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+  { id: 'requests', label: 'Pending Requests', icon: 'fa-user-pen' },
   { id: 'students', label: 'Students', icon: 'fa-users' },
   {
     id: 'assignments-dropdown',
@@ -47,8 +49,8 @@ export default function FacultyPortal({ user, onLogout }) {
   // Lock logic: Only show full menu after Phase 6 (order >= 7)
   const isLocked = activePhase !== undefined && (!activePhase || activePhase.order < 7);
 
-  const filteredNav = isLocked
-    ? facultyNav.filter(item => item.id === 'dashboard')
+  const filteredNav = activePhase?.order < 7
+    ? facultyNav.filter(item => ['dashboard', 'requests', 'students'].includes(item.id))
     : facultyNav;
 
   const handlePageChange = (newPageId) => {
@@ -61,8 +63,11 @@ export default function FacultyPortal({ user, onLogout }) {
       navigate('/faculty/dashboard', { replace: true });
     }
 
-    // If locked and trying to access other pages, redirect to dashboard
-    if (isLocked && currentPath !== 'dashboard' && !isAtBase) {
+    // If locked and trying to access other pages (excluding dashboard, requests, students and their subpaths)
+    const segment = location.pathname.split('/')[2] || 'dashboard';
+    const allowed = ['dashboard', 'requests', 'students'].includes(segment);
+
+    if (isLocked && !allowed && !isAtBase) {
       navigate('/faculty/dashboard', { replace: true });
     }
   }, [location.pathname, isLocked, currentPath]);
@@ -78,7 +83,8 @@ export default function FacultyPortal({ user, onLogout }) {
       <div className="p-6">
         <Routes>
           <Route path="dashboard" element={<FacultyDashboard user={user} activePhase={activePhase} />} />
-          <Route path="students" element={<FacultyStudents />} />
+          <Route path="requests" element={<SupervisionRequests user={user} />} />
+          <Route path="students" element={<FacultyStudents user={user} />} />
           <Route path="students/:studentId" element={<StudentProfileDetail />} />
           <Route path="view-assignments" element={<FacultyAssignments />} />
           <Route path="add-assignment" element={<AddAssignment user={user} />} />

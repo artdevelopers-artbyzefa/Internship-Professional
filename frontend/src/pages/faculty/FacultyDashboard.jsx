@@ -1,58 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../../components/ui/Card.jsx';
 import { StatsGrid } from '../../components/ui/StatCard.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
-import NoticeItem from '../../components/notice/NoticeItem.jsx';
 import WelcomeBanner from '../../components/ui/WelcomeBanner.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 export default function FacultyDashboard({ user, activePhase: propPhase }) {
   const [activePhase, setActivePhase] = useState(propPhase || undefined); // use prop or fallback
   const [allPhases, setAllPhases] = useState([]);
-  const [notices, setNotices] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [loadingRequests, setLoadingRequests] = useState(false);
+  const navigate = useNavigate();
+
+  const isSupervisorPortal = user.role === 'site_supervisor';
+  const basePath = isSupervisorPortal ? '/supervisor' : '/faculty';
+  const studentPath = isSupervisorPortal ? 'interns' : 'students';
+  const requestPath = 'requests';
 
   useEffect(() => {
     if (!propPhase) fetchPhase();
     else fetchAllPhases();
-    fetchNotices();
-    fetchRequests();
   }, [propPhase]);
-
-  const fetchNotices = async () => {
-    try {
-      const data = await apiRequest('/notices/my');
-      setNotices(data);
-    } catch (err) {
-      console.error('Failed to fetch notices:', err);
-    }
-  };
-
-  const fetchRequests = async () => {
-    try {
-      setLoadingRequests(true);
-      const data = await apiRequest('/faculty/pending-requests');
-      setRequests(data);
-    } catch (err) {
-      console.error('Failed to fetch requests:', err);
-    } finally {
-      setLoadingRequests(false);
-    }
-  };
-
-  const handleRequest = async (studentId, action) => {
-    try {
-      await apiRequest('/faculty/handle-request', {
-        method: 'POST',
-        body: { studentId, action }
-      });
-      // Success: Refetch and inform
-      fetchRequests();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
 
   const fetchPhase = async () => {
     try {
@@ -102,64 +69,40 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
 
       <NoticeModal />
 
-      {/* ── Pending Supervision Invitations Section ── */}
-      {(requests.length > 0 || (activePhase?.order >= 2 && activePhase?.order <= 6)) && (
-        <Card title="Pending Supervision Requests" icon="fa-user-pen" className="border-l-4 border-l-emerald-500 bg-emerald-50/10">
-          <div className="p-1 px-2 border border-emerald-100 bg-emerald-50 rounded-lg inline-flex items-center gap-2 mb-6">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Action Required: First Come First Serve Queue</span>
+      {/* ── Quick Access Actions ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div
+          onClick={() => navigate(`${basePath}/${requestPath}`)}
+          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+              <i className="fas fa-user-pen"></i>
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-gray-800">Supervision Requests</h4>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Manage new student invitations</p>
+            </div>
           </div>
+          <i className="fas fa-arrow-right text-gray-200 group-hover:text-emerald-500 transition-colors"></i>
+        </div>
 
-          {requests.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {requests.map(request => (
-                <div key={request._id} className="bg-white p-6 rounded-2xl border-2 border-emerald-100 shadow-sm hover:shadow-md transition-all group">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h4 className="text-sm font-black text-gray-800">{request.name}</h4>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{request.reg}</p>
-                    </div>
-                    <div className="text-[9px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded">
-                      {new Date(request.internshipRequest.submittedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 mb-6">
-                    <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">
-                      <i className="fas fa-building w-4 text-emerald-500"></i>
-                      {request.internshipRequest.companyName}
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">
-                      <i className="fas fa-briefcase w-4 text-emerald-500"></i>
-                      {request.internshipRequest.type} — {request.internshipRequest.mode}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => handleRequest(request._id, 'Accepted')}
-                      className="py-2.5 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-200"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => handleRequest(request._id, 'Rejected')}
-                      className="py-2.5 rounded-xl border-2 border-rose-100 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-colors"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
+        <div
+          onClick={() => navigate(`${basePath}/${studentPath}`)}
+          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+              <i className="fas fa-users"></i>
             </div>
-          ) : (
-            <div className="py-10 text-center text-gray-400 italic text-sm bg-white/50 rounded-2xl border border-dashed border-gray-100">
-              <i className="fas fa-user-clock text-2xl mb-3 block opacity-20"></i>
-              No pending supervision invitations in your current queue.
+            <div>
+              <h4 className="text-sm font-black text-gray-800">My Assigned Interns</h4>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">View registry and student profiles</p>
             </div>
-          )}
-        </Card>
-      )}
+          </div>
+          <i className="fas fa-arrow-right text-gray-200 group-hover:text-indigo-500 transition-colors"></i>
+        </div>
+      </div>
 
       {/* ── Waiting Banner ── */}
       {isLocked && (
@@ -221,34 +164,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
         ]} />
       )}
 
-      {/* ── Announcements Section (Always Visible) ── */}
-      <Card title="Updates from Internship Office" icon="fa-bullhorn" className="border-l-4 border-l-blue-500">
-        {notices.length > 0 ? (
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-            {notices.map(notice => (
-              <NoticeItem key={notice._id} notice={notice} />
-            ))}
-          </div>
-        ) : (
-          <div className="py-10 text-center text-gray-400 italic text-sm">
-            <i className="fas fa-comment-slash text-2xl mb-3 block opacity-20"></i>
-            No recent updates from the Internship Office.
-          </div>
-        )}
-      </Card>
 
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 5px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f8fafc;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 10px;
-        }
-      `}</style>
     </div>
   );
 }

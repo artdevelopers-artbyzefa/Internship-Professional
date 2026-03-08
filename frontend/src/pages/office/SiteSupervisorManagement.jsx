@@ -3,6 +3,7 @@ import { apiRequest } from '../../utils/api.js';
 import Button from '../../components/ui/Button.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
+import Modal, { ModalTitle, ModalSub } from '../../components/ui/Modal.jsx';
 import { FormGroup, TextInput, SelectInput } from '../../components/ui/FormInput.jsx';
 import { validate } from '../../utils/validation.js';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
@@ -13,6 +14,10 @@ export default function SiteSupervisorManagement({ user }) {
     const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showStudentsModal, setShowStudentsModal] = useState(false);
+    const [selectedSupervisorForStudents, setSelectedSupervisorForStudents] = useState(null);
+    const [studentsList, setStudentsList] = useState([]);
+    const [fetchingStudents, setFetchingStudents] = useState(false);
     const [editingSupervisor, setEditingSupervisor] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -121,6 +126,20 @@ export default function SiteSupervisorManagement({ user }) {
         }
     };
 
+    const handleViewStudents = async (companyName, supervisorName) => {
+        setSelectedSupervisorForStudents({ company: companyName, name: supervisorName });
+        setShowStudentsModal(true);
+        setFetchingStudents(true);
+        try {
+            const data = await apiRequest(`/office/supervisor-students?company=${encodeURIComponent(companyName)}&supervisor=${encodeURIComponent(supervisorName)}`);
+            setStudentsList(data || []);
+        } catch (err) {
+            // handled
+        } finally {
+            setFetchingStudents(false);
+        }
+    };
+
     const handleDeleteSupervisor = async (sup) => {
         const confirmed = await showAlert.confirm(
             'Remove Supervisor?',
@@ -148,7 +167,20 @@ export default function SiteSupervisorManagement({ user }) {
     const columns = [
         { key: 'name', label: 'Full Name' },
         { key: 'email', label: 'Official Email' },
-        { key: 'whatsappNumber', label: 'WhatsApp', render: (val) => <span className="text-gray-500 font-mono text-xs">{val}</span> },
+        {
+            key: 'assignedStudents',
+            label: 'Interns',
+            render: (val, row) => (
+                <button
+                    onClick={() => handleViewStudents(row.companyName, row.name)}
+                    className={`h-7 px-2 rounded-lg flex items-center gap-1.5 transition-all font-black text-[10px] ${val > 0 ? 'bg-primary text-white shadow-sm hover:scale-105' : 'bg-gray-100 text-gray-300'}`}
+                    title={val > 0 ? `View ${val} assigned students` : "No placements yet"}
+                >
+                    <i className="fas fa-users-rectangle"></i>
+                    {val || 0}
+                </button>
+            )
+        },
         { key: 'companyName', label: 'Affiliated Company', render: (val) => <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold text-[10px]">{val}</span> },
         {
             key: 'actions',
@@ -357,6 +389,52 @@ export default function SiteSupervisorManagement({ user }) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showStudentsModal && (
+                <Modal onClose={() => setShowStudentsModal(false)} size="lg">
+                    <ModalTitle>Assigned Students: {selectedSupervisorForStudents?.name}</ModalTitle>
+                    <ModalSub>{selectedSupervisorForStudents?.company} · Technical Placement List</ModalSub>
+
+                    <div className="mt-8 max-h-[60vh] overflow-y-auto pr-2">
+                        {fetchingStudents ? (
+                            <div className="text-center py-10">
+                                <i className="fas fa-circle-notch fa-spin text-2xl text-primary mb-2 block"></i>
+                                <span className="text-xs text-gray-400 font-medium tracking-tight">Accessing company records...</span>
+                            </div>
+                        ) : studentsList.length > 0 ? (
+                            <div className="space-y-3">
+                                {studentsList.map((s, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-md hover:shadow-gray-200/50 transition-all group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
+                                                <i className="fas fa-user-graduate"></i>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-black text-gray-800">{s.name}</p>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mt-1">{s.reg} · Semester {s.semester}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex flex-col items-end">
+                                            <p className="text-[10px] font-black text-gray-400 mb-1 group-hover:text-primary transition-colors">{s.email}</p>
+                                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-indigo-50 text-indigo-600 border border-indigo-100 tracking-wider">
+                                                Industry Intern
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-12 text-center rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/30">
+                                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-gray-200 text-3xl mx-auto mb-4 border border-gray-100 shadow-sm">
+                                    <i className="fas fa-user-slash"></i>
+                                </div>
+                                <p className="text-sm font-black text-gray-400">Registry Entry Empty</p>
+                                <p className="text-[10px] text-gray-300 font-medium mt-1">No students have been officially assigned to this supervisor yet.</p>
+                            </div>
+                        )}
+                    </div>
+                </Modal>
             )}
         </div>
     );
