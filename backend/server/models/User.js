@@ -1,0 +1,145 @@
+import mongoose from 'mongoose';
+
+const userSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: [true, 'Full name is required'],
+        trim: true
+    },
+    reg: {
+        type: String,
+        required: function () { return this.role === 'student'; },
+        unique: true,
+        sparse: true, // Allows multiple null/missing values for non-students
+        trim: true
+    },
+    semester: {
+        type: String,
+        enum: ['1', '2', '3', '4', '5', '6', '7', '8'],
+        required: function () { return this.role === 'student'; }
+    },
+    cgpa: {
+        type: String,
+        trim: true
+    },
+    email: {
+        type: String,
+        required: [true, 'Institutional email is required'],
+        unique: true,
+        lowercase: true,
+        trim: true,
+        validate: {
+            validator: function (v) {
+                // Students MUST use the institutional domain
+                if (this.role === 'student') {
+                    return v.endsWith('@cuiatd.edu.pk');
+                }
+                // Faculty and Staff can use any valid email
+                return true;
+            },
+            message: props => `${props.value} is not a valid institutional email domain!`
+        }
+    },
+    password: {
+        type: String,
+        required: [true, 'Password is required']
+    },
+    role: {
+        type: String,
+        enum: ['student', 'hod', 'internship_office', 'faculty_supervisor'],
+        default: 'student'
+    },
+    whatsappNumber: {
+        type: String,
+        trim: true
+    },
+    status: {
+        type: String,
+        enum: [
+            'unverified', 'verified', // Student Initial
+            'Internship Request Submitted', 'Internship Approved', 'Internship Rejected',
+            'Agreement Submitted - Self', 'Agreement Submitted - University Assigned',
+            'Agreement Approved', 'Agreement Rejected', 'Assigned', // Student Final
+            'Pending Activation', 'Active', 'Inactive' // Faculty / Staff
+        ],
+        default: 'unverified'
+    },
+
+    // NEW: Student Profile Specific Mandatory Fields
+    fatherName: { type: String, trim: true },
+    section: { type: String, trim: true },
+    dateOfBirth: { type: Date },
+    profilePicture: { type: String }, // URL or Base64
+    registeredCourse: { type: String, default: 'Internship' },
+    activationToken: String,
+    activationExpires: Date,
+
+    // Internship Approval Form Data
+    internshipRequest: {
+        type: {
+            type: String,
+            enum: ['Self', 'University Assigned']
+        },
+        companyName: String,
+        duration: String,
+        startDate: Date,
+        endDate: Date,
+        mode: {
+            type: String,
+            enum: ['Onsite', 'Remote', 'Hybrid', 'Freelance']
+        },
+        description: String,
+        rejectionReason: String,
+        submittedAt: Date
+    },
+
+    // Student Agreement Form Data
+    internshipAgreement: {
+        // Student Part
+        degreeProgram: String,
+        semester: String,
+        contactNumber: String,
+        preferredField: String,
+
+        // Placement Part
+        companyName: String,
+        companyAddress: String, // only for self
+        companyRegNo: String,   // only for self
+        companyScope: String,   // only for self (Field/Domain)
+        companyHREmail: String, // only for self
+        companySupervisorName: String, // only for self
+        companySupervisorEmail: String, // only for self
+        whatsappNumber: String,
+        duration: String,
+
+        // Office Only Fields (filled after assignment)
+        officeInternshipRole: String,
+        officeFacultySupervisor: String,
+        officeSiteSupervisor: String,
+        officeStartDate: Date,
+        officeEndDate: Date,
+
+        rejectionComments: String,
+        submittedAt: Date
+    },
+
+    // Assignment Data
+    assignedFaculty: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    assignedCompany: String,
+    assignedCompanySupervisor: String,
+
+    emailVerificationToken: { type: String, index: true },
+    emailVerificationExpires: Date,
+    resetPasswordCode: { type: String },
+    resetPasswordExpires: { type: Date },
+    mustChangePassword: { type: Boolean, default: false },
+    lastLogin: Date
+}, {
+    timestamps: true
+});
+
+const User = mongoose.model('User', userSchema);
+export default User;
