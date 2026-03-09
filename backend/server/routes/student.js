@@ -157,6 +157,11 @@ router.put('/update-profile', protect, async (req, res) => {
         if (secondaryEmail) {
             const lowerEmail = secondaryEmail.toLowerCase().trim();
 
+            // Prevent editing if already set
+            if (user.secondaryEmail && user.secondaryEmail !== lowerEmail) {
+                return res.status(400).json({ message: 'Secondary email is already registered and cannot be modified.' });
+            }
+
             // Crucial Security: Ensure secondary email is not already a PRIMARY email or someone else's secondary
             const collision = await User.findOne({
                 _id: { $ne: user._id },
@@ -380,19 +385,33 @@ router.get('/eligibility/:userId', async (req, res) => {
         });
         if (!regOk) eligible = false;
 
-        // 5. Profile completeness (soft warning — does not block)
-        const profileComplete = !!(user.fatherName && user.section && user.dateOfBirth);
+        // 5. Profile completeness (Mandatory for Phase 2 entry)
+        const profileComplete = !!(user.fatherName && user.section && user.dateOfBirth && user.profilePicture);
         checks.push({
             key: 'profile',
             label: 'Profile Completeness',
             detail: profileComplete
                 ? 'Your profile is complete with all required personal details.'
-                : "Father's Name, Section, or Date of Birth is missing. Complete your profile to proceed smoothly.",
+                : "Mandatory Profile Action: Father's Name, Section, Date of Birth, or Profile Picture is missing. Complete your profile to unlock the internship workflow.",
             passed: profileComplete,
-            warning: !profileComplete
+            warning: false
         });
 
-        res.json({ eligible, studentName: user.name, reg: user.reg, semester: user.semester, checks });
+        // Hard criteria are those that the student CANNOT change (Semester, Verification, CGPA, Reg)
+        const hardCriteriaMet = semOk && verified && cgpaOk && regOk;
+
+        // Final eligibility is both hard criteria AND profile completion
+        eligible = hardCriteriaMet && profileComplete;
+
+        res.json({
+            eligible,
+            hardCriteriaMet,
+            profileComplete,
+            studentName: user.name,
+            reg: user.reg,
+            semester: user.semester,
+            checks
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });

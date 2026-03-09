@@ -60,8 +60,10 @@ export default function Phase1EligibilityBanner({ user }) {
     // 2. If global phase is NOT "registration", only show if student is INELIGIBLE (blocked mode)
     const isGlobalPhase1 = activePhase?.key === 'registration';
     const isBlocked = !isGlobalPhase1 && eligibility && !eligibility.eligible;
-
-    if (!isGlobalPhase1 && !isBlocked) return null;
+    const hardCriteriaOk = eligibility?.hardCriteriaMet ?? eligibility?.eligible;
+    const profileOk = eligibility?.profileComplete ?? true;
+    // Show if: global phase 1, OR student is blocked, OR profile is pending
+    if (!isGlobalPhase1 && !isBlocked && profileOk) return null;
 
     if (!eligibility) return null;
 
@@ -181,10 +183,16 @@ export default function Phase1EligibilityBanner({ user }) {
                                 <i className="fas fa-times-circle"></i> {hardFails.length} Failed
                             </span>
                         )}
-                        {eligible && (
+                        {hardCriteriaOk && !profileOk && (
+                            <span className="ml-auto text-xs text-amber-600 font-bold italic">
+                                <i className="fas fa-circle-exclamation mr-1"></i>
+                                Complete your profile details to proceed.
+                            </span>
+                        )}
+                        {eligible && profileOk && (
                             <span className="ml-auto text-xs text-emerald-600 font-bold italic">
                                 <i className="fas fa-circle-info mr-1"></i>
-                                Wait for Phase 2 to begin to submit your request.
+                                {isGlobalPhase1 ? 'Wait for Phase 2 to begin to submit your request.' : 'Your eligibility is confirmed.'}
                             </span>
                         )}
                         {!eligible && (

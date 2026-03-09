@@ -7,8 +7,10 @@ import { showToast } from '../../utils/notifications.jsx';
 
 import Alert from '../../components/ui/Alert.jsx';
 
-export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 }) {
-  const isDisabled = isPhase1 && !isEligible;
+export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, isPendingSetup }) {
+  // Disabled ONLY when student genuinely failed hard criteria (semester/CGPA/registration/email)
+  // Never disabled for pending-setup students — they NEED to edit to complete onboarding
+  const isDisabled = isPhase1 && !isEligible && !isPendingSetup;
   const [form, setForm] = useState({
     fatherName: user.fatherName || '',
     section: user.section || '',
@@ -64,6 +66,11 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
       {isDisabled && (
         <Alert type="error" title="Profile Editing Disabled">
           You are currently marked as not eligible for the internship cycle. Profile editing is disabled until the criteria are met or the Internship Office intervenes.
+        </Alert>
+      )}
+      {isPendingSetup && (
+        <Alert type="warning" title="Complete Your Profile to Unlock the Internship Workflow">
+          You meet all academic eligibility requirements! Fill in your Father&apos;s Name, Section, Date of Birth, and upload a Profile Picture to proceed to Phase 2.
         </Alert>
       )}
       <Card title="Edit My Profile" subtitle="Update your personal details and profile picture">
@@ -128,24 +135,38 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
 
           <div className="pt-6 border-t mt-4">
             <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-4">Contact & Security</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormGroup label="Affiliated University Email">
+                <TextInput
+                  iconLeft="fa-university"
+                  value={user.email}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed opacity-80 font-bold text-gray-600"
+                />
+                <p className="text-[10px] text-gray-400 mt-1 italic font-medium">Primary institutional account (Permanent)</p>
+              </FormGroup>
+
               <FormGroup label="Secondary Email (Alternative Login)">
                 <TextInput
                   iconLeft="fa-envelope"
                   placeholder="personal.email@gmail.com"
+                  name="secondaryEmail"
                   value={form.secondaryEmail}
                   onChange={e => setForm({ ...form, secondaryEmail: e.target.value })}
                   disabled={isDisabled || !!user.secondaryEmail}
-                  className={user.secondaryEmail ? 'bg-gray-100 cursor-not-allowed opacity-75 font-bold' : ''}
+                  className={user.secondaryEmail ? 'bg-gray-100 cursor-not-allowed opacity-80 font-bold text-gray-600' : ''}
                 />
-                <p className="text-[10px] text-gray-400 mt-1 italic">
+                <p className="text-[10px] text-gray-400 mt-1 italic font-medium">
                   {user.secondaryEmail
-                    ? 'This email is officially linked for OTP recovery. Contact office to change.'
-                    : 'Can be used to log in with OTP verification'}
+                    ? 'Successfully registered and verified for alternative access.'
+                    : 'Add a personal email for OTP recovery only once.'}
                 </p>
               </FormGroup>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-1">
+            {!user.secondaryEmail && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-dashed">
                 <FormGroup label="New Password">
                   <TextInput
                     type="password"
@@ -155,6 +176,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
                     onChange={e => setForm({ ...form, newPassword: e.target.value })}
                     disabled={isDisabled}
                   />
+                  <p className="text-[10px] text-gray-400 mt-1 italic">Leave blank if you don't want to change</p>
                 </FormGroup>
                 <FormGroup label="Confirm Password">
                   <TextInput
@@ -167,7 +189,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1 })
                   />
                 </FormGroup>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t">

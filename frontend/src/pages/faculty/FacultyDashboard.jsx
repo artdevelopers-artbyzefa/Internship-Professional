@@ -9,6 +9,7 @@ import { apiRequest } from '../../utils/api.js';
 export default function FacultyDashboard({ user, activePhase: propPhase }) {
   const [activePhase, setActivePhase] = useState(propPhase || undefined); // use prop or fallback
   const [allPhases, setAllPhases] = useState([]);
+  const [stats, setStats] = useState({ assignedStudents: 0, pendingRequests: 0 });
   const navigate = useNavigate();
 
   const isSupervisorPortal = user.role === 'site_supervisor';
@@ -19,7 +20,23 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
   useEffect(() => {
     if (!propPhase) fetchPhase();
     else fetchAllPhases();
+    fetchStats();
   }, [propPhase]);
+
+  const fetchStats = async () => {
+    try {
+      const endpoint = isSupervisorPortal ? '/supervisor/profile' : '/faculty/stats';
+      const data = await apiRequest(endpoint);
+      if (isSupervisorPortal) {
+        setStats({
+          assignedStudents: data.stats?.studentCount || 0,
+          pendingRequests: 0 // Site supervisors don't have "requests" in the same way yet
+        });
+      } else {
+        setStats(data);
+      }
+    } catch (err) { }
+  };
 
   const fetchPhase = async () => {
     try {
@@ -50,8 +67,14 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     <div className="space-y-6">
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Supervisor Dashboard</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">Academic oversight and evaluation management for assigned interns.</p>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">
+            {isSupervisorPortal ? 'Industrial Mentor Dashboard' : 'Academic Supervisor Dashboard'}
+          </h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">
+            {isSupervisorPortal
+              ? 'Institutional partnership and industrial mentorship management.'
+              : 'Academic oversight and evaluation management for assigned interns.'}
+          </p>
         </div>
         {activePhase !== undefined && activePhase && (
           <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
@@ -157,10 +180,12 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
 
       {!isLocked && (
         <StatsGrid stats={[
-          { icon: 'fa-users', cls: 'blue', val: 'Active', label: 'Assigned Students' },
-          { icon: 'fa-file-lines', cls: 'green', val: 'Ready', label: 'Assignments Reviewed' },
-          { icon: 'fa-clipboard-list', cls: 'yellow', val: 'Pending', label: 'Evaluations' },
-          { icon: 'fa-award', cls: 'purple', val: 'Track', label: 'Results' },
+          { icon: 'fa-users', cls: 'blue', val: stats.assignedStudents, label: 'Assigned Students' },
+          ...(!isSupervisorPortal ? [
+            { icon: 'fa-user-pen', cls: 'emerald', val: stats.pendingRequests, label: 'Pending Requests' }
+          ] : []),
+          { icon: 'fa-file-lines', cls: 'green', val: 'Ready', label: 'Assignments' },
+          { icon: 'fa-clipboard-list', cls: 'yellow', val: 'Track', label: 'Evaluations' },
         ]} />
       )}
 

@@ -42,6 +42,31 @@ router.get('/pending-requests', protect, isFaculty, async (req, res) => {
     }
 });
 
+// @route   GET api/faculty/stats
+// @desc    Get dashboard counts
+router.get('/stats', protect, isFaculty, async (req, res) => {
+    try {
+        const [pendingCount, studentCount] = await Promise.all([
+            User.countDocuments({
+                role: 'student',
+                $or: [
+                    { 'internshipRequest.selectedFacultyId': req.user.id },
+                    { 'internshipRequest.newFacultyDetails.email': req.user.email.toLowerCase() }
+                ],
+                'internshipRequest.facultyStatus': 'Pending'
+            }),
+            User.countDocuments({ assignedFaculty: req.user.id, role: 'student' })
+        ]);
+
+        res.json({
+            pendingRequests: pendingCount,
+            assignedStudents: studentCount
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   POST api/faculty/handle-request
 // @desc    Accept or Reject a student's internship supervision request
 router.post('/handle-request', protect, isFaculty, async (req, res) => {
@@ -491,15 +516,22 @@ router.get('/my-students', protect, isFaculty, async (req, res) => {
         const students = await User.find({
             assignedFaculty: req.user.id,
             role: 'student'
-        }).select('name reg internshipAgreement.companyName status assignedCompany');
+        }).select('name reg internshipRequest.mode internshipRequest.freelancePlatform internshipAgreement.companyName status assignedCompany');
 
-        const result = students.map(s => ({
-            id: s._id,
-            name: s.name,
-            reg: s.reg,
-            company: s.assignedCompany || s.internshipAgreement?.companyName || 'Not Assigned',
-            status: s.status
-        }));
+        const result = students.map(s => {
+            const isFreelance = s.internshipRequest?.mode === 'Freelance';
+            const platform = s.internshipRequest?.freelancePlatform;
+            return {
+                id: s._id,
+                name: s.name,
+                reg: s.reg,
+                isFreelance,
+                company: isFreelance
+                    ? `Freelancing${platform ? ` (${platform})` : ''}`
+                    : (s.assignedCompany || s.internshipAgreement?.companyName || 'Not Assigned'),
+                status: s.status
+            };
+        });
 
         res.json(result);
     } catch (err) {

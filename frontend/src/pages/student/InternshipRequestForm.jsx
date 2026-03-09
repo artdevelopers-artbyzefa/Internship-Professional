@@ -36,7 +36,9 @@ export default function InternshipRequestForm({ user }) {
     startDate: user.internshipRequest?.startDate ? new Date(user.internshipRequest.startDate).toISOString().split('T')[0] : '',
     endDate: user.internshipRequest?.endDate ? new Date(user.internshipRequest.endDate).toISOString().split('T')[0] : '',
     mode: user.internshipRequest?.mode || 'Onsite',
-    description: user.internshipRequest?.description || ''
+    description: user.internshipRequest?.description || '',
+    freelancePlatform: user.internshipRequest?.freelancePlatform || '',
+    freelanceProfileLink: user.internshipRequest?.freelanceProfileLink || ''
   });
 
   useEffect(() => {
@@ -154,8 +156,23 @@ export default function InternshipRequestForm({ user }) {
             <Field label="Submitted On" value={req?.submittedAt ? new Date(req.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null} />
             {(user.assignedCompany || req?.companyName) && (
               <Field
-                label="Official Organization"
+                label={req?.mode === 'Freelance' ? 'Project / Client' : 'Official Organization'}
                 value={user.assignedCompany || req.companyName}
+                wide
+              />
+            )}
+            {req?.mode === 'Freelance' && req?.freelancePlatform && (
+              <Field label="Freelance Platform" value={req.freelancePlatform} />
+            )}
+            {req?.mode === 'Freelance' && req?.freelanceProfileLink && (
+              <Field
+                label="Profile Link"
+                value={
+                  <a href={req.freelanceProfileLink} target="_blank" rel="noopener noreferrer"
+                    className="text-primary font-bold underline underline-offset-2 text-xs">
+                    {req.freelanceProfileLink}
+                  </a>
+                }
                 wide
               />
             )}
@@ -322,46 +339,93 @@ export default function InternshipRequestForm({ user }) {
           </div>
 
           {(form.internshipType === 'Self' || form.mode === 'Freelance') && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 animate-in fade-in duration-500">
-              <FormGroup label="Organization / Project Name">
+            <div className={`grid grid-cols-1 gap-8 mt-8 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 animate-in fade-in duration-500 ${form.mode === 'Freelance' ? 'md:grid-cols-1 max-w-sm' : 'md:grid-cols-3'}`}>
+              <FormGroup label={form.mode === 'Freelance' ? 'Project / Client Name' : 'Organization / Project Name'}>
                 <TextInput
-                  placeholder="e.g. Google, Private Venture"
+                  placeholder={form.mode === 'Freelance' ? 'e.g. Upwork Project, Fiverr Client' : 'e.g. Google, Private Venture'}
                   value={form.companyName}
                   disabled={hasOfficialCompany}
                   onChange={e => setForm({ ...form, companyName: e.target.value })}
-                  iconLeft="fa-building"
+                  iconLeft={form.mode === 'Freelance' ? 'fa-laptop-code' : 'fa-building'}
                   required
                 />
               </FormGroup>
-              <FormGroup label="External Mentor Name">
-                <TextInput
-                  placeholder="Supervisor Name"
-                  value={form.siteSupervisorName}
-                  disabled={hasOfficialSupervisor}
-                  onChange={e => setForm({ ...form, siteSupervisorName: e.target.value })}
-                  iconLeft="fa-user-tie"
-                  required
-                />
-              </FormGroup>
-              <FormGroup label="Supervisor Contact Details">
-                <div className="grid grid-cols-2 gap-2">
-                  <TextInput
-                    type="email"
-                    placeholder="Email Address"
-                    value={form.siteSupervisorEmail}
-                    disabled={hasOfficialSupervisor}
-                    onChange={e => setForm({ ...form, siteSupervisorEmail: e.target.value })}
-                    required
-                  />
-                  <TextInput
-                    placeholder="Phone/WhatsApp"
-                    value={form.siteSupervisorPhone}
-                    disabled={hasOfficialSupervisor}
-                    onChange={e => setForm({ ...form, siteSupervisorPhone: e.target.value })}
-                    required
-                  />
+
+              {/* External Mentor details — NOT shown for Freelance (Faculty Supervisor is sufficient) */}
+              {form.mode !== 'Freelance' && (
+                <>
+                  <FormGroup label="External Mentor Name">
+                    <TextInput
+                      placeholder="Supervisor Name"
+                      value={form.siteSupervisorName}
+                      disabled={hasOfficialSupervisor}
+                      onChange={e => setForm({ ...form, siteSupervisorName: e.target.value })}
+                      iconLeft="fa-user-tie"
+                      required
+                    />
+                  </FormGroup>
+                  <FormGroup label="Supervisor Contact Details">
+                    <div className="grid grid-cols-2 gap-2">
+                      <TextInput
+                        type="email"
+                        placeholder="Email Address"
+                        value={form.siteSupervisorEmail}
+                        disabled={hasOfficialSupervisor}
+                        onChange={e => setForm({ ...form, siteSupervisorEmail: e.target.value })}
+                        required
+                      />
+                      <TextInput
+                        placeholder="Phone/WhatsApp"
+                        value={form.siteSupervisorPhone}
+                        disabled={hasOfficialSupervisor}
+                        onChange={e => setForm({ ...form, siteSupervisorPhone: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </FormGroup>
+                </>
+              )}
+
+              {form.mode === 'Freelance' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <FormGroup label="Freelance Platform">
+                    <SelectInput
+                      value={form.freelancePlatform}
+                      onChange={e => setForm({ ...form, freelancePlatform: e.target.value })}
+                      iconLeft="fa-globe"
+                      required
+                    >
+                      <option value="">Select Platform...</option>
+                      <option value="Fiverr">Fiverr</option>
+                      <option value="Upwork">Upwork</option>
+                      <option value="Freelancer">Freelancer.com</option>
+                      <option value="Toptal">Toptal</option>
+                      <option value="PeoplePerHour">PeoplePerHour</option>
+                      <option value="99designs">99designs</option>
+                      <option value="Other">Other</option>
+                    </SelectInput>
+                  </FormGroup>
+                  <FormGroup label={form.freelancePlatform ? `${form.freelancePlatform} Profile Link` : 'Profile Link'}>
+                    <TextInput
+                      type="url"
+                      placeholder={
+                        form.freelancePlatform === 'Fiverr' ? 'https://fiverr.com/yourusername' :
+                          form.freelancePlatform === 'Upwork' ? 'https://upwork.com/freelancers/~yourprofile' :
+                            form.freelancePlatform === 'Freelancer' ? 'https://freelancer.com/u/yourusername' :
+                              'https://platform.com/yourprofile'
+                      }
+                      value={form.freelanceProfileLink}
+                      onChange={e => setForm({ ...form, freelanceProfileLink: e.target.value })}
+                      iconLeft="fa-link"
+                      required
+                    />
+                  </FormGroup>
+                  <p className="md:col-span-2 text-[9px] font-bold text-blue-600 italic px-1">
+                    <i className="fas fa-circle-info mr-1"></i>
+                    Your Faculty Supervisor will be the primary academic contact. No external site mentor details are required for Freelance mode.
+                  </p>
                 </div>
-              </FormGroup>
+              )}
             </div>
           )}
         </section>

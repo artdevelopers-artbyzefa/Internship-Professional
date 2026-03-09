@@ -6,7 +6,7 @@ import { protect } from '../middleware/auth.js';
 const router = express.Router();
 
 // @route   GET api/supervisor/profile
-// @desc    Get supervisor profile with company details
+// @desc    Get supervisor profile with company details and counts
 router.get('/profile', protect, async (req, res) => {
     try {
         if (req.user.role !== 'site_supervisor') {
@@ -16,10 +16,22 @@ router.get('/profile', protect, async (req, res) => {
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
-        // Find the company this supervisor belongs to
-        const company = await Company.findOne({
-            'siteSupervisors.email': user.email
-        });
+        const escapeRegex = (s) => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+        const nameRegex = new RegExp(escapeRegex(user.name.trim()), 'i');
+
+        // Parallel count and company lookup
+        const [company, studentCount] = await Promise.all([
+            Company.findOne({ 'siteSupervisors.email': user.email }),
+            User.countDocuments({
+                role: 'student',
+                $or: [
+                    { assignedCompanySupervisorEmail: user.email.toLowerCase() },
+                    { 'internshipRequest.siteSupervisorEmail': user.email.toLowerCase() },
+                    { 'internshipAgreement.companySupervisorEmail': user.email.toLowerCase() },
+                    { assignedCompanySupervisor: { $regex: nameRegex } }
+                ]
+            })
+        ]);
 
         res.json({
             user: {
@@ -35,7 +47,10 @@ router.get('/profile', protect, async (req, res) => {
                 name: company.name,
                 regNo: company.regNo,
                 scope: company.scope
-            } : null
+            } : null,
+            stats: {
+                studentCount
+            }
         });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
@@ -84,18 +99,26 @@ router.get('/my-students', protect, async (req, res) => {
         }
 
         const escapeRegex = (string) => string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+        const nameRegex = new RegExp(escapeRegex(req.user.name.trim()), 'i');
+        const userEmail = req.user.email.toLowerCase().trim();
 
         const students = await User.find({
-            assignedCompanySupervisor: { $regex: new RegExp(`^${escapeRegex(req.user.name.trim())}$`, 'i') },
-            role: 'student'
-        }).select('name reg internshipAgreement.companyName status assignedCompany');
+            role: 'student',
+            $or: [
+                { assignedCompanySupervisorEmail: userEmail },
+                { 'internshipRequest.siteSupervisorEmail': userEmail },
+                { 'internshipAgreement.companySupervisorEmail': userEmail },
+                { assignedCompanySupervisor: { $regex: nameRegex } }
+            ]
+        }).select('name reg internshipAgreement.companyName status assignedCompany internshipRequest.mode internshipRequest.freelancePlatform internshipRequest.companyName');
 
         const result = students.map(s => ({
             id: s._id,
             name: s.name,
             reg: s.reg,
-            company: s.assignedCompany || s.internshipAgreement?.companyName || 'N/A',
-            status: s.status
+            company: s.assignedCompany || s.internshipAgreement?.companyName || s.internshipRequest?.companyName || 'N/A',
+            status: s.status,
+            isFreelance: s.internshipRequest?.mode === 'Freelance'
         }));
 
         res.json(result);

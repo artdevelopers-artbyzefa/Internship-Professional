@@ -102,12 +102,14 @@ export default function CompanyManagement({ view, user }) {
     setErrorDictionary({});
   };
 
-  const handleViewStudents = async (companyName, supervisorName) => {
+  const handleViewStudents = async (companyName, supervisorName, email) => {
     setSelectedSupervisorForStudents({ company: companyName, name: supervisorName });
     setShowStudentsModal(true);
     setFetchingStudents(true);
     try {
-      const data = await apiRequest(`/office/supervisor-students?company=${encodeURIComponent(companyName)}&supervisor=${encodeURIComponent(supervisorName)}`);
+      let url = `/office/supervisor-students?company=${encodeURIComponent(companyName)}&supervisor=${encodeURIComponent(supervisorName)}`;
+      if (email) url += `&email=${encodeURIComponent(email)}`;
+      const data = await apiRequest(url);
       setStudentsList(data || []);
     } catch (err) {
       // handled
@@ -190,10 +192,11 @@ export default function CompanyManagement({ view, user }) {
             <div key={i} className="flex items-center justify-between gap-2 p-1.5 bg-gray-50 hover:bg-blue-50/50 rounded-xl border border-gray-100 transition-all group/sup">
               <div className="flex flex-col min-w-0">
                 <span className="text-[10px] font-black text-gray-700 truncate">{s.name}</span>
-                <span className="text-[8px] text-gray-400 font-medium truncate">{s.email}</span>
+                <span className="text-[9px] text-gray-400 font-bold truncate leading-tight">{s.email || 'No Email'}</span>
+                {s.whatsappNumber && <span className="text-[8px] text-emerald-600 font-bold truncate">{s.whatsappNumber}</span>}
               </div>
               <button
-                onClick={() => handleViewStudents(row.name, s.name)}
+                onClick={() => handleViewStudents(row.name, s.name, s.email)}
                 className={`h-7 px-2 rounded-lg flex items-center gap-1.5 transition-all font-black text-[10px] ${s.assignedStudents > 0 ? 'bg-primary text-white shadow-sm hover:scale-105' : 'bg-gray-100 text-gray-300'}`}
                 title={s.assignedStudents > 0 ? `View ${s.assignedStudents} assigned students` : "No placements yet"}
               >
@@ -411,26 +414,39 @@ export default function CompanyManagement({ view, user }) {
                 <span className="text-xs text-gray-400 font-medium tracking-tight">Accessing company records...</span>
               </div>
             ) : studentsList.length > 0 ? (
-              <div className="space-y-3">
-                {studentsList.map((s, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-md hover:shadow-gray-200/50 transition-all group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
-                        <i className="fas fa-user-graduate"></i>
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-gray-800">{s.name}</p>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mt-1">{s.reg} · Semester {s.semester}</p>
-                      </div>
-                    </div>
-                    <div className="text-right flex flex-col items-end">
-                      <p className="text-[10px] font-black text-gray-400 mb-1 group-hover:text-primary transition-colors">{s.email}</p>
-                      <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-indigo-50 text-indigo-600 border border-indigo-100 tracking-wider">
-                        Industry Intern
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Info</th>
+                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Registration</th>
+                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Email</th>
+                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentsList.map((s, idx) => (
+                      <tr key={idx} className="border-b border-gray-50/50 hover:bg-gray-50 transition-colors">
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">
+                              {s.name?.charAt(0)}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold text-gray-800">{s.name}</span>
+                              <span className="text-[9px] text-gray-400 font-medium whitespace-nowrap">Semester {s.semester}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-[10px] text-gray-600 font-bold">{s.reg}</td>
+                        <td className="px-3 py-3 text-[10px] text-gray-500 font-medium">{s.email}</td>
+                        <td className="px-3 py-3">
+                          <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded-full font-black text-[8px] uppercase tracking-wider whitespace-nowrap">Active Intern</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="p-12 text-center rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/30">

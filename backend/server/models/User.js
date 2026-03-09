@@ -95,6 +95,8 @@ const userSchema = new mongoose.Schema({
             enum: ['Onsite', 'Remote', 'Hybrid', 'Freelance']
         },
         description: String,
+        freelancePlatform: String,       // e.g. 'Fiverr', 'Upwork', 'Freelancer', 'Other'
+        freelanceProfileLink: String,    // URL to the student's freelancing profile
 
         // Faculty Supervisor Selection Block
         facultyType: {
@@ -158,6 +160,7 @@ const userSchema = new mongoose.Schema({
     },
     assignedCompany: String,
     assignedCompanySupervisor: String,
+    assignedCompanySupervisorEmail: { type: String, lowercase: true, trim: true },
 
     emailVerificationToken: { type: String, index: true },
     emailVerificationExpires: Date,

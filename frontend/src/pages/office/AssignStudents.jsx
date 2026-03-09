@@ -12,7 +12,7 @@ export default function AssignStudents({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(null);
-  
+
   // Assignment form state per row (locally tracked)
   const [assignments, setAssignments] = useState({});
 
@@ -29,7 +29,7 @@ export default function AssignStudents({ user }) {
       ]);
       setStudents(stuData);
       setFaculty(facData);
-      
+
       // Filter for MOU/Manual companies for assignment pool
       setMouCompanies(compData.filter(c => c.isMOUSigned && c.status === 'Active'));
     } catch (err) {
@@ -41,51 +41,58 @@ export default function AssignStudents({ user }) {
 
   const handleUpdateAssignment = (stuId, field, value) => {
     setAssignments(prev => {
-        const current = prev[stuId] || {};
-        // Reset site supervisor if company changes
-        if (field === 'companyId') {
-            return {
-                ...prev,
-                [stuId]: { ...current, [field]: value, siteSupervisorIndex: '' }
-            };
-        }
+      const current = prev[stuId] || {};
+      // Reset site supervisor if company changes
+      if (field === 'companyId') {
         return {
-            ...prev,
-            [stuId]: { ...current, [field]: value }
+          ...prev,
+          [stuId]: { ...current, [field]: value, siteSupervisorIndex: '' }
         };
+      }
+      return {
+        ...prev,
+        [stuId]: { ...current, [field]: value }
+      };
     });
   };
 
   const handleAssign = async (student) => {
     const data = assignments[student._id] || {};
+    const mode = student.internshipRequest?.mode;
     const isSelf = student.internshipRequest?.type === 'Self';
+    const isFreelance = mode === 'Freelance';
 
     if (!data.facultyId) return alert('Please select a Faculty Supervisor');
 
     let payload = {
-        studentId: student._id,
-        facultyId: data.facultyId,
-        officeId: user.id || user._id
+      studentId: student._id,
+      facultyId: data.facultyId,
+      officeId: user.id || user._id
     };
 
-    if (isSelf) {
-        // For Self: Company and Supervisor are already verified in Agreement
-        payload.companyName = student.internshipAgreement.companyName;
-        payload.siteSupervisor = {
-            name: student.internshipAgreement.companySupervisorName,
-            email: student.internshipAgreement.companySupervisorEmail,
-            whatsappNumber: student.internshipAgreement.whatsappNumber
-        };
+    if (isFreelance) {
+      // Freelance: no site supervisor needed — use platform as company, no supervisor
+      const platform = student.internshipRequest?.freelancePlatform || 'Freelance';
+      payload.companyName = `Freelancing (${platform})`;
+      payload.siteSupervisor = { name: 'N/A (Freelance)', email: '', whatsappNumber: '' };
+    } else if (isSelf) {
+      // For Self: Company and Supervisor are already verified in Agreement
+      payload.companyName = student.internshipAgreement.companyName;
+      payload.siteSupervisor = {
+        name: student.internshipAgreement.companySupervisorName,
+        email: student.internshipAgreement.companySupervisorEmail,
+        whatsappNumber: student.internshipAgreement.whatsappNumber
+      };
     } else {
-        // For MOU: Must select from dropdowns
-        if (!data.companyId) return alert('Please select an MOU Company');
-        if (data.siteSupervisorIndex === '') return alert('Please select a Site Supervisor');
+      // For MOU: Must select from dropdowns
+      if (!data.companyId) return alert('Please select an MOU Company');
+      if (data.siteSupervisorIndex === '') return alert('Please select a Site Supervisor');
 
-        const company = mouCompanies.find(c => c._id === data.companyId);
-        const supervisor = company.siteSupervisors[data.siteSupervisorIndex];
+      const company = mouCompanies.find(c => c._id === data.companyId);
+      const supervisor = company.siteSupervisors[data.siteSupervisorIndex];
 
-        payload.companyName = company.name;
-        payload.siteSupervisor = supervisor;
+      payload.companyName = company.name;
+      payload.siteSupervisor = supervisor;
     }
 
     setSubmitting(student._id);
@@ -109,39 +116,60 @@ export default function AssignStudents({ user }) {
   const columns = [
     { key: 'reg', label: 'Student Reg' },
     { key: 'name', label: 'Student Name' },
-    { 
-        key: 'type', 
-        label: 'Flow',
-        render: (_, row) => (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                row.internshipRequest?.type === 'Self' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
-            }`}>
-                {row.internshipRequest?.type === 'Self' ? 'Self Arranged' : 'MOU Based'}
-            </span>
-        )
+    {
+      key: 'type',
+      label: 'Flow',
+      render: (_, row) => {
+        const mode = row.internshipRequest?.mode;
+        const type = row.internshipRequest?.type;
+        const isFreelance = mode === 'Freelance';
+        const label = isFreelance ? 'Freelance' : type === 'Self' ? 'Self Arranged' : 'MOU Based';
+        const style = isFreelance
+          ? 'bg-purple-50 text-purple-600'
+          : type === 'Self' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600';
+        return (
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${style}`}>
+            {label}
+          </span>
+        );
+      }
     },
     {
       key: 'assign_comp',
       label: 'Internship Placement (Company)',
       render: (_, row) => {
+        const mode = row.internshipRequest?.mode;
         const isSelf = row.internshipRequest?.type === 'Self';
+        const isFreelance = mode === 'Freelance';
+        const platform = row.internshipRequest?.freelancePlatform;
+
+        if (isFreelance) {
+          return (
+            <div className="space-y-1">
+              <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full font-bold text-[10px]">
+                <i className="fas fa-laptop-code mr-1"></i>
+                {platform ? `Freelancing via ${platform}` : 'Freelance Project'}
+              </span>
+            </div>
+          );
+        }
         if (isSelf) {
-            return (
-                <div className="space-y-1">
-                    <p className="text-[11px] font-bold text-gray-700">{row.internshipAgreement?.companyName}</p>
-                    <span className="text-[9px] text-success italic">Locked (Agreement Approved)</span>
-                </div>
-            );
+          return (
+            <div className="space-y-1">
+              <p className="text-[11px] font-bold text-gray-700">{row.internshipAgreement?.companyName}</p>
+              <span className="text-[9px] text-success italic">Locked (Agreement Approved)</span>
+            </div>
+          );
         }
         return (
-            <SelectInput 
-                className="text-[11px] py-1.5 min-w-[150px]"
-                value={assignments[row._id]?.companyId || ''}
-                onChange={e => handleUpdateAssignment(row._id, 'companyId', e.target.value)}
-            >
-                <option value="">Select MOU Company</option>
-                {mouCompanies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-            </SelectInput>
+          <SelectInput
+            className="text-[11px] py-1.5 min-w-[150px]"
+            value={assignments[row._id]?.companyId || ''}
+            onChange={e => handleUpdateAssignment(row._id, 'companyId', e.target.value)}
+          >
+            <option value="">Select MOU Company</option>
+            {mouCompanies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+          </SelectInput>
         );
       }
     },
@@ -149,56 +177,65 @@ export default function AssignStudents({ user }) {
       key: 'assign_comp_sup',
       label: 'Site Supervisor',
       render: (_, row) => {
+        const isFreelance = row.internshipRequest?.mode === 'Freelance';
         const isSelf = row.internshipRequest?.type === 'Self';
-        if (isSelf) {
-            return (
-                <div className="space-y-1">
-                    <p className="text-[11px] font-bold text-gray-700">{row.internshipAgreement?.companySupervisorName}</p>
-                    <span className="text-[9px] text-success italic">Locked (Site Confirmed)</span>
-                </div>
-            );
+
+        if (isFreelance) {
+          return (
+            <span className="text-[10px] font-bold text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">
+              <i className="fas fa-ban mr-1"></i> Not Required
+            </span>
+          );
         }
-        
+        if (isSelf) {
+          return (
+            <div className="space-y-1">
+              <p className="text-[11px] font-bold text-gray-700">{row.internshipAgreement?.companySupervisorName}</p>
+              <span className="text-[9px] text-success italic">Locked (Site Confirmed)</span>
+            </div>
+          );
+        }
+
         const selectedCompanyId = assignments[row._id]?.companyId;
         const company = mouCompanies.find(c => c._id === selectedCompanyId);
-        
+
         return (
-            <SelectInput 
-                className="text-[11px] py-1.5 min-w-[150px]"
-                disabled={!selectedCompanyId}
-                value={assignments[row._id]?.siteSupervisorIndex ?? ''}
-                onChange={e => handleUpdateAssignment(row._id, 'siteSupervisorIndex', e.target.value)}
-            >
-                <option value="">{selectedCompanyId ? 'Select Supervisor' : 'Select Company First'}</option>
-                {company?.siteSupervisors.map((s, idx) => (
-                    <option key={idx} value={idx}>{s.name} ({s.email})</option>
-                ))}
-            </SelectInput>
+          <SelectInput
+            className="text-[11px] py-1.5 min-w-[150px]"
+            disabled={!selectedCompanyId}
+            value={assignments[row._id]?.siteSupervisorIndex ?? ''}
+            onChange={e => handleUpdateAssignment(row._id, 'siteSupervisorIndex', e.target.value)}
+          >
+            <option value="">{selectedCompanyId ? 'Select Supervisor' : 'Select Company First'}</option>
+            {company?.siteSupervisors.map((s, idx) => (
+              <option key={idx} value={idx}>{s.name} ({s.email})</option>
+            ))}
+          </SelectInput>
         );
       }
     },
     {
-        key: 'assign_fac',
-        label: 'Faculty Supervisor',
-        render: (_, row) => (
-          <SelectInput 
-            className="text-[11px] py-1.5 min-w-[150px]"
-            value={assignments[row._id]?.facultyId || ''}
-            onChange={e => handleUpdateAssignment(row._id, 'facultyId', e.target.value)}
-          >
-            <option value="">Select Faculty</option>
-            {faculty.filter(f => f.status === 'Active').map(f => (
-                <option key={f._id} value={f._id}>{f.name}</option>
-            ))}
-          </SelectInput>
-        )
+      key: 'assign_fac',
+      label: 'Faculty Supervisor',
+      render: (_, row) => (
+        <SelectInput
+          className="text-[11px] py-1.5 min-w-[150px]"
+          value={assignments[row._id]?.facultyId || ''}
+          onChange={e => handleUpdateAssignment(row._id, 'facultyId', e.target.value)}
+        >
+          <option value="">Select Faculty</option>
+          {faculty.filter(f => f.status === 'Active').map(f => (
+            <option key={f._id} value={f._id}>{f.name}</option>
+          ))}
+        </SelectInput>
+      )
     },
     {
       key: 'actions',
       label: 'Action',
       render: (_, row) => (
-        <Button 
-          variant="primary" size="sm" 
+        <Button
+          variant="primary" size="sm"
           onClick={() => handleAssign(row)}
           loading={submitting === row._id}
           className="whitespace-nowrap rounded-lg"
@@ -219,7 +256,7 @@ export default function AssignStudents({ user }) {
       </div>
 
       {error && <Alert type="danger" className="mb-4">{error}</Alert>}
-      
+
       {students.length === 0 ? (
         <div className="text-center py-20 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200 text-gray-400">
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">

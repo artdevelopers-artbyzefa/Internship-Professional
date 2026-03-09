@@ -5,13 +5,13 @@ import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
 import { apiRequest } from '../../utils/api.js';
 
-export default function StudentDashboard({ user, isEligible, isPhase1, activePhase }) {
+export default function StudentDashboard({ user, isEligible, isPhase1, isPendingSetup, hardCriteriaMet, isProfileComplete: isProfileCompleteProp, activePhase }) {
   const [showAlert, setShowAlert] = React.useState(true);
-  const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
+  const isProfileComplete = isProfileCompleteProp ?? !!(user.fatherName && user.section && user.dateOfBirth && user.profilePicture);
 
   // Authority Progression Counter: The primary driver for dashboard projection
   const phaseOrder = activePhase?.order || 1;
-  const isLocked = phaseOrder === 1 && !isEligible;
+  const isLocked = !hardCriteriaMet; // True lock = failed CGPA/semester/etc.
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -86,7 +86,7 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
             <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Phase 1</span>
-            <span className="text-sm font-bold text-primary">Self-Registration & Verification</span>
+            <span className="text-sm font-bold text-primary">Self-Registration &amp; Verification</span>
           </div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-3">Welcome to DIMS Portal</h2>
           <p className="text-gray-500 font-medium max-w-xl">
@@ -97,20 +97,43 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
 
       <Phase1EligibilityBanner user={user} />
 
-      {(!isProfileComplete && showAlert && !isLocked) && (
-        <Alert type="warning" className="mb-8 rounded-[1.5rem] border-2 shadow-lg" onClose={() => setShowAlert(false)}>
+      {/* Pending Setup State: eligible but profile not filled */}
+      {isPendingSetup && (
+        <div className="mt-8 p-8 bg-gradient-to-br from-amber-50 to-orange-50/40 rounded-[2.5rem] border-2 border-amber-200 shadow-xl shadow-amber-50/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-amber-400 flex items-center justify-center text-white text-2xl shadow-lg shadow-amber-200 flex-shrink-0">
+              <i className="fas fa-id-card-clip"></i>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-amber-600 tracking-widest uppercase mb-1">Action Required — Profile Setup</p>
+              <h3 className="text-xl font-black text-gray-900 tracking-tight">Complete Your Profile to Continue</h3>
+              <p className="text-sm text-gray-500 mt-1 max-w-md">
+                Great news — you meet all academic eligibility criteria! Complete your personal profile (Father&apos;s Name, Section, DOB &amp; Profile Picture) to unlock the internship workflow.
+              </p>
+            </div>
+          </div>
+          <a href="/student/profile" className="flex-shrink-0">
+            <button className="font-black text-xs px-8 py-4 rounded-2xl bg-amber-500 text-white shadow-xl shadow-amber-200 hover:bg-amber-600 transition-all active:scale-95 border-0 cursor-pointer uppercase tracking-widest whitespace-nowrap">
+              Complete Profile Now <i className="fas fa-arrow-right ml-2 text-[10px]"></i>
+            </button>
+          </a>
+        </div>
+      )}
+
+      {(!isProfileComplete && showAlert && !isLocked && !isPendingSetup) && (
+        <Alert type="warning" className="mb-8 rounded-[1.5rem] border-2 shadow-lg mt-8" onClose={() => setShowAlert(false)}>
           <div className="flex items-center gap-4 py-1">
             <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 flex-shrink-0">
               <i className="fas fa-user-pen"></i>
             </div>
             <p className="font-bold text-amber-900">
-              Institutional Profile Incomplete: <span className="font-medium text-amber-700">Please provide your Father's Name, Section, and DOB in the Profile section to unlock Phase 2.</span>
+              Institutional Profile Incomplete: <span className="font-medium text-amber-700">Please provide your Father&apos;s Name, Section, and DOB in the Profile section to unlock Phase 2.</span>
             </p>
           </div>
         </Alert>
       )}
 
-      {!isLocked && <ProfileTable />}
+      {(!isLocked && isProfileComplete) && <ProfileTable />}
     </div>
   );
 
@@ -201,8 +224,8 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
     <div className="max-w-7xl mx-auto py-2">
       <NoticeModal />
 
-      {/* Dynamic Phase Router (Counter Based) */}
-      {phaseOrder === 1 ? <Phase1Dashboard /> : <Phase2PlusDashboard />}
+      {/* Dynamic Phase Router (Prop Based) — prioritizes personal onboarding */}
+      {isPhase1 ? <Phase1Dashboard /> : <Phase2PlusDashboard />}
     </div>
   );
 }
