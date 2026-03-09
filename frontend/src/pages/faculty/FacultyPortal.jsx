@@ -89,7 +89,7 @@ export default function FacultyPortal({ user, onLogout }) {
           <Route path="view-assignments" element={<FacultyAssignments />} />
           <Route path="add-assignment" element={<AddAssignment user={user} />} />
           <Route path="add-marks" element={<AddMarks user={user} />} />
-          <Route path="evaluation" element={<FacultyEvaluation />} />
+          <Route path="evaluation" element={<FacultyEvaluation user={user} />} />
           <Route path="reports" element={<FacultyReports user={user} />} />
           <Route path="results" element={<FacultyResults />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />

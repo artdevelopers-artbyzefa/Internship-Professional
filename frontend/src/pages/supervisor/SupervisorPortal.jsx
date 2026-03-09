@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import SupervisorDashboard from './SupervisorDashboard.jsx';
 import FacultyStudents from '../faculty/FacultyStudents.jsx';
+import FacultyEvaluation from '../faculty/FacultyEvaluation.jsx';
 import SupervisionRequests from '../faculty/SupervisionRequests.jsx';
 import { apiRequest } from '../../utils/api.js';
 
@@ -66,7 +67,7 @@ export default function SupervisorPortal({ user, onLogout }) {
                     <Route path="dashboard" element={<SupervisorDashboard user={user} activePhase={activePhase} />} />
                     <Route path="requests" element={<SupervisionRequests user={user} />} />
                     <Route path="interns" element={<FacultyStudents user={user} />} />
-                    <Route path="evaluations" element={<div className="p-8 text-center text-gray-500 font-bold">Evaluation Module Coming Soon</div>} />
+                    <Route path="evaluations" element={<FacultyEvaluation user={user} />} />
 
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                 </Routes>

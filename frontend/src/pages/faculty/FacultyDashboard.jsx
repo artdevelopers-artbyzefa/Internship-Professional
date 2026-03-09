@@ -58,8 +58,8 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     } catch (err) { }
   };
 
-  // Lock logic: Full dashboard activates after Phase 6 (order >= 7)
-  const isLocked = activePhase !== undefined && (!activePhase || activePhase.order < 7);
+  // Lock logic: Full dashboard activates after Phase 2 (order >= 3)
+  const isLocked = activePhase !== undefined && (!activePhase || activePhase.order < 3);
   const isPhase1Active = activePhase?.key === 'registration';
   const noPhaseActive = activePhase === null;
 
@@ -151,7 +151,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
               </h3>
               <p className={`text-sm mt-1 ${!noPhaseActive ? 'text-amber-700' : 'text-gray-400'}`}>
                 {!noPhaseActive
-                  ? 'The Internship Office is onboarding eligible students. Your supervisor dashboard will activate once students are assigned to you after Phase 6.'
+                  ? 'The Internship Office is onboarding eligible students. Your supervisor dashboard will activate once students are successfully assigned to you.'
                   : 'The Internship Office has not initiated any phase yet. You will be notified when a cycle begins.'}
               </p>
             </div>
@@ -178,15 +178,108 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
         </div>
       )}
 
+      {/* ── Phase 3: Internship Commences ── */}
+      {(!isLocked && activePhase?.order >= 3) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Assignment Management Card - Only for Faculty */}
+          {!isSupervisorPortal && (
+            <div
+              onClick={() => navigate(`${basePath}/add-assignment`)}
+              className="p-8 rounded-[2.5rem] border-2 bg-white border-blue-50 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer group relative overflow-hidden"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-primary flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                  <i className="fas fa-file-circle-plus"></i>
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-gray-800 tracking-tight">Publish Tasks</h4>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Academic Assignments Hub</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">Upload weekly report templates, project tasks, and documentation rubrics.</p>
+              <div className="text-xs font-black text-primary flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                Open Assignments Center <i className="fas fa-arrow-right text-[10px]"></i>
+              </div>
+            </div>
+          )}
+
+          {/* Grading Card - Only for Faculty */}
+          {!isSupervisorPortal && (
+            <div
+              onClick={() => navigate(`${basePath}/add-marks`)}
+              className="p-8 rounded-[2.5rem] border-2 bg-white border-rose-50 hover:border-rose-500 hover:shadow-2xl hover:shadow-rose-100 transition-all cursor-pointer group relative overflow-hidden"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center text-xl group-hover:bg-rose-500 group-hover:text-white transition-all shadow-inner">
+                  <i className="fas fa-award"></i>
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-gray-800 tracking-tight">Grading &amp; Marks</h4>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Evaluation Portal</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">Review student submissions and award marks based on their performance.</p>
+              <div className="text-xs font-black text-rose-500 flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                Go to Grading Sheet <i className="fas fa-arrow-right text-[10px]"></i>
+              </div>
+            </div>
+          )}
+
+          {/* Monitoring/Evaluation Card - Both, but different routes/labels */}
+          <div
+            onClick={() => navigate(`${basePath}/${isSupervisorPortal ? 'evaluations' : 'evaluation'}`)}
+            className="p-8 rounded-[2.5rem] border-2 bg-white border-emerald-50 hover:border-emerald-500 hover:shadow-2xl hover:shadow-emerald-100 transition-all cursor-pointer group relative overflow-hidden"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-inner">
+                <i className="fas fa-clipboard-check"></i>
+              </div>
+              <div>
+                <h4 className="text-lg font-black text-gray-800 tracking-tight">{isSupervisorPortal ? 'Intern Progress' : 'Internal Evaluation'}</h4>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Monitoring Hub</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">{isSupervisorPortal ? 'Evaluate student performance and professional conduct within your company.' : 'Assess student technical skills and draft final institutional evaluations.'}</p>
+            <div className="text-xs font-black text-emerald-500 flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+              Launch Evaluation <i className="fas fa-arrow-right text-[10px]"></i>
+            </div>
+          </div>
+
+          {/* Site Supervisor specific card: Intern Registry */}
+          {isSupervisorPortal && (
+            <div
+              onClick={() => navigate(`${basePath}/interns`)}
+              className="p-8 rounded-[2.5rem] border-2 bg-white border-blue-50 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer group relative overflow-hidden"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-primary flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                  <i className="fas fa-users-viewfinder"></i>
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-gray-800 tracking-tight">Active Interns</h4>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Student Registry</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">View profiles and contact details for all students currently under your mentorship.</p>
+              <div className="text-xs font-black text-primary flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                View Registry <i className="fas fa-arrow-right text-[10px]"></i>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {!isLocked && (
-        <StatsGrid stats={[
-          { icon: 'fa-users', cls: 'blue', val: stats.assignedStudents, label: 'Assigned Students' },
-          ...(!isSupervisorPortal ? [
-            { icon: 'fa-user-pen', cls: 'emerald', val: stats.pendingRequests, label: 'Pending Requests' }
-          ] : []),
-          { icon: 'fa-file-lines', cls: 'green', val: 'Ready', label: 'Assignments' },
-          { icon: 'fa-clipboard-list', cls: 'yellow', val: 'Track', label: 'Evaluations' },
-        ]} />
+        <div className="opacity-60 transition-opacity hover:opacity-100">
+          <StatsGrid stats={[
+            { icon: 'fa-users', cls: 'blue', val: stats.assignedStudents, label: 'Assigned Students' },
+            ...(!isSupervisorPortal ? [
+              { icon: 'fa-user-pen', cls: 'emerald', val: stats.pendingRequests, label: 'Pending Requests' }
+            ] : []),
+            { icon: 'fa-file-lines', cls: 'green', val: 'Ready', label: 'Assignments' },
+            { icon: 'fa-clipboard-list', cls: 'yellow', val: 'Track', label: 'Evaluations' },
+          ]} />
+        </div>
       )}
 
 

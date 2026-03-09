@@ -6,6 +6,8 @@ import User from '../models/User.js';
 import Mark from '../models/Mark.js';
 import Assignment from '../models/Assignment.js';
 import Submission from '../models/Submission.js';
+import Evaluation from '../models/Evaluation.js';
+import Phase from '../models/Phase.js';
 import { protect } from '../middleware/auth.js';
 import { getPKTTime } from '../utils/time.js';
 import { uploadCloudinary, cloudinary } from '../utils/cloudinary.js';
@@ -138,6 +140,18 @@ router.get('/my-marks', protect, async (req, res) => {
             .populate('assignment', 'title deadline totalMarks status')
             .sort({ createdAt: -1 });
         res.json(marks);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/student/my-evaluations
+// @desc    Get current student's evaluations (Internal / Final)
+router.get('/my-evaluations', protect, async (req, res) => {
+    try {
+        const evaluations = await Evaluation.find({ student: req.user.id, status: 'Submitted' })
+            .select('marks totalMarks maxTotal source comments submittedAt');
+        res.json(evaluations);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -397,8 +411,42 @@ router.get('/eligibility/:userId', async (req, res) => {
             warning: false
         });
 
+        // 6. Phase-based eligibility (LOCKED if Phase 3+ started and status != Assigned)
+        const currentPhase = await Phase.findOne({ status: 'active' });
+        const phaseOrder = currentPhase ? currentPhase.order : 1;
+        let p3Eligible = true;
+        let p3Detail = "The internship cycle is in preliminary stages.";
+
+        if (phaseOrder >= 3) {
+            const allowed = [
+                'Assigned',
+                'Internship Approved',
+                'Agreement Submitted - Self',
+                'Agreement Submitted - University Assigned',
+                'Agreement Approved'
+            ];
+
+            if (allowed.includes(user.status)) {
+                p3Detail = "Placement confirmed or pending final sign-off. You are eligible for internship tasks and evaluations.";
+                p3Eligible = true;
+            } else {
+                p3Detail = "Internship Commenced: Unfortunately, you did not secure an approved placement before the start of Phase 3. You are ineligible to proceed.";
+                p3Eligible = false;
+            }
+        } else {
+            p3Detail = `Phase ${phaseOrder} is currently active. Please complete your placement steps to ensure eligibility for Phase 3.`;
+            p3Eligible = true; // Still eligible to finish phase 1/2
+        }
+
+        checks.push({
+            key: 'phase_eligibility',
+            label: 'Cycle Progression Eligibility',
+            detail: p3Detail,
+            passed: p3Eligible
+        });
+
         // Hard criteria are those that the student CANNOT change (Semester, Verification, CGPA, Reg)
-        const hardCriteriaMet = semOk && verified && cgpaOk && regOk;
+        const hardCriteriaMet = semOk && verified && cgpaOk && regOk && p3Eligible;
 
         // Final eligibility is both hard criteria AND profile completion
         eligible = hardCriteriaMet && profileComplete;

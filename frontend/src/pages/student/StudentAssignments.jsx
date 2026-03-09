@@ -18,7 +18,7 @@ export default function StudentAssignments({ user }) {
     try {
       const data = await apiRequest('/student/assignments');
       setAssignments(data);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const formatDate = (dateString, includeTime = false) => {
@@ -60,23 +60,28 @@ export default function StudentAssignments({ user }) {
   };
 
   const handleDownload = async (fileUrl, fileName) => {
+    if (!fileUrl) return;
     try {
-        const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
-        const response = await fetch(`${baseUrl}${fileUrl}`, {
-            credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Download failed');
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName || fileUrl.split('/').pop();
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+      // Check if fileUrl is already a full URL (starts with http)
+      const isFullUrl = fileUrl.startsWith('http');
+      const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
+      const targetUrl = isFullUrl ? fileUrl : `${baseUrl}${fileUrl}`;
+
+      const response = await fetch(targetUrl, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || fileUrl.split('/').pop();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
-        showToast.error('Failed to download file');
+      showToast.error('Failed to download file');
     }
   };
 
@@ -108,8 +113,14 @@ export default function StudentAssignments({ user }) {
             <tbody>
               {assignments.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-12 text-center text-gray-400 italic">
-                    No assignments found from your faculty supervisor.
+                  <td colSpan="9" className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-200 mb-4 border-2 border-dashed border-gray-100">
+                        <i className="fas fa-file-invoice text-2xl"></i>
+                      </div>
+                      <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">No Active Assignments</p>
+                      <p className="text-xs text-gray-400 mt-1 max-w-[240px] leading-relaxed">Your faculty supervisor has not published any tasks yet. New assignments will appear here automatically.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -133,31 +144,34 @@ export default function StudentAssignments({ user }) {
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100">
                       {a.fileUrl ? (
-                         <button 
-                           onClick={() => handleDownload(a.fileUrl, a.title)}
-                           className="text-secondary text-sm font-bold hover:underline border-0 bg-transparent cursor-pointer p-0"
-                         >
-                           Download
-                         </button>
+                        <button
+                          onClick={() => handleDownload(a.fileUrl, a.title)}
+                          className="text-secondary text-sm font-bold hover:underline border-0 bg-transparent cursor-pointer p-0"
+                        >
+                          Download
+                        </button>
                       ) : (
                         <span className="text-gray-300 text-sm font-bold">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100">
                       {a.status === 'Open' ? (
-                        <div className="relative">
-                          <input 
-                            type="file" 
-                            className="absolute inset-0 opacity-0 cursor-pointer w-[100px]"
+                        <div className="relative group/btn">
+                          <input
+                            type="file"
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
                             onChange={(e) => handleFileUpload(a._id, e.target.files[0])}
                             disabled={uploadingId === a._id}
                           />
-                          <button className={`text-secondary text-sm font-black tracking-wider hover:underline transition-all ${uploadingId === a._id ? 'opacity-50' : ''}`}>
-                            {uploadingId === a._id ? 'Uploading...' : 'Upload File'}
+                          <button className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all border-0 cursor-pointer
+                            ${uploadingId === a._id
+                              ? 'bg-gray-100 text-gray-400'
+                              : 'bg-indigo-50 text-indigo-600 group-hover/btn:bg-indigo-600 group-hover/btn:text-white group-hover/btn:shadow-lg group-hover/btn:shadow-indigo-500/20'}`}>
+                            {uploadingId === a._id ? 'Uploading...' : 'Submit Now'}
                           </button>
                         </div>
                       ) : (
-                        <span className="text-gray-300 text-sm font-black tracking-wider cursor-not-allowed">Closed</span>
+                        <span className="px-3 py-1 bg-gray-50 text-gray-300 text-[9px] font-black tracking-widest uppercase rounded-full border border-gray-100 italic">Closed</span>
                       )}
                     </td>
                   </tr>

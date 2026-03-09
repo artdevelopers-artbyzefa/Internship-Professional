@@ -49,7 +49,7 @@ export default function HODDashboard() {
       </div>
 
       {/* ── Phase 1: Registration Status ── */}
-      {activePhase?.key === 'registration' && regStats && (
+      {activePhase?.order >= 1 && regStats && (
         <div className="bg-white rounded-2xl shadow-sm border-2 border-primary/20 p-4 md:p-8 overflow-hidden relative mb-2">
           <div className="absolute top-0 right-0 p-3">
             <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full tracking-widest uppercase">
@@ -91,13 +91,13 @@ export default function HODDashboard() {
         </div>
       )}
 
-      {/* ── Phase 2: Internship Request Stats ── */}
-      {activePhase?.key === 'request_submission' && reqStats && (
+      {/* ── Phase 2: Placement & Approvals ── */}
+      {activePhase?.order >= 2 && reqStats && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border-2 border-secondary/20 p-4 md:p-8 overflow-hidden relative">
             <div className="absolute top-0 right-0 p-3">
               <span className="px-3 py-1 bg-secondary/10 text-secondary text-[10px] font-black rounded-full tracking-widest uppercase">
-                Phase 2 Active
+                Phase 2 Data
               </span>
             </div>
             <div className="flex items-center gap-4 mb-6 md:mb-8 mt-4 md:mt-0">

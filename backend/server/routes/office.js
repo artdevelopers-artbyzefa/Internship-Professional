@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import Company from '../models/Company.js';
 import Assignment from '../models/Assignment.js';
 import Mark from '../models/Mark.js';
+import Evaluation from '../models/Evaluation.js';
 import AuditLog from '../models/AuditLog.js';
 import {
     sendFacultyNominationEmail,
@@ -14,6 +15,7 @@ import {
     sendCompanySupervisorActivationEmail
 } from '../emailServices/emailService.js';
 import { getPKTTime } from '../utils/time.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -1363,6 +1365,19 @@ router.post('/bulk-update-marks', async (req, res) => {
         res.json({ message: 'Administrative mark update successful' });
     } catch (err) {
         console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/office/evaluations
+// @desc    Get all evaluations
+router.get('/evaluations', protect, async (req, res) => {
+    try {
+        const evaluations = await Evaluation.find()
+            .populate('student', 'name reg semester')
+            .sort({ submittedAt: -1 });
+        res.json(evaluations);
+    } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 });

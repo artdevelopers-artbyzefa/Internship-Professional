@@ -8,6 +8,7 @@ import StudentAgreementForm from './StudentAgreementForm.jsx';
 import StudentAssignments from './StudentAssignments.jsx';
 import StudentResults from './StudentResults.jsx';
 import InternshipStatus from './InternshipStatus.jsx';
+import StudentProfileCard from '../../components/student/StudentProfileCard.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 export default function StudentPortal({ user, onLogout, onUpdateUser }) {
@@ -91,6 +92,7 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
 
   const isWorkflowComplete = user.status === 'Agreement Approved' || user.status === 'Assigned';
   const isLocked = !hardCriteriaMet; // True lock = failed semester/CGPA/reg/email — cannot participate
+  const showPhase3Nav = activePhase?.order >= 3;
 
   // Nav: during pending setup, show dashboard + profile to let them complete
   const studentNav = isPhase1
@@ -103,6 +105,10 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
       { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
       { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
+      ...(showPhase3Nav ? [
+        { id: 'assignments', label: 'Assignments', icon: 'fa-file-lines' },
+        { id: 'results', label: 'Results', icon: 'fa-award' },
+      ] : []),
       { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' },
     ];
 
@@ -116,6 +122,9 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       disableSidebar={isLocked && (isGlobalPhase1 || !hardCriteriaMet)}
     >
       <div className="p-6">
+        {/* Top-level Profile Summary Card (Always visible on all pages) */}
+        {!isLocked && <StudentProfileCard user={user} />}
+
         <Routes>
           {/* Dashboard & Profile — always accessible */}
           <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} hardCriteriaMet={hardCriteriaMet} isProfileComplete={isProfileComplete} activePhase={activePhase} />} />
@@ -136,8 +145,12 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
           <Route path="internship-request" element={<Navigate to="../internship-assessment" replace />} />
 
           {/* Protected Routes (for later phases) */}
-          <Route path="assignments" element={isProfileComplete ? <StudentAssignments user={user} /> : <Navigate to="../dashboard" replace />} />
-          <Route path="results" element={isProfileComplete ? <StudentResults user={user} /> : <Navigate to="../dashboard" replace />} />
+          <Route path="assignments" element={
+            isProfileComplete && showPhase3Nav ? <StudentAssignments user={user} /> : <Navigate to="../dashboard" replace />
+          } />
+          <Route path="results" element={
+            isProfileComplete && showPhase3Nav ? <StudentResults user={user} /> : <Navigate to="../dashboard" replace />
+          } />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

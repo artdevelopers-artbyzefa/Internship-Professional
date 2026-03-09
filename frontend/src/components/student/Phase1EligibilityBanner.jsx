@@ -7,6 +7,7 @@ const CHECK_ICONS = {
     cgpa: 'fa-chart-line',
     registration: 'fa-id-card',
     profile: 'fa-user-pen',
+    phase_eligibility: 'fa-calendar-check',
 };
 
 export default function Phase1EligibilityBanner({ user }) {

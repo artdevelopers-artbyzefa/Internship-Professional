@@ -15,6 +15,7 @@ import reportsRoutes from './routes/reports.js';
 import analyticsRoutes from './routes/analytics.js';
 import phasesRoutes from './routes/phases.js';
 import supervisorRoutes from './routes/supervisor.js';
+import evaluationRoutes from './routes/evaluation.js';
 import { getPKTTime } from './utils/time.js';
 
 dotenv.config();
@@ -54,6 +55,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/phases', phasesRoutes);
 app.use('/api/supervisor', supervisorRoutes);
+app.use('/api/evaluation', evaluationRoutes);
 
 // Simple Health Check
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
