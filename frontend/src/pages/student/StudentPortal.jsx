@@ -8,7 +8,6 @@ import StudentAgreementForm from './StudentAgreementForm.jsx';
 import StudentAssignments from './StudentAssignments.jsx';
 import StudentResults from './StudentResults.jsx';
 import InternshipStatus from './InternshipStatus.jsx';
-import StudentProfileCard from '../../components/student/StudentProfileCard.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 export default function StudentPortal({ user, onLogout, onUpdateUser }) {
@@ -81,6 +80,10 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
     }
 
     // Phase 2+ — follow normal workflow routing (only for eligible)
+    if (status === 'verified' || status === 'Internship Request Submitted' || status === 'Internship Approved' || status.includes('Agreement Submitted') || status === 'Agreement Rejected') {
+      // Allow progression
+    }
+
     if (status === 'verified' || status === 'Internship Request Submitted' || status === 'Internship Rejected') {
       navigate('/student/internship-request', { replace: true });
     } else if (status === 'Internship Approved' || status.includes('Agreement Submitted') || status === 'Agreement Rejected') {
@@ -103,8 +106,10 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
     ]
     : [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
-      { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
-      { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
+      ...(!showPhase3Nav ? [
+        { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
+        { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
+      ] : []),
       ...(showPhase3Nav ? [
         { id: 'assignments', label: 'Assignments', icon: 'fa-file-lines' },
         { id: 'results', label: 'Results', icon: 'fa-award' },
@@ -122,9 +127,6 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       disableSidebar={isLocked && (isGlobalPhase1 || !hardCriteriaMet)}
     >
       <div className="p-6">
-        {/* Top-level Profile Summary Card (Always visible on all pages) */}
-        {!isLocked && <StudentProfileCard user={user} />}
-
         <Routes>
           {/* Dashboard & Profile — always accessible */}
           <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} hardCriteriaMet={hardCriteriaMet} isProfileComplete={isProfileComplete} activePhase={activePhase} />} />
@@ -132,13 +134,13 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
 
           {/* Institutional Workflow Routes */}
           <Route path="internship-assessment" element={
-            isPhase1 ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} />
           } />
           <Route path="internship-status" element={
-            isPhase1 ? <Navigate to="../dashboard" replace /> : <InternshipStatus user={user} activePhase={activePhase} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipStatus user={user} activePhase={activePhase} />
           } />
           <Route path="agreement-form" element={
-            isPhase1 ? <Navigate to="../dashboard" replace /> : <StudentAgreementForm user={user} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <StudentAgreementForm user={user} />
           } />
 
           {/* Backward compatibility for Phase 2 workflow trigger link */}

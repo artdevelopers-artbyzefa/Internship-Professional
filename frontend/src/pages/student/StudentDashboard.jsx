@@ -3,6 +3,7 @@ import Card from '../../components/ui/Card.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
+import StudentProfileCard from '../../components/student/StudentProfileCard.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 export default function StudentDashboard({ user, isEligible, isPhase1, isPendingSetup, hardCriteriaMet, isProfileComplete: isProfileCompleteProp, activePhase }) {
@@ -122,8 +123,8 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
         </Alert>
       )}
 
-      {/* Dynamic Workflow Trigger Card */}
-      {!isLocked && (
+      {/* Dynamic Workflow Trigger Card - ONLY show in Phase 2 */}
+      {(!isLocked && phaseOrder === 2) && (
         <div className={`p-8 rounded-[2.5rem] border-2 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all shadow-xl mb-8 ${isRequestInLog ? 'bg-emerald-50/50 border-emerald-100 shadow-emerald-50/50' : 'bg-primary/5 border-primary/10 shadow-primary/5'}`}>
           <div className="flex items-center gap-6">
             <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white text-3xl shadow-2xl ${isRequestInLog ? 'bg-emerald-500 rotate-3' : 'bg-primary -rotate-3'}`}>
@@ -208,11 +209,76 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
   );
 
   return (
-    <div className="max-w-7xl mx-auto py-2">
+    <div className="max-w-7xl mx-auto py-2 px-4 md:px-0">
       <NoticeModal />
+
+      {/* Top-level Profile Summary Card — Exclusive to Dashboard */}
+      {!isLocked && <StudentProfileCard user={user} />}
 
       {/* Dynamic Phase Router (Prop Based) — prioritizes personal onboarding */}
       {isPhase1 ? <Phase1Dashboard /> : <Phase2PlusDashboard />}
+
+      {/* Institutional Profile Information */}
+      <div className="mt-12 mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1.5 h-6 bg-primary rounded-full"></div>
+          <h3 className="text-xl font-black text-gray-800 tracking-tight">Institutional Profile Information</h3>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden transform transition-all hover:shadow-md">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50/50">
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Attribute</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Verification Detail</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {[
+                { label: "Full Name", value: user.name, icon: "fa-user" },
+                { label: "Father's Name", value: user.fatherName || "—", icon: "fa-person-half-dress" },
+                { label: "Registration No.", value: user.reg, icon: "fa-id-card" },
+                { label: "Semester", value: user.semester || "—", icon: "fa-university" },
+                { label: "Current CGPA", value: user.cgpa || "—", icon: "fa-chart-simple" },
+                { label: "Institutional Email", value: user.email, icon: "fa-envelope" },
+                { label: "WhatsApp Contact", value: user.whatsappNumber || "—", icon: "fa-whatsapp" },
+                { label: "Section / Group", value: user.section || "—", icon: "fa-users-rectangle" },
+                {
+                  label: "Date of Birth",
+                  value: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : "—",
+                  icon: "fa-calendar-day"
+                },
+                { label: "Degree Program", value: user.registeredCourse || "BS Computer Science", icon: "fa-graduation-cap" }
+              ].map((item, idx) => (
+                <tr key={idx} className="group hover:bg-blue-50/30 transition-colors">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:text-primary transition-all">
+                        <i className={`fas ${item.icon} text-xs`}></i>
+                      </div>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{item.label}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className={`text-sm font-black ${item.value === "—" ? 'text-gray-300 italic' : 'text-gray-800'}`}>
+                      {item.value}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100">
+                      <i className="fas fa-check-double scale-75"></i> VERIFIED
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 px-4 text-[10px] font-bold text-gray-400 italic">
+          * These details are synchronized with the departmental registry. For any discrepancies, please visit the Internship Office.
+        </p>
+      </div>
     </div>
   );
 }

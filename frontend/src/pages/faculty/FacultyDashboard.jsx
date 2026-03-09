@@ -10,6 +10,8 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
   const [activePhase, setActivePhase] = useState(propPhase || undefined); // use prop or fallback
   const [allPhases, setAllPhases] = useState([]);
   const [stats, setStats] = useState({ assignedStudents: 0, pendingRequests: 0 });
+  const [interns, setInterns] = useState([]);
+  const [selectedInternId, setSelectedInternId] = useState('');
   const navigate = useNavigate();
 
   const isSupervisorPortal = user.role === 'site_supervisor';
@@ -21,7 +23,15 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     if (!propPhase) fetchPhase();
     else fetchAllPhases();
     fetchStats();
+    if (isSupervisorPortal) fetchInterns();
   }, [propPhase]);
+
+  const fetchInterns = async () => {
+    try {
+      const data = await apiRequest('/supervisor/interns');
+      setInterns(data);
+    } catch (err) { }
+  };
 
   const fetchStats = async () => {
     try {
@@ -93,39 +103,109 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       <NoticeModal />
 
       {/* ── Quick Access Actions ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div
-          onClick={() => navigate(`${basePath}/${requestPath}`)}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-              <i className="fas fa-user-pen"></i>
+      {!isSupervisorPortal ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            onClick={() => navigate(`${basePath}/${requestPath}`)}
+            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                <i className="fas fa-user-pen"></i>
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-gray-800">Supervision Requests</h4>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Manage new student invitations</p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm font-black text-gray-800">Supervision Requests</h4>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Manage new student invitations</p>
-            </div>
+            <i className="fas fa-arrow-right text-gray-200 group-hover:text-emerald-500 transition-colors"></i>
           </div>
-          <i className="fas fa-arrow-right text-gray-200 group-hover:text-emerald-500 transition-colors"></i>
-        </div>
 
-        <div
-          onClick={() => navigate(`${basePath}/${studentPath}`)}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-              <i className="fas fa-users"></i>
+          <div
+            onClick={() => navigate(`${basePath}/${studentPath}`)}
+            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                <i className="fas fa-users"></i>
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-gray-800">My Assigned Interns</h4>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">View registry and student profiles</p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm font-black text-gray-800">My Assigned Interns</h4>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">View registry and student profiles</p>
+            <i className="fas fa-arrow-right text-gray-200 group-hover:text-indigo-500 transition-colors"></i>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center text-base">
+                <i className="fas fa-users-viewfinder"></i>
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-gray-800">Integrated Intern Registry</h4>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Select a student to view their profile</p>
+              </div>
+            </div>
+
+            <div className="relative w-full md:w-72">
+              <select
+                value={selectedInternId}
+                onChange={(e) => setSelectedInternId(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-black text-gray-700 outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
+              >
+                <option value="">Select Student Intern...</option>
+                {interns.map(intern => (
+                  <option key={intern._id} value={intern._id}>{intern.name} ({intern.reg})</option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                <i className="fas fa-chevron-down text-[10px]"></i>
+              </div>
             </div>
           </div>
-          <i className="fas fa-arrow-right text-gray-200 group-hover:text-indigo-500 transition-colors"></i>
+
+          {selectedInternId && (
+            <div className="border-t border-gray-50 pt-6 animate-in fade-in slide-in-from-top-2">
+              {(() => {
+                const intern = interns.find(i => i._id === selectedInternId);
+                if (!intern) return null;
+                return (
+                  <div className="flex items-center justify-between flex-wrap gap-4 p-5 bg-gradient-to-br from-indigo-50/50 to-white rounded-2xl border border-indigo-100 shadow-sm">
+                    <div className="flex items-center gap-4">
+                      {intern.profilePicture ? (
+                        <img src={intern.profilePicture} alt="" className="w-14 h-14 rounded-2xl object-cover shadow-sm border border-white" />
+                      ) : (
+                        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-indigo-400 shadow-sm border border-indigo-100/50">
+                          <i className="fas fa-user-graduate text-xl"></i>
+                        </div>
+                      )}
+                      <div>
+                        <h5 className="text-base font-black text-gray-800 leading-tight">{intern.name}</h5>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{intern.reg}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="hidden sm:block text-right mr-2">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Enrollment Status</p>
+                        <p className="text-xs font-black text-gray-700">{intern.status}</p>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/supervisor/grading?studentId=${intern._id}`)}
+                        className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 border-0 cursor-pointer flex items-center gap-2"
+                      >
+                        Grade Student <i className="fas fa-star text-[8px]"></i>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* ── Waiting Banner ── */}
       {isLocked && (
@@ -245,27 +325,6 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
             </div>
           </div>
 
-          {/* Site Supervisor specific card: Intern Registry */}
-          {isSupervisorPortal && (
-            <div
-              onClick={() => navigate(`${basePath}/interns`)}
-              className="p-8 rounded-[2.5rem] border-2 bg-white border-blue-50 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer group relative overflow-hidden"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-primary flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
-                  <i className="fas fa-users-viewfinder"></i>
-                </div>
-                <div>
-                  <h4 className="text-lg font-black text-gray-800 tracking-tight">Active Interns</h4>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Student Registry</p>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">View profiles and contact details for all students currently under your mentorship.</p>
-              <div className="text-xs font-black text-primary flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                View Registry <i className="fas fa-arrow-right text-[10px]"></i>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

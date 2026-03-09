@@ -25,6 +25,13 @@ const evaluationSchema = new mongoose.Schema({
         reports: { type: Number, default: 0 },
         presentation: { type: Number, default: 0 }
     },
+    checkboxTasks: {
+        attendance: { type: Boolean, default: false },
+        professionalism: { type: Boolean, default: false },
+        qualityOfWork: { type: Boolean, default: false },
+        communication: { type: Boolean, default: false },
+        problemSolving: { type: Boolean, default: false }
+    },
     totalMarks: { type: Number, default: 0 },
     maxTotal: { type: Number, default: 150 },
     status: {

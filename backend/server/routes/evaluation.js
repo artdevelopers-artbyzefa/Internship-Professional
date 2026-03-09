@@ -14,7 +14,6 @@ const isGradingEntity = (req, res, next) => {
 };
 
 // @route   GET api/evaluation/students
-// @desc    Get assigned students for the current evaluator
 router.get('/students', protect, isGradingEntity, async (req, res) => {
     try {
         let query = { role: 'student' };
@@ -25,6 +24,7 @@ router.get('/students', protect, isGradingEntity, async (req, res) => {
             const userEmail = req.user.email.toLowerCase().trim();
             const nameRegex = new RegExp(req.user.name.trim().replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
             query.$or = [
+                { assignedSiteSupervisor: req.user.id },
                 { assignedCompanySupervisorEmail: userEmail },
                 { 'internshipRequest.siteSupervisorEmail': userEmail },
                 { 'internshipAgreement.companySupervisorEmail': userEmail },
@@ -60,24 +60,31 @@ router.get('/students', protect, isGradingEntity, async (req, res) => {
 });
 
 // @route   GET api/evaluation/:studentId
-// @desc    Get evaluation for a specific student by current evaluator
 router.get('/:studentId', protect, isGradingEntity, async (req, res) => {
     try {
         const evaluation = await Evaluation.findOne({
             student: req.params.studentId,
             gradedBy: req.user.id
         });
-        res.json(evaluation || null);
+
+        let siteEval = null;
+        if (req.user.role === 'faculty_supervisor') {
+            siteEval = await Evaluation.findOne({
+                student: req.params.studentId,
+                source: 'site_supervisor'
+            });
+        }
+
+        res.json({ evaluation, siteEval });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 });
 
 // @route   POST api/evaluation/submit
-// @desc    Submit or update evaluation marks
 router.post('/submit', protect, isGradingEntity, async (req, res) => {
     try {
-        const { studentId, marks, comments, finalize } = req.body;
+        const { studentId, marks, checkboxTasks, comments, finalize } = req.body;
 
         if (!studentId || !marks) {
             return res.status(400).json({ message: 'Student ID and marks are required.' });
@@ -97,6 +104,7 @@ router.post('/submit', protect, isGradingEntity, async (req, res) => {
 
         if (evaluation) {
             evaluation.marks = marks;
+            evaluation.checkboxTasks = checkboxTasks || evaluation.checkboxTasks;
             evaluation.totalMarks = totalMarks;
             evaluation.comments = comments;
             if (finalize) {
@@ -109,6 +117,7 @@ router.post('/submit', protect, isGradingEntity, async (req, res) => {
                 gradedBy: req.user.id,
                 source,
                 marks,
+                checkboxTasks: checkboxTasks || {},
                 totalMarks,
                 comments,
                 status: finalize ? 'Submitted' : 'Draft',

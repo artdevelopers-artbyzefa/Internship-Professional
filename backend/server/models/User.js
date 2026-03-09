@@ -158,6 +158,10 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
+    assignedSiteSupervisor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
     assignedCompany: String,
     assignedCompanySupervisor: String,
     assignedCompanySupervisorEmail: { type: String, lowercase: true, trim: true },

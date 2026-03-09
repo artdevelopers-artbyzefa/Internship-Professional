@@ -6,27 +6,13 @@ import Notice from '../models/Notice.js';
 import User from '../models/User.js';
 import { protect, authorize } from '../middleware/auth.js';
 
+import { uploadCloudinary } from '../utils/cloudinary.js';
+
 const router = express.Router();
-
-// Multer Setup
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/notices';
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
-});
-
-const upload = multer({ storage });
 
 // @route   POST api/notices
 // @desc    Create a new notice with file uploads
-router.post('/', protect, authorize('internship_office'), upload.array('files'), async (req, res) => {
+router.post('/', protect, authorize('internship_office'), uploadCloudinary.array('files'), async (req, res) => {
     try {
         const { title, content, links, targetType, targetId, attachmentTitles } = req.body;
 
@@ -38,7 +24,7 @@ router.post('/', protect, authorize('internship_office'), upload.array('files'),
 
         const attachments = (req.files || []).map((file, idx) => ({
             title: titles[idx] || file.originalname,
-            filename: file.filename,
+            filename: file.originalname,
             path: file.path,
             mimetype: file.mimetype,
             size: file.size
@@ -75,7 +61,7 @@ router.get('/all', protect, authorize('internship_office'), async (req, res) => 
 
 // @route   PUT api/notices/:id
 // @desc    Update a notice (handles new files and existing data)
-router.put('/:id', protect, authorize('internship_office'), upload.array('files'), async (req, res) => {
+router.put('/:id', protect, authorize('internship_office'), uploadCloudinary.array('files'), async (req, res) => {
     try {
         const { title, content, links, targetType, targetId, attachmentTitles, existingAttachments } = req.body;
 
@@ -94,7 +80,7 @@ router.put('/:id', protect, authorize('internship_office'), upload.array('files'
         // New files
         const newAttachments = (req.files || []).map((file, idx) => ({
             title: titles[idx] || file.originalname,
-            filename: file.filename,
+            filename: file.originalname,
             path: file.path,
             mimetype: file.mimetype,
             size: file.size

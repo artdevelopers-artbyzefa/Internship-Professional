@@ -3,6 +3,8 @@ import User from '../models/User.js';
 import Company from '../models/Company.js';
 import Mark from '../models/Mark.js';
 import Assignment from '../models/Assignment.js';
+import Submission from '../models/Submission.js';
+import Evaluation from '../models/Evaluation.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -675,7 +677,7 @@ router.get('/students-paginated', protect, isManagement, async (req, res) => {
         }
 
         const students = await User.find(query)
-            .select('name reg email semester cgpa status')
+            .select('name reg email semester cgpa status assignedCompany')
             .skip(skip)
             .limit(limit)
             .sort({ createdAt: -1 });
@@ -783,6 +785,88 @@ router.get('/site-supervisors-paginated', protect, isManagement, async (req, res
             pages: Math.ceil(total / limit)
         });
     } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/interns-paginated
+// @desc    Get paginated list of active interns (Phase 3+)
+router.get('/interns-paginated', protect, isManagement, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const search = req.query.search || '';
+        const skip = (page - 1) * limit;
+
+        let query = {
+            role: 'student',
+            status: { $in: ['Assigned', 'Agreement Approved', 'Internship Approved'] }
+        };
+
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { reg: { $regex: search, $options: 'i' } },
+                { assignedCompany: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const interns = await User.find(query)
+            .populate('assignedFaculty', 'name')
+            .select('name reg semester assignedCompany assignedFaculty status')
+            .skip(skip)
+            .limit(limit)
+            .sort({ updatedAt: -1 });
+
+        const total = await User.countDocuments(query);
+
+        res.json({
+            data: interns,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/analytics/commencement-stats
+// @desc    Get stats for Phase 3: Internship Commences (Tasks, Submissions, Gradings)
+router.get('/commencement-stats', protect, isManagement, async (req, res) => {
+    try {
+        const [activeInterns, assignments, submissions, evaluations] = await Promise.all([
+            User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } }),
+            Assignment.countDocuments({}),
+            Submission.countDocuments({}),
+            Evaluation.find({ status: 'Submitted' })
+        ]);
+
+        const gradedByFaculty = evaluations.filter(e => e.source === 'faculty').length;
+        const gradedBySite = evaluations.filter(e => e.source === 'site_supervisor').length;
+
+        // Group evaluations by student to see how many have BOTH
+        const studentMap = {};
+        evaluations.forEach(e => {
+            const sid = e.student.toString();
+            if (!studentMap[sid]) studentMap[sid] = { faculty: false, site: false };
+            if (e.source === 'faculty') studentMap[sid].faculty = true;
+            if (e.source === 'site_supervisor') studentMap[sid].site = true;
+        });
+
+        const fullyGraded = Object.values(studentMap).filter(v => v.faculty && v.site).length;
+
+        res.json({
+            activeInterns,
+            totalAssignments: assignments,
+            totalSubmissions: submissions,
+            gradedByFaculty,
+            gradedBySite,
+            fullyGraded,
+            completionRate: activeInterns > 0 ? ((fullyGraded / activeInterns) * 100).toFixed(0) : 0
+        });
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });
