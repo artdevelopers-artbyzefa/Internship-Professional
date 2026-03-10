@@ -57,11 +57,16 @@ export default function InternshipStatus({ user }) {
         }
 
         // 4. Site Supervisor
-        if (user.assignedCompanySupervisor) {
+        const isFreelance = req?.mode === 'Freelance';
+        const displaySiteSupervisor = isFreelance ? 'Freelancer Category' : user.assignedCompanySupervisor;
+
+        if (displaySiteSupervisor) {
             events.push({
                 id: 'site_supervisor',
                 title: 'Site Supervisor Assigned',
-                desc: `Site supervisor is set to ${user.assignedCompanySupervisor}.`,
+                desc: isFreelance
+                    ? `Site supervisor formally bypassed. Assigned to Freelancer category.`
+                    : `Site supervisor is set to ${displaySiteSupervisor}.`,
                 icon: 'fa-user-tie',
                 color: 'emerald'
             });

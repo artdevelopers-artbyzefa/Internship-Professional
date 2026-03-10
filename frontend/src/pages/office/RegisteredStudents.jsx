@@ -11,13 +11,20 @@ export default function RegisteredStudents({ user }) {
     const [page, setPage] = useState(1);
 
     const isSupervisor = user?.role === 'site_supervisor';
+    const isFaculty = user?.role === 'faculty_supervisor';
 
     useEffect(() => { fetchStudents(); }, []);
 
     const fetchStudents = async () => {
         try {
-            // Site supervisors only see THEIR own interns
-            const endpoint = isSupervisor ? '/supervisor/interns' : '/office/registered-students';
+            let endpoint = '/office/registered-students';
+            if (isSupervisor) {
+                endpoint = '/supervisor/interns';
+            } else if (isFaculty) {
+                const userId = user?.id || user?._id;
+                if (userId) endpoint = `/office/registered-students?facultyId=${userId}`;
+            }
+
             const data = await apiRequest(endpoint);
             setStudents(data || []);
         } catch (err) {
@@ -148,7 +155,7 @@ export default function RegisteredStudents({ user }) {
                         <p className="text-sm text-gray-400 font-medium mt-1">
                             {isSupervisor
                                 ? `Students assigned to you for industrial supervision.`
-                                : 'Comprehensive view of all students and their respective supervisors.'}
+                                : isFaculty ? 'Students assigned to you for faculty supervision.' : 'Comprehensive view of all students and their respective supervisors.'}
                         </p>
                     </div>
                     <div className="relative group">

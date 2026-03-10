@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { apiRequest } from '../../utils/api.js';
 import { showToast } from '../../utils/notifications.jsx';
+import { gradeFromPct, gradeColor } from '../../utils/helpers.js';
 
 const GRADING_CRITERIA = [
     { id: 'perf', label: 'Work Performance', weight: 40, icon: 'fa-chart-line' },
@@ -16,12 +17,14 @@ export default function SupervisorGrading({ user }) {
     const [selectedAssignment, setSelectedAssignment] = useState(null);
     const [submissions, setSubmissions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [expandedId, setExpandedId] = useState(null); // Track which submission is being graded inline
+    const [expandedId, setExpandedId] = useState(null);
     const [gradeForm, setGradeForm] = useState({ marks: '', remarks: '', criteria: {} });
+    const [gradeData, setGradeData] = useState([]);
     const location = useLocation();
 
     useEffect(() => {
         fetchAssignments();
+        apiRequest('/supervisor/student-grades').then(d => setGradeData(d || [])).catch(() => { });
     }, []);
 
     const handleDownload = (url, name = 'Submission') => {
@@ -111,9 +114,47 @@ export default function SupervisorGrading({ user }) {
 
     return (
         <div className="max-w-7xl mx-auto space-y-8">
+            {/* Faculty Grade Summary ─────────────────────────────────── */}
+            {gradeData.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-8 py-5 border-b border-gray-50 flex items-center gap-3">
+                        <div className="w-8 h-8 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center"><i className="fas fa-graduation-cap text-sm" /></div>
+                        <h3 className="font-black text-gray-800 tracking-tight">Intern Faculty Grades</h3>
+                        <span className="text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">Assigned by Faculty Supervisor</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/60">
+                                    {['Student', 'Reg. No.', 'Weeks', 'Average /10', '%', 'Grade', 'Status'].map(h => (
+                                        <th key={h} className="px-6 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 whitespace-nowrap">{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {gradeData.map((r, i) => {
+                                    const gc = r.grade && r.grade !== 'N/A' ? gradeColor(r.grade) : null;
+                                    return (
+                                        <tr key={i} className="hover:bg-gray-50/50">
+                                            <td className="px-6 py-4 font-bold text-gray-800 text-sm">{r.student.name}</td>
+                                            <td className="px-6 py-4 text-[10px] font-bold text-gray-400 font-mono">{r.student.reg}</td>
+                                            <td className="px-6 py-4 text-center"><span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black border border-indigo-100">{r.assignmentsCount}</span></td>
+                                            <td className="px-6 py-4 font-black text-gray-800 text-sm">{r.averageMarks || '—'}</td>
+                                            <td className="px-6 py-4"><span className={`text-sm font-black ${r.percentage >= 75 ? 'text-emerald-600' : r.percentage >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{r.percentage !== null ? `${r.percentage}%` : '—'}</span></td>
+                                            <td className="px-6 py-4">{gc ? <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-black tracking-widest border ${gc.bg} ${gc.text} ${gc.border}`}>{r.grade}</span> : <span className="text-gray-300 font-bold text-xs">—</span>}</td>
+                                            <td className="px-6 py-4"><span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${r.status === 'Pass' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : r.status === 'Fail' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-500 border-gray-100'}`}><i className={`fas text-[8px] ${r.status === 'Pass' ? 'fa-check' : r.status === 'Fail' ? 'fa-times' : 'fa-clock'}`} />{r.status || 'Pending'}</span></td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Performance Evaluation Hub</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Industrial Evaluation Centre</h2>
                     <p className="text-sm text-gray-500 font-medium mt-1">Select an industrial task to review and grade intern submissions.</p>
                 </div>
                 <div className="flex items-center gap-3">

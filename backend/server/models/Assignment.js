@@ -21,7 +21,7 @@ const assignmentSchema = new mongoose.Schema({
     },
     totalMarks: {
         type: Number,
-        default: 100
+        default: 10
     },
     status: {
         type: String,

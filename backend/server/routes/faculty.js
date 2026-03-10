@@ -316,7 +316,7 @@ router.post('/create-assignment', protect, isFaculty, uploadCloudinary.single('f
             description,
             startDate,
             deadline,
-            totalMarks: totalMarks || 100,
+            totalMarks: 10,
             createdBy: req.user.id,
             fileUrl: req.file ? req.file.path : null
         });
@@ -452,7 +452,7 @@ router.put('/update-assignment/:id', protect, isFaculty, uploadCloudinary.single
         assignment.description = description !== undefined ? description : assignment.description;
         assignment.startDate = startDate || assignment.startDate;
         assignment.deadline = deadline || assignment.deadline;
-        assignment.totalMarks = totalMarks || assignment.totalMarks;
+        assignment.totalMarks = 10;
 
         if (req.file) {
             // Note: Cloudinary doesn't automatically delete the old file without using its API directly
@@ -549,6 +549,129 @@ router.get('/student-profile/:id', protect, isFaculty, async (req, res) => {
 
         res.json(student);
     } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/faculty/weekly-evaluations/:studentId
+// @desc    Get site supervisor grades and faculty marks for a student's assignments
+router.get('/weekly-evaluations/:studentId', protect, isFaculty, async (req, res) => {
+    try {
+        const marks = await Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline');
+        // Only return marks that have an assignment (in case of orphan records)
+        res.json(marks.filter(m => m.assignment));
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/faculty/weekly-evaluations/:studentId
+// @desc    Grade student based on marks
+router.post('/weekly-evaluations/:studentId', protect, isFaculty, async (req, res) => {
+    try {
+        const { grades } = req.body; // Array of { markId, facultyMarks }
+
+        for (const grade of grades) {
+            const mark = await Mark.findById(grade.markId);
+            if (mark && mark.student.toString() === req.params.studentId) {
+                mark.facultyMarks = grade.facultyMarks;
+                mark.isFacultyGraded = true;
+                mark.facultyId = req.user.id;
+                mark.history.push({
+                    marks: grade.facultyMarks,
+                    role: 'faculty_supervisor',
+                    updatedBy: req.user.id
+                });
+                await mark.save();
+            }
+        }
+
+        res.json({ message: 'Grades updated successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// ── Grade helper ─────────────────────────────────────────────────────────────
+function calcGradeF(pct) {
+    if (pct >= 85) return { grade: 'A', status: 'Qualified' };
+    if (pct >= 80) return { grade: 'A-', status: 'Qualified' };
+    if (pct >= 75) return { grade: 'B+', status: 'Qualified' };
+    if (pct >= 71) return { grade: 'B', status: 'Qualified' };
+    if (pct >= 68) return { grade: 'B-', status: 'Qualified' };
+    if (pct >= 64) return { grade: 'C+', status: 'Qualified' };
+    if (pct >= 61) return { grade: 'C', status: 'Qualified' };
+    if (pct >= 58) return { grade: 'C-', status: 'Qualified' };
+    if (pct >= 54) return { grade: 'D+', status: 'Qualified' };
+    if (pct >= 50) return { grade: 'D', status: 'Qualified' };
+    return { grade: 'F', status: 'Failed' };
+}
+
+// @route   GET api/faculty/report-data/:type
+// @desc    Get real data for faculty PDF reports (student-list or evaluation)
+router.get('/report-data/:type', protect, isFaculty, async (req, res) => {
+    try {
+        const type = req.params.type;
+        const students = await User.find({
+            assignedFaculty: req.user.id,
+            role: 'student',
+            status: { $in: ['Assigned', 'Agreement Approved'] }
+        }).select('name reg assignedCompany assignedCompanySupervisor status internshipRequest');
+
+        let payload = {
+            supervisorName: req.user.name,
+            reportTitle: '',
+            tableHeader: [],
+            tableData: [],
+            columnsLayout: []
+        };
+
+        if (type === 'student-list') {
+            payload.reportTitle = 'Student Placement Report';
+            payload.tableHeader = ['Reg. #', 'Name', 'Company', 'Site Supervisor', 'Mode', 'Status'];
+            payload.columnsLayout = [100, '*', '*', '*', 55, 65];
+            payload.tableData = students.map(s => [
+                s.reg,
+                s.name,
+                s.assignedCompany || 'N/A',
+                s.assignedCompanySupervisor || 'Freelance',
+                s.internshipRequest?.mode || 'N/A',
+                s.status
+            ]);
+
+        } else if (type === 'evaluation') {
+            payload.reportTitle = 'Internship Performance Report';
+            payload.tableHeader = ['Reg. #', 'Name', 'Weeks', 'Avg (/ 10)', '%', 'Grade', 'Status'];
+            payload.columnsLayout = [100, '*', 40, 55, 35, 40, 60];
+
+            for (const s of students) {
+                const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+                if (marks.length === 0) {
+                    payload.tableData.push([s.reg, s.name, '0', 'N/A', 'N/A', 'N/A', 'Pending']);
+                    continue;
+                }
+                const total = marks.reduce((sum, m) => sum + (m.facultyMarks || 0), 0);
+                const avg = total / marks.length;
+                const pct = Math.round((avg / 10) * 100);
+                const { grade, status } = calcGradeF(pct);
+                payload.tableData.push([
+                    s.reg,
+                    s.name,
+                    marks.length.toString(),
+                    avg.toFixed(1),
+                    `${pct}%`,
+                    grade,
+                    status
+                ]);
+            }
+        } else {
+            return res.status(400).json({ message: 'Invalid report type' });
+        }
+
+        res.json(payload);
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });

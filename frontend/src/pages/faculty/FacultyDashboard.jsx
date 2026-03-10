@@ -273,12 +273,12 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
                 </div>
                 <div>
                   <h4 className="text-lg font-black text-gray-800 tracking-tight">Publish Tasks</h4>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Academic Assignments Hub</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Academic Assignments Centre</p>
                 </div>
               </div>
               <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">Upload weekly report templates, project tasks, and documentation rubrics.</p>
               <div className="text-xs font-black text-primary flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                Open Assignments Center <i className="fas fa-arrow-right text-[10px]"></i>
+                Open Assignments Centre <i className="fas fa-arrow-right text-[10px]"></i>
               </div>
             </div>
           )}
@@ -316,12 +316,12 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
               </div>
               <div>
                 <h4 className="text-lg font-black text-gray-800 tracking-tight">{isSupervisorPortal ? 'Intern Progress' : 'Internal Evaluation'}</h4>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Monitoring Hub</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Monitoring Centre</p>
               </div>
             </div>
             <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">{isSupervisorPortal ? 'Evaluate student performance and professional conduct within your company.' : 'Assess student technical skills and draft final institutional evaluations.'}</p>
             <div className="text-xs font-black text-emerald-500 flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-              Launch Evaluation <i className="fas fa-arrow-right text-[10px]"></i>
+              Perform Evaluation <i className="fas fa-arrow-right text-[10px]"></i>
             </div>
           </div>
 

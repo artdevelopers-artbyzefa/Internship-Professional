@@ -33,10 +33,15 @@ router.get('/all-students', async (req, res) => {
 });
 
 // @route   GET api/office/registered-students
-// @desc    Get all students with populated supervisor details
+// @desc    Get all students with populated supervisor details. Can filter by facultyId.
 router.get('/registered-students', async (req, res) => {
     try {
-        const students = await User.find({ role: 'student' })
+        let query = { role: 'student' };
+        if (req.query.facultyId) {
+            query.assignedFaculty = req.query.facultyId;
+        }
+
+        const students = await User.find(query)
             .populate('assignedFaculty', 'name email')
             .populate('assignedSiteSupervisor', 'name email')
             .select('name email reg semester status assignedFaculty assignedSiteSupervisor assignedCompany assignedCompanySupervisor createdAt')
@@ -1444,6 +1449,65 @@ router.delete('/delete-assignment/:id', async (req, res) => {
         res.json({ message: 'Assignment and associated data purged successfully.' });
     } catch (err) {
         console.error('Delete assignment error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// ── Shared grade helper ──────────────────────────────────────────────────────
+function calcGrade(pct) {
+    if (pct >= 85) return { grade: 'A', gp: '3.67–4.00', status: 'Pass' };
+    if (pct >= 80) return { grade: 'A-', gp: '3.34–3.66', status: 'Pass' };
+    if (pct >= 75) return { grade: 'B+', gp: '3.01–3.33', status: 'Pass' };
+    if (pct >= 71) return { grade: 'B', gp: '2.67–3.00', status: 'Pass' };
+    if (pct >= 68) return { grade: 'B-', gp: '2.34–2.66', status: 'Pass' };
+    if (pct >= 64) return { grade: 'C+', gp: '2.01–2.33', status: 'Pass' };
+    if (pct >= 61) return { grade: 'C', gp: '1.67–2.00', status: 'Pass' };
+    if (pct >= 58) return { grade: 'C-', gp: '1.31–1.66', status: 'Pass' };
+    if (pct >= 54) return { grade: 'D+', gp: '1.01–1.30', status: 'Pass' };
+    if (pct >= 50) return { grade: 'D', gp: '0.10–1.00', status: 'Pass' };
+    return { grade: 'F', gp: '0.00', status: 'Fail' };
+}
+
+// @route   GET api/office/aggregated-marks
+// @desc    Get aggregated evaluation marks for all students with correct grade
+router.get('/aggregated-marks', protect, async (req, res) => {
+    try {
+        const { program, semester } = req.query;
+        let studentMatch = { role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } };
+
+        if (program === 'BCS' || program === 'CS') studentMatch.reg = { $regex: /-BCS-/i };
+        else if (program === 'BSE' || program === 'SE') studentMatch.reg = { $regex: /-BSE-/i };
+        if (semester && semester !== 'All') studentMatch.semester = parseInt(semester);
+
+        const students = await User.find(studentMatch)
+            .select('name reg semester assignedCompany assignedFaculty')
+            .populate('assignedFaculty', 'name');
+
+        const results = [];
+        for (const s of students) {
+            const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+            if (marks.length === 0) continue;
+
+            const totalObtained = marks.reduce((sum, m) => sum + (m.facultyMarks || 0), 0);
+            const avgScore = totalObtained / marks.length;         // out of 10
+            const pct = Math.round((avgScore / 10) * 100);
+            const { grade, gp, status } = calcGrade(pct);
+
+            results.push({
+                student: { name: s.name, reg: s.reg, _id: s._id },
+                faculty: s.assignedFaculty?.name || 'N/A',
+                company: s.assignedCompany || 'N/A',
+                assignmentsCount: marks.length,
+                averageMarks: avgScore.toFixed(2),  // X.XX / 10
+                percentage: pct,                   // 0-100
+                grade,
+                gradePoints: gp,
+                status
+            });
+        }
+        res.json(results);
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });

@@ -4,16 +4,21 @@ import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
 import StudentProfileCard from '../../components/student/StudentProfileCard.jsx';
 import { apiRequest } from '../../utils/api.js';
+import { gradeFromPct, gradeColor, gradePointsFromPct } from '../../utils/helpers.js';
 
 export default function StudentDashboard({ user, isEligible, isPhase1, isPendingSetup, hardCriteriaMet, isProfileComplete: isProfileCompleteProp, activePhase }) {
   const [assignments, setAssignments] = useState([]);
+  const [gradeInfo, setGradeInfo] = useState(null);
 
   const isProfileComplete = isProfileCompleteProp ?? !!(user.fatherName && user.section && user.dateOfBirth && user.profilePicture);
   const phaseOrder = activePhase?.order || 1;
   const isLocked = !hardCriteriaMet;
 
   useEffect(() => {
-    if (phaseOrder >= 3) fetchAssignments();
+    if (phaseOrder >= 3) {
+      fetchAssignments();
+      fetchGrade();
+    }
   }, [phaseOrder]);
 
   const fetchAssignments = async () => {
@@ -23,7 +28,44 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
     } catch (_) { }
   };
 
-  // ── Calendar helpers ──
+  const fetchGrade = async () => {
+    try {
+      const data = await apiRequest('/student/my-grade');
+      setGradeInfo(data);
+    } catch (_) { }
+  };
+
+
+  // ── Phase events for calendar ──
+  const [allPhases, setAllPhases] = useState([]);
+  useEffect(() => {
+    apiRequest('/phases').then(d => setAllPhases(d || [])).catch(() => { });
+  }, []);
+
+  // Build calendar events list (assignments + phase milestones)
+  const buildCalendarEvents = (year, month) => {
+    const events = [];
+    // Assignment deadlines
+    assignments.forEach(a => {
+      const dl = new Date(a.deadline);
+      if (dl.getFullYear() === year && dl.getMonth() === month) {
+        events.push({ day: dl.getDate(), type: 'assignment', label: a.title, submitted: a.submissionStatus === 'Submitted' });
+      }
+    });
+    // Phase start dates
+    allPhases.forEach(p => {
+      const dates = [{ d: p.startedAt, suffix: 'Start' }, { d: p.completedAt, suffix: 'End' }, { d: p.scheduledStartAt, suffix: 'Scheduled Start' }, { d: p.scheduledEndAt, suffix: 'Scheduled End' }];
+      dates.forEach(({ d, suffix }) => {
+        if (!d) return;
+        const dt = new Date(d);
+        if (dt.getFullYear() === year && dt.getMonth() === month) {
+          events.push({ day: dt.getDate(), type: 'phase', label: `${p.label} · ${suffix}`, phaseStatus: p.status });
+        }
+      });
+    });
+    return events;
+  };
+  // ── Calendar render ──
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
@@ -34,41 +76,39 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
     const month = currentMonth.getMonth();
     const total = new Date(year, month + 1, 0).getDate();
     const start = new Date(year, month, 1).getDay();
+    const events = buildCalendarEvents(year, month);
     const days = [];
 
     for (let i = 0; i < start; i++) {
-      days.push(<div key={`e-${i}`} className="h-24 border-b border-r border-gray-50 bg-gray-50/20" />);
+      days.push(<div key={`e-${i}`} className="h-16 md:h-24 border-b border-r border-gray-50 bg-gray-50/20" />);
     }
 
     for (let d = 1; d <= total; d++) {
       const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
-      const dayDeadlines = assignments.filter(a => {
-        const dl = new Date(a.deadline);
-        return dl.getDate() === d && dl.getMonth() === month && dl.getFullYear() === year;
-      });
+      const dayEvt = events.filter(e => e.day === d);
 
       days.push(
-        <div
-          key={d}
-          className={`h-24 p-2 border-b border-r border-gray-100 hover:bg-blue-50/20 transition-all ${isToday ? 'bg-blue-50/40' : 'bg-white'}`}
-        >
-          <span className={`text-[10px] font-black inline-flex items-center justify-center ${isToday ? 'bg-primary text-white w-5 h-5 rounded-full' : 'text-gray-400'}`}>
+        <div key={d} className={`h-16 md:h-24 p-1 md:p-2 border-b border-r border-gray-100 hover:bg-blue-50/20 transition-all ${isToday ? 'bg-blue-50/40' : 'bg-white'}`}>
+          <span className={`text-[9px] md:text-[10px] font-black inline-flex items-center justify-center ${isToday ? 'bg-primary text-white w-4 h-4 md:w-5 md:h-5 rounded-full' : 'text-gray-400'}`}>
             {d}
           </span>
-          <div className="mt-1 space-y-0.5">
-            {dayDeadlines.map((a, i) => (
-              <div
-                key={i}
-                title={`Deadline: ${a.title}\n${a.submissionStatus === 'Submitted' ? '✓ Submitted' : '⏳ Pending'}`}
-                className={`px-1.5 py-0.5 rounded text-[8px] font-bold border truncate shadow-sm cursor-default ${a.submissionStatus === 'Submitted'
+          <div className="mt-0.5 space-y-0.5">
+            {dayEvt.slice(0, 2).map((e, i) => (
+              <div key={i} title={e.label}
+                className={`px-1 py-0.5 rounded text-[7px] md:text-[8px] font-bold border truncate shadow-sm cursor-default ${e.type === 'phase'
+                  ? e.phaseStatus === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                    : e.phaseStatus === 'completed' ? 'bg-blue-50 text-blue-500 border-blue-100'
+                      : 'bg-indigo-50 text-indigo-500 border-indigo-100'
+                  : e.submitted
                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                     : 'bg-rose-50 text-rose-500 border-rose-100'
-                  }`}
-              >
-                <i className={`fas ${a.submissionStatus === 'Submitted' ? 'fa-check' : 'fa-clock'} mr-1`}></i>
-                {a.title}
+                  }`}>
+                <i className={`fas mr-0.5 ${e.type === 'phase' ? 'fa-flag' : e.submitted ? 'fa-check' : 'fa-clock'
+                  }`} />
+                <span className="hidden md:inline">{e.label}</span>
               </div>
             ))}
+            {dayEvt.length > 2 && <div className="text-[7px] text-gray-400 font-bold">+{dayEvt.length - 2} more</div>}
           </div>
         </div>
       );
@@ -136,6 +176,51 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
           </div>
         </div>
       </div>
+
+      {/* ── Grade Summary Card ─────────────────────────────────── */}
+      {gradeInfo && gradeInfo.assignmentsCount > 0 && (() => {
+        const gc = gradeColor(gradeInfo.grade);
+        return (
+          <div className={`rounded-2xl border shadow-sm p-6 ${gc.border} ${gc.bg} overflow-hidden relative`}>
+            <div className="absolute top-0 right-0 w-32 h-32 opacity-10 rounded-full -mr-10 -mt-10" style={{ background: gc.text.replace('text-', '') }} />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-[0.25em] mb-2 ${gc.text} opacity-70`}>Current Academic Grade</p>
+                <div className="flex items-baseline gap-3">
+                  <span className={`text-5xl font-black ${gc.text}`}>{gradeInfo.grade}</span>
+                  <div>
+                    <p className={`text-sm font-black ${gc.text}`}>{gradeInfo.percentage}%</p>
+                    <p className="text-[10px] font-bold text-gray-500">Avg {gradeInfo.averageMarks} / 10 over {gradeInfo.assignmentsCount} week{gradeInfo.assignmentsCount !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+                <p className="text-xs font-bold text-gray-500 mt-1">Grade Points: {gradeInfo.gradePoints}</p>
+              </div>
+              {/* progress ring */}
+              <div className="flex items-center gap-4 flex-shrink-0">
+                <div className="relative w-20 h-20">
+                  <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="currentColor" strokeWidth="6" className="text-white opacity-40" />
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="currentColor" strokeWidth="6"
+                      className={gc.text}
+                      strokeDasharray={`${2 * Math.PI * 32}`}
+                      strokeDashoffset={`${2 * Math.PI * 32 * (1 - gradeInfo.percentage / 100)}`}
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dashoffset 1s ease' }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className={`text-sm font-black ${gc.text}`}>{gradeInfo.percentage}%</span>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black border bg-white/70 ${gc.text} ${gc.border}`}>
+                  <i className={`fas text-[10px] ${gradeInfo.status === 'Pass' ? 'fa-check-circle' : 'fa-times-circle'}`} />
+                  {gradeInfo.status === 'Pass' ? 'Passing' : 'Needs Improvement'}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Full-width Calendar */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

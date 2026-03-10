@@ -22,6 +22,11 @@ const phaseSchema = new mongoose.Schema({
         enum: ['pending', 'active', 'completed'],
         default: 'pending'
     },
+    // Scheduling
+    scheduledStartAt: { type: Date },   // When the phase is set to auto-begin
+    scheduledEndAt: { type: Date },   // When the phase is set to auto-end
+    durationDays: { type: Number }, // Expected duration in days (informational)
+    // Actual timestamps (set when manually or auto-triggered)
     startedAt: { type: Date },
     completedAt: { type: Date },
     startedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

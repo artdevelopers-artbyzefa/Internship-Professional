@@ -4,303 +4,285 @@ import Button from '../../components/ui/Button.jsx';
 import { apiRequest } from '../../utils/api.js';
 import { showToast } from '../../utils/notifications.jsx';
 import { DataTable, TableRow, TableCell } from '../../components/ui/DataTable.jsx';
+import { gradeFromPct, gradeColor, gradePointsFromPct } from '../../utils/helpers.js';
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+function GradeBadge({ grade }) {
+  const c = gradeColor(grade);
+  return (
+    <span className={`inline-block px-3 py-1.5 rounded-xl text-sm font-black tracking-widest border ${c.bg} ${c.text} ${c.border}`}>
+      {grade}
+    </span>
+  );
+}
+
+function calcStats(marks, localScores) {
+  const rows = marks.map(m => ({
+    obtained: localScores[m._id] !== '' ? Number(localScores[m._id]) : (m.facultyMarks ?? null)
+  })).filter(r => r.obtained !== null && !isNaN(r.obtained));
+
+  if (rows.length === 0) return { avg: null, pct: null, grade: null };
+  const avg = rows.reduce((s, r) => s + r.obtained, 0) / rows.length;
+  const pct = Math.round((avg / 10) * 100);
+  const grade = gradeFromPct(pct);
+  return { avg: avg.toFixed(1), pct, grade };
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function FacultyEvaluation({ user }) {
   const [students, setStudents] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [marks, setMarks] = useState({ technical: 0, professional: 0, reports: 0, presentation: 0 });
-  const [checkboxTasks, setCheckboxTasks] = useState({
-    attendance: false,
-    professionalism: false,
-    qualityOfWork: false,
-    communication: false,
-    problemSolving: false,
-  });
-  const [comments, setComments] = useState('');
-  const [siteEval, setSiteEval] = useState(null);
+  const [weeklyMarks, setWeeklyMarks] = useState([]);
+  const [scores, setScores] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [fetchingEval, setFetchingEval] = useState(false);
 
-  const maxes = { technical: 50, professional: 30, reports: 40, presentation: 30 };
-  const total = Object.values(marks).reduce((s, v) => s + Number(v), 0);
-  const maxTotal = Object.values(maxes).reduce((s, v) => s + v, 0);
-
-  useEffect(() => {
-    fetchStudents();
-  }, []);
+  useEffect(() => { fetchStudents(); }, []);
 
   const fetchStudents = async () => {
+    try { setStudents((await apiRequest('/faculty/my-students')) || []); }
+    catch { } finally { setLoading(false); }
+  };
+
+  const handleSelect = async (s) => {
+    setSelected(s); setFetchingEval(true); setScores({});
     try {
-      const data = await apiRequest('/evaluation/students');
-      setStudents(data || []);
-    } catch (err) {
-    } finally {
-      setLoading(false);
-    }
+      const data = await apiRequest(`/faculty/weekly-evaluations/${s.id || s._id}`);
+      setWeeklyMarks(data || []);
+      const init = {};
+      data.forEach(m => { init[m._id] = m.facultyMarks !== null && m.facultyMarks !== undefined ? m.facultyMarks : ''; });
+      setScores(init);
+    } catch { } finally { setFetchingEval(false); }
   };
 
-  const handleSelectStudent = async (student) => {
-    setSelectedStudent(student);
-    setFetchingEval(true);
-    try {
-      const data = await apiRequest(`/evaluation/${student._id}`);
-      if (data.evaluation) {
-        setMarks(data.evaluation.marks || { technical: 0, professional: 0, reports: 0, presentation: 0 });
-        setComments(data.evaluation.comments || '');
-        if (data.evaluation.checkboxTasks) setCheckboxTasks(data.evaluation.checkboxTasks);
-      } else {
-        setMarks({ technical: 0, professional: 0, reports: 0, presentation: 0 });
-        setComments('');
-        setCheckboxTasks({
-          attendance: false,
-          professionalism: false,
-          qualityOfWork: false,
-          communication: false,
-          problemSolving: false,
-        });
-      }
-      setSiteEval(data.siteEval);
-    } catch (err) {
-    } finally {
-      setFetchingEval(false);
-    }
+  const handleScoreChange = (id, val) => {
+    const n = Number(val);
+    if (val !== '' && (n < 0 || n > 10)) return; // enforce /10
+    setScores(prev => ({ ...prev, [id]: val }));
   };
 
-  const handleCheckboxChange = (key) => {
-    setCheckboxTasks(prev => {
-      const next = { ...prev, [key]: !prev[key] };
-      // Logic: each checked box adds some marks automatically to professional/technical
-      // This is a dynamic helper for the faculty
-      return next;
-    });
-  };
-
-  const handleSubmit = async (finalize = false) => {
+  const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await apiRequest('/evaluation/submit', {
-        method: 'POST',
-        body: {
-          studentId: selectedStudent._id,
-          marks,
-          checkboxTasks,
-          comments,
-          finalize
-        }
-      });
-      showToast.success(`Grading ${finalize ? 'finalized' : 'saved as draft'} successfully.`);
-      if (finalize) {
-        setStudents(students.map(s => s._id === selectedStudent._id ? { ...s, evaluationStatus: 'Submitted', isGraded: true } : s));
-        setSelectedStudent(null);
-      }
-    } catch (err) {
-      showToast.error(err.message);
-    } finally {
-      setSubmitting(false);
-    }
+      const grades = Object.keys(scores).map(markId => ({
+        markId, facultyMarks: Number(scores[markId]) || 0
+      }));
+      await apiRequest(`/faculty/weekly-evaluations/${selected.id || selected._id}`, { method: 'POST', body: { grades } });
+      showToast.success('Weekly grades saved successfully.');
+      // refresh
+      handleSelect(selected);
+    } catch (err) { showToast.error(err.message); }
+    finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i></div>;
+  if (loading) return <div className="flex items-center justify-center py-24"><div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin" /></div>;
+
+  const { avg, pct, grade } = selected ? calcStats(weeklyMarks, scores) : {};
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
+
+      {/* Header */}
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Grading Summary</h2>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Grade Internship</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">
-            Review site supervisor grades and provide academic evaluation remarks.
+            Assign a mark out of <span className="font-black text-gray-700">10</span> per weekly assignment. The student's final grade is the average.
           </p>
         </div>
-        {selectedStudent && (
-          <Button variant="outline" onClick={() => setSelectedStudent(null)} className="rounded-xl font-bold uppercase tracking-widest text-xs">
-            <i className="fas fa-arrow-left mr-2"></i> Back to Interns
+        {selected && (
+          <Button variant="outline" onClick={() => { setSelected(null); setWeeklyMarks([]); }} className="rounded-xl font-bold uppercase tracking-widest text-xs">
+            <i className="fas fa-arrow-left mr-2" /> Back to Interns
           </Button>
         )}
       </div>
 
-      {!selectedStudent ? (
+      {!selected ? (
+        /* Student List */
         <Card className="rounded-[2.5rem]">
           <h3 className="text-lg font-bold text-gray-800 tracking-tight mb-5">Assigned Interns</h3>
-          <DataTable columns={['Student Name', 'Reg. No.', 'Company', 'Eval. Status', 'Action']}>
-            {students.length > 0 ? (
-              students.map(s => (
-                <TableRow key={s._id}>
-                  <TableCell><strong>{s.name}</strong></TableCell>
-                  <TableCell muted>{s.reg}</TableCell>
-                  <TableCell>{s.company}</TableCell>
-                  <TableCell>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${s.evaluationStatus === 'Submitted' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>
-                      {s.evaluationStatus}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Button size="sm" variant={s.isGraded ? 'secondary' : 'primary'} onClick={() => handleSelectStudent(s)} className="rounded-xl font-black uppercase tracking-widest text-[9px]">
-                      {s.isGraded ? 'Update' : 'Grade Intern'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
+          <DataTable columns={['Student', 'Reg. No.', 'Company', 'Track', 'Action']}>
+            {students.length > 0 ? students.map(s => (
+              <TableRow key={s.id || s._id}>
+                <TableCell><strong>{s.name}</strong></TableCell>
+                <TableCell muted>{s.reg}</TableCell>
+                <TableCell>{s.company || 'Not Assigned'}</TableCell>
+                <TableCell>
+                  <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-500">Weekly Track</span>
+                </TableCell>
+                <TableCell>
+                  <Button size="sm" variant="primary" onClick={() => handleSelect(s)} className="rounded-xl font-black uppercase tracking-widest text-[9px]">
+                    Grade Intern
+                  </Button>
+                </TableCell>
+              </TableRow>
+            )) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-gray-400 font-bold uppercase tracking-widest text-xs">No active interns found for grading.</TableCell>
+                <TableCell colSpan={5} className="text-center py-10 text-gray-400 font-bold uppercase tracking-widest text-xs">No active interns found.</TableCell>
               </TableRow>
             )}
           </DataTable>
         </Card>
       ) : (
+        /* Grading Panel */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {siteEval && (
-              <Card className="border-amber-100 bg-amber-50/20">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
-                    <i className="fas fa-building-user text-sm"></i>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-amber-900 tracking-tight leading-none">Site Supervisor Grading Report</h4>
-                    <p className="text-[10px] text-amber-600 font-bold tracking-widest uppercase mt-1">Industrial Mentorship Feedback</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="bg-white p-3 rounded-xl border border-amber-100">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Technical</p>
-                    <p className="text-sm font-black text-amber-600">{siteEval.marks.technical}</p>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-amber-100">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Professional</p>
-                    <p className="text-sm font-black text-amber-600">{siteEval.marks.professional}</p>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-amber-100">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Reports</p>
-                    <p className="text-sm font-black text-amber-600">{siteEval.marks.reports}</p>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-amber-100">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Comments</p>
-                    <p className="text-[10px] text-gray-600 italic truncate" title={siteEval.comments}>{siteEval.comments || 'No comments'}</p>
-                  </div>
-                </div>
-              </Card>
-            )}
 
+          {/* Left: grade cards */}
+          <div className="lg:col-span-2 space-y-4">
             <Card className="rounded-[2.5rem]">
-              <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-50">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl shadow-inner">
-                    <i className="fas fa-user-edit"></i>
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl">
+                    <i className="fas fa-user-edit" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-gray-800 tracking-tight">{selectedStudent.name}</h3>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{selectedStudent.reg}</p>
+                    <h3 className="text-lg font-black text-gray-800">{selected.name}</h3>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{selected.reg}</p>
                   </div>
                 </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
               </div>
 
               {fetchingEval ? (
-                <div className="py-10 text-center"><i className="fas fa-circle-notch fa-spin text-primary"></i></div>
+                <div className="py-12 flex items-center justify-center"><div className="w-8 h-8 border-4 border-gray-100 border-t-primary rounded-full animate-spin" /></div>
+              ) : weeklyMarks.length === 0 ? (
+                <p className="text-center py-12 text-gray-400 font-bold text-sm">No assignments submitted yet for this student.</p>
               ) : (
-                <div className="space-y-8">
-                  {/* Itemized Grading Checkboxes */}
-                  <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Task-Based Performance Checklist</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-8">
-                      {Object.keys(checkboxTasks).map((task) => (
-                        <div key={task} className="flex items-center gap-3 cursor-pointer group" onClick={() => handleCheckboxChange(task)}>
-                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all border-2 
-                            ${checkboxTasks[task] ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-white border-gray-200 group-hover:border-primary/40'}`}>
-                            {checkboxTasks[task] && <i className="fas fa-check text-[10px]"></i>}
+                <div className="space-y-3">
+                  {weeklyMarks.map((mark, idx) => {
+                    const myScore = scores[mark._id];
+                    const hasScore = myScore !== '' && myScore !== undefined;
+                    const pctRow = hasScore ? Math.round((Number(myScore) / 10) * 100) : null;
+                    const gradeRow = pctRow !== null ? gradeFromPct(pctRow) : null;
+                    const gc = gradeRow ? gradeColor(gradeRow) : null;
+                    return (
+                      <div key={mark._id} className="group p-4 border border-gray-100 rounded-2xl hover:border-primary/20 hover:bg-primary/5 transition-all flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="w-5 h-5 bg-gray-100 text-gray-500 text-[9px] font-black rounded-md flex items-center justify-center">{idx + 1}</span>
+                            <p className="font-bold text-gray-800 text-sm">{mark.assignment?.title}</p>
                           </div>
-                          <span className={`text-xs font-black uppercase tracking-tight ${checkboxTasks[task] ? 'text-primary' : 'text-gray-500'}`}>
-                            {task.replace(/([A-Z])/g, ' $1').trim()}
-                          </span>
+                          {mark.isSiteSupervisorGraded && mark.siteSupervisorRemarks !== 'Freelance Track - Auto bypassed site supervisor' ? (
+                            <p className="text-[10px] text-emerald-600 font-bold">Site Supervisor: {mark.siteSupervisorMarks} / 10</p>
+                          ) : mark.siteSupervisorRemarks?.includes('Freelance') ? (
+                            <p className="text-[10px] text-indigo-500 font-bold">Freelance Track — no site supervisor</p>
+                          ) : (
+                            <p className="text-[10px] text-gray-400">Site supervisor hasn't graded yet.</p>
+                          )}
+                          {/* per-row progress bar */}
+                          {hasScore && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all" style={{ width: `${pctRow}%`, backgroundColor: GRADE_COLORS[gradeRow] || '#94a3b8' }} />
+                              </div>
+                              <span className="text-[9px] font-black text-gray-400">{pctRow}%</span>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Range Sliders */}
-                  {[
-                    { label: 'Technical Proficiency', key: 'technical', max: 50, icon: 'fa-code', desc: 'Efficiency in project tasks and code quality.' },
-                    { label: 'Professionalism & Conduct', key: 'professional', max: 30, icon: 'fa-user-tie', desc: 'Punctuality, ethics, and team collaboration.' },
-                    { label: 'Weekly Reporting Quality', key: 'reports', max: 40, icon: 'fa-file-lines', desc: 'Clarity, regularity, and depth of documentation.' },
-                    { label: 'Final Presentation/Viva', key: 'presentation', max: 30, icon: 'fa-chalkboard-user', desc: 'Oral communication and mastery over assigned tasks.' }
-                  ].map((item) => (
-                    <div key={item.key} className="group">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                            <i className={`fas ${item.icon} text-xs`}></i>
+                        {/* input */}
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Grade</label>
+                          <div className="relative">
+                            <input
+                              type="number" min="0" max="10"
+                              className="w-16 p-2 text-center border-2 border-gray-200 rounded-xl outline-none focus:border-primary font-black text-lg text-primary transition-colors"
+                              value={myScore}
+                              onChange={e => handleScoreChange(mark._id, e.target.value)}
+                              placeholder="—"
+                            />
+                            <span className="absolute -bottom-4 left-0 right-0 text-center text-[8px] font-bold text-gray-300">/ 10</span>
                           </div>
-                          <div>
-                            <label className="text-xs font-black text-gray-700 uppercase tracking-tight">{item.label}</label>
-                            <p className="text-[9px] text-gray-400 font-medium">{item.desc}</p>
-                          </div>
+                          {gradeRow && (
+                            <div className="mt-5">
+                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${gc.bg} ${gc.text} ${gc.border}`}>{gradeRow}</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs font-black text-gray-400 tracking-widest">MAX {item.max}</div>
                       </div>
-                      <div className="flex items-center gap-6">
-                        <input
-                          type="range" min="0" max={item.max} value={marks[item.key]}
-                          onChange={e => setMarks({ ...marks, [item.key]: Number(e.target.value) })}
-                          className="flex-1 accent-primary h-1.5 rounded-full bg-gray-100 appearance-none cursor-pointer"
-                        />
-                        <input
-                          type="number" min="0" max={item.max} value={marks[item.key]}
-                          onChange={e => setMarks({ ...marks, [item.key]: Number(e.target.value) })}
-                          className="w-16 h-10 border-2 border-gray-100 rounded-xl text-center font-black text-sm text-primary focus:border-primary outline-none transition-all shadow-sm"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+              )}
 
-                  <div className="pt-4">
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-tight block mb-3">Academic Supervisor Remarks</label>
-                    <textarea
-                      rows={4}
-                      value={comments}
-                      onChange={e => setComments(e.target.value)}
-                      placeholder="Summarize student performance and academic progress..."
-                      className="w-full p-5 rounded-[2rem] bg-gray-50 border-2 border-gray-100 text-sm font-medium focus:bg-white focus:border-primary outline-none transition-all resize-none shadow-inner"
-                    />
-                  </div>
+              {weeklyMarks.length > 0 && (
+                <div className="pt-6 border-t mt-4 flex justify-end">
+                  <Button variant="primary" size="lg" onClick={handleSubmit} loading={submitting} className="font-bold tracking-widest uppercase text-xs">
+                    <i className="fas fa-save mr-2" /> Save Grades
+                  </Button>
                 </div>
               )}
             </Card>
           </div>
 
-          <div className="space-y-6">
-            <Card className="rounded-[2.5rem] sticky top-6">
-              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 border-b pb-4">Consolidated Score</h3>
-              <div className="bg-gradient-to-br from-gray-900 to-slate-800 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-gray-900/40">
-                <div className="relative z-10 text-center">
-                  <div className="text-6xl font-black tracking-tighter mb-2">{total}</div>
-                  <div className="h-px bg-white/10 w-full mb-4"></div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Aggregate Marks</p>
+          {/* Right: running summary */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-5">Running Average</h4>
+              {avg !== null ? (
+                <>
+                  {/* Circular ring */}
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="relative w-28 h-28">
+                      <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" strokeWidth="8" />
+                        <circle cx="50" cy="50" r="40" fill="none"
+                          stroke={grade === 'F' ? '#ef4444' : grade.startsWith('A') ? '#10b981' : grade.startsWith('B') ? '#3b82f6' : '#f59e0b'}
+                          strokeWidth="8"
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - pct / 100)}`}
+                          strokeLinecap="round"
+                          style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-black text-gray-800">{pct}%</span>
+                        <span className="text-[10px] font-bold text-gray-400">{avg}/10</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <GradeBadge grade={grade} />
+                    <p className="text-[10px] font-bold text-gray-400">Grade Points: {gradePointsFromPct(pct)}</p>
+                    <span className={`inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full text-[10px] font-black border ${pct >= 50 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                      <i className={`fas text-[8px] ${pct >= 50 ? 'fa-check' : 'fa-times'}`} />{pct >= 50 ? 'Pass' : 'Fail'}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="py-8 text-center text-gray-300">
+                  <i className="fas fa-chart-pie text-3xl block mb-2 opacity-40" />
+                  <p className="text-xs font-bold">Enter marks to see live grade.</p>
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div className="mt-8 space-y-3">
-                <Button
-                  block variant="primary" size="lg" className="h-14 rounded-2xl shadow-xl shadow-primary/20 font-black uppercase tracking-widest text-xs"
-                  onClick={() => handleSubmit(true)} loading={submitting}
-                >
-                  Finalize &amp; Lock Grade
-                </Button>
-                <Button
-                  block variant="outline" size="lg" className="h-14 rounded-2xl font-black uppercase tracking-widest text-xs"
-                  onClick={() => handleSubmit(false)} loading={submitting}
-                >
-                  Save Draft Progress
-                </Button>
+            {/* Grade Scale */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Grade Scale</h4>
+              <div className="space-y-1.5">
+                {[['A', '≥85%'], ['A-', '80-84%'], ['B+', '75-79%'], ['B', '71-74%'], ['B-', '68-70%'], ['C+', '64-67%'], ['C', '61-63%'], ['C-', '58-60%'], ['D+', '54-57%'], ['D', '50-53%'], ['F', '<50%']].map(([g, r]) => {
+                  const c = gradeColor(g);
+                  const active = grade === g;
+                  return (
+                    <div key={g} className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all ${active ? `${c.bg} ${c.border} border-2` : 'border border-transparent'}`}>
+                      <span className={`text-[10px] font-black ${active ? c.text : 'text-gray-700'}`}>{g}</span>
+                      <span className={`text-[9px] font-bold ${active ? c.text : 'text-gray-400'}`}>{r}</span>
+                      {active && <i className={`fas fa-arrow-left text-[8px] ${c.text}`} />}
+                    </div>
+                  );
+                })}
               </div>
-
-              <p className="mt-6 text-[9px] text-gray-400 font-bold leading-relaxed text-center uppercase tracking-widest">
-                <i className="fas fa-lock mr-1"></i> Finalized marks are permanent.
-              </p>
-            </Card>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+// needed for inline progress bars
+const GRADE_COLORS = {
+  A: '#10b981', 'A-': '#34d399', 'B+': '#3b82f6', B: '#60a5fa', 'B-': '#93c5fd',
+  'C+': '#f59e0b', C: '#fbbf24', 'C-': '#f97316', 'D+': '#fb923c', D: '#ef4444', F: '#dc2626'
+};
