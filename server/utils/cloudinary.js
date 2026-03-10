@@ -25,9 +25,11 @@ const storage = new CloudinaryStorage({
         const uniqueFilename = `${Date.now()}-${cleanName}`;
 
         return {
-            folder: 'dims', // Store all files in a 'dims' folder
-            resource_type: 'auto', // Accept any file type (image, video, raw pdf, docx, etc.)
-            public_id: uniqueFilename, // Set our own clean filename
+            folder: 'dims', 
+            resource_type: 'raw', 
+            type: 'upload', 
+            upload_preset: 'public_preset', 
+            public_id: uniqueFilename, 
         };
     },
 });

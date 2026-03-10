@@ -5,10 +5,12 @@ import HODDashboard from './HODDashboard.jsx';
 import HODApprovals from './HODApprovals.jsx';
 import HODApprovedResults from './HODApprovedResults.jsx';
 import HODReports from './HODReports.jsx';
+import RegisteredStudents from '../office/RegisteredStudents.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 const hodNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-shield-halved' },
+  { id: 'registered-students', label: 'Registered Students', icon: 'fa-users' },
   { id: 'approvals', label: 'Pending Approvals', icon: 'fa-clock' },
   { id: 'approved', label: 'Approved Results', icon: 'fa-circle-check' },
   { id: 'reports', label: 'Reports', icon: 'fa-file-export' },
@@ -66,6 +68,7 @@ export default function HODPortal({ user, onLogout }) {
       <div className="p-6">
         <Routes>
           <Route path="dashboard" element={<HODDashboard />} />
+          <Route path="registered-students" element={<RegisteredStudents user={user} />} />
           <Route path="approvals" element={<HODApprovals />} />
           <Route path="approved" element={<HODApprovedResults />} />
           <Route path="reports" element={<HODReports />} />

@@ -23,7 +23,7 @@ router.get('/profile', protect, async (req, res) => {
         const escapeRegex = (s) => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
         const nameRegex = new RegExp(escapeRegex(user.name.trim()), 'i');
 
-        const [company, studentCount] = await Promise.all([
+        const [company, studentCount, interns] = await Promise.all([
             Company.findOne({ 'siteSupervisors.email': userEmail }),
             User.countDocuments({
                 role: 'student',
@@ -34,7 +34,17 @@ router.get('/profile', protect, async (req, res) => {
                     { 'internshipAgreement.companySupervisorEmail': userEmail },
                     { assignedCompanySupervisor: { $regex: nameRegex } }
                 ]
-            })
+            }),
+            User.find({
+                role: 'student',
+                $or: [
+                    { assignedSiteSupervisor: user._id },
+                    { assignedCompanySupervisorEmail: userEmail },
+                    { 'internshipRequest.siteSupervisorEmail': userEmail },
+                    { 'internshipAgreement.companySupervisorEmail': userEmail },
+                    { assignedCompanySupervisor: { $regex: nameRegex } }
+                ]
+            }).select('name reg status profilePicture').limit(10) // Limit to 10 for dashboard preview
         ]);
 
         res.json({
@@ -53,8 +63,10 @@ router.get('/profile', protect, async (req, res) => {
                 scope: company.scope
             } : null,
             stats: {
-                studentCount
-            }
+                studentCount,
+                assignmentCount: await Assignment.countDocuments({ createdBy: user._id })
+            },
+            interns
         });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
@@ -120,6 +132,39 @@ router.get('/interns', protect, async (req, res) => {
     }
 });
 
+// @route   GET api/supervisor/my-students
+router.get('/my-students', protect, async (req, res) => {
+    try {
+        if (req.user.role !== 'site_supervisor') {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        const students = await User.find({
+            assignedSiteSupervisor: req.user.id,
+            role: 'student'
+        });
+
+        const result = students.map(s => {
+            const isFreelance = s.internshipRequest?.mode === 'Freelance';
+            const platform = s.internshipRequest?.freelancePlatform;
+            return {
+                id: s._id,
+                name: s.name,
+                reg: s.reg,
+                isFreelance,
+                company: isFreelance
+                    ? `Freelancing${platform ? ` (${platform})` : ''}`
+                    : (s.assignedCompany || s.internshipAgreement?.companyName || 'Not Assigned'),
+                status: s.status
+            };
+        });
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET api/supervisor/assignments
 router.get('/assignments', protect, async (req, res) => {
     try {
@@ -141,13 +186,22 @@ router.post('/assignments', protect, uploadCloudinary.single('file'), async (req
             return res.status(403).json({ message: 'Access denied.' });
         }
 
-        const { title, description, startDate, deadline, totalMarks } = req.body;
+        const { title, description, startDate, deadline, totalMarks, targetStudents } = req.body;
+
+        // Handle targetStudents which might come as an array or single string from FormData
+        let students = [];
+        const rawTarget = targetStudents || req.body['targetStudents[]'];
+        if (rawTarget) {
+            students = Array.isArray(rawTarget) ? rawTarget : [rawTarget];
+        }
+
         const assignment = new Assignment({
             title,
             description,
             startDate,
             deadline,
             totalMarks,
+            targetStudents: students,
             fileUrl: req.file ? req.file.path : null,
             createdBy: req.user.id,
             courseTitle: 'Industrial Task'
@@ -156,7 +210,107 @@ router.post('/assignments', protect, uploadCloudinary.single('file'), async (req
         await assignment.save();
         res.status(201).json(assignment);
     } catch (err) {
+        console.error('Assignment error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/supervisor/submissions/:assignmentId
+router.get('/submissions/:assignmentId', protect, async (req, res) => {
+    try {
+        if (req.user.role !== 'site_supervisor') {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        const assignment = await Assignment.findById(req.params.assignmentId);
+        if (!assignment) return res.status(404).json({ message: 'Assignment not found.' });
+
+        // Fetch submissions and marks for this assignment
+        const [submissions, marks] = await Promise.all([
+            import('../models/Submission.js').then(m => m.default.find({ assignment: assignment._id }).populate('student', 'name reg profilePicture')),
+            Mark.find({ assignment: assignment._id })
+        ]);
+
+        const data = submissions.map(sub => {
+            const mark = marks.find(m => m.student.toString() === sub.student._id.toString());
+            return {
+                _id: sub._id,
+                user: sub.student, // Mapping student to user field for frontend compatibility
+                fileUrl: sub.fileUrl,
+                submittedAt: sub.createdAt,
+                marks: mark || null
+            };
+        });
+
+        res.json(data);
+    } catch (err) {
         console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/supervisor/grade
+router.post('/grade', protect, async (req, res) => {
+    try {
+        if (req.user.role !== 'site_supervisor') {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        const { studentId, assignmentId, marks, remarks, criteria } = req.body;
+
+        let mark = await Mark.findOne({ student: studentId, assignment: assignmentId });
+
+        if (!mark) {
+            mark = new Mark({
+                student: studentId,
+                assignment: assignmentId,
+                siteSupervisorId: req.user.id
+            });
+        }
+
+        mark.siteSupervisorMarks = marks;
+        mark.siteSupervisorRemarks = remarks;
+        mark.siteSupervisorCriteria = criteria || {};
+        mark.isSiteSupervisorGraded = true;
+        mark.history.push({
+            marks,
+            remarks,
+            updatedBy: req.user.id,
+            role: 'site_supervisor'
+        });
+
+        await mark.save();
+        res.json(mark);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   DELETE api/supervisor/assignments/:id
+router.delete('/assignments/:id', protect, async (req, res) => {
+    try {
+        if (req.user.role !== 'site_supervisor') {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        const assignment = await Assignment.findOne({ _id: req.params.id, createdBy: req.user.id });
+        if (!assignment) {
+            return res.status(404).json({ message: 'Assignment not found or unauthorized.' });
+        }
+
+        const Submission = await import('../models/Submission.js').then(m => m.default);
+
+        // Purge all associated data
+        await Promise.all([
+            Assignment.findByIdAndDelete(assignment._id),
+            Submission.deleteMany({ assignment: assignment._id }),
+            Mark.deleteMany({ assignment: assignment._id })
+        ]);
+
+        res.json({ message: 'Assignment and all associated submissions/marks purged successfully.' });
+    } catch (err) {
+        console.error('Delete assignment error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });

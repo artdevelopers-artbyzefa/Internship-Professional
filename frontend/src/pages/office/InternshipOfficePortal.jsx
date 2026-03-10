@@ -12,13 +12,15 @@ import NoticeManagement from './NoticeManagement.jsx';
 import ReportsAnalytics from './ReportsAnalytics.jsx';
 import OfficeReports from './OfficeReports.jsx';
 import StudentManagement from './StudentManagement.jsx';
+import RegisteredStudents from './RegisteredStudents.jsx';
 import SiteSupervisorManagement from './SiteSupervisorManagement.jsx';
 import PhaseManagement from './PhaseManagement.jsx';
 import InternshipRequestsManager from './InternshipRequestsManager.jsx';
 
 const officeNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
-  { id: 'student-registry', label: 'Student Registry', icon: 'fa-users' },
+  { id: 'student-registry', label: 'Student Registry', icon: 'fa-user-plus' },
+  { id: 'registered-students', label: 'Registered Students', icon: 'fa-users' },
   { id: 'internship-requests', label: 'Internship Requests', icon: 'fa-file-circle-check' },
   { id: 'faculty-management', label: 'Faculty Management', icon: 'fa-user-tie' },
   { id: 'supervisor-management', label: 'Site Supervisor', icon: 'fa-user-check' },
@@ -55,6 +57,7 @@ export default function InternshipOfficePortal({ user, onLogout }) {
         <Routes>
           <Route path="dashboard" element={<OfficeDashboard user={user} />} />
           <Route path="student-registry" element={<StudentManagement user={user} />} />
+          <Route path="registered-students" element={<RegisteredStudents user={user} />} />
           <Route path="internship-requests" element={<InternshipRequestsManager user={user} />} />
 
           <Route path="verification-dashboard" element={<StudentRequestVerification user={user} />} />

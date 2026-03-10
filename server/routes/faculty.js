@@ -477,34 +477,29 @@ router.put('/update-assignment/:id', protect, isFaculty, uploadCloudinary.single
 });
 
 // @route   DELETE api/faculty/delete-assignment/:id
-// @desc    Delete an assignment
 router.delete('/delete-assignment/:id', protect, isFaculty, async (req, res) => {
     try {
         const assignment = await Assignment.findOne({ _id: req.params.id, createdBy: req.user.id });
         if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
 
-        // Check if any student has submitted
-        const submissionCount = await Submission.countDocuments({ assignment: req.params.id });
-        if (submissionCount > 0) {
-            return res.status(400).json({ message: 'Cannot delete assignment with existing student submissions.' });
-        }
-
-        // Delete associated file (Only removing from DB, Cloudinary handles actual storage)
-        // If we want to strictly delete from Cloudinary we need the public_id, but it's optional for now
-
-        await Assignment.deleteOne({ _id: req.params.id });
+        // Forcefully purge all related data
+        await Promise.all([
+            Assignment.deleteOne({ _id: req.params.id }),
+            Submission.deleteMany({ assignment: req.params.id }),
+            Mark.deleteMany({ assignment: req.params.id })
+        ]);
 
         // Audit Log
         await new AuditLog({
-            action: 'FACULTY_ASSIGNMENT_DELETED',
+            action: 'FACULTY_ASSIGNMENT_PURGED',
             performedBy: req.user.id,
-            details: `Faculty deleted assignment: ${assignment.title}`,
+            details: `Permanent Deletion: ${assignment.title} and all associated submissions purged by faculty.`,
             ipAddress: req.ip
         }).save();
 
-        res.json({ message: 'Assignment deleted successfully' });
+        res.json({ message: 'Assignment and all associated records purged successfully.' });
     } catch (err) {
-        console.error(err);
+        console.error('Faculty delete error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -516,7 +511,7 @@ router.get('/my-students', protect, isFaculty, async (req, res) => {
         const students = await User.find({
             assignedFaculty: req.user.id,
             role: 'student'
-        }).select('name reg internshipRequest.mode internshipRequest.freelancePlatform internshipAgreement.companyName status assignedCompany');
+        });
 
         const result = students.map(s => {
             const isFreelance = s.internshipRequest?.mode === 'Freelance';

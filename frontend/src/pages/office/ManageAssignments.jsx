@@ -5,6 +5,7 @@ import Alert from '../../components/ui/Alert.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Modal, { ModalTitle, ModalSub } from '../../components/ui/Modal.jsx';
 import { FormGroup, TextInput, SelectInput } from '../../components/ui/FormInput.jsx';
+import { showToast, showAlert } from '../../utils/notifications.jsx';
 
 export default function ManageAssignments({ user }) {
   const [assignments, setAssignments] = useState([]);
@@ -69,7 +70,7 @@ export default function ManageAssignments({ user }) {
       setForm({ title: '', description: '', startDate: '', deadline: '', totalMarks: 100, status: 'Active' });
       fetchData();
     } catch (err) {
-      alert(err.message);
+      showToast.error(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -86,7 +87,7 @@ export default function ManageAssignments({ user }) {
       setShowEditModal(false);
       fetchData();
     } catch (err) {
-      alert(err.message);
+      showToast.error(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -104,7 +105,7 @@ export default function ManageAssignments({ user }) {
       setOverrideForm({ assignmentId: '', facultyId: '', newDeadline: '' });
       fetchData();
     } catch (err) {
-      alert(err.message);
+      showToast.error(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -166,8 +167,32 @@ export default function ManageAssignments({ user }) {
               setShowEditModal(true);
             }}
             className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-200 text-gray-600 hover:border-primary hover:text-primary cursor-pointer transition-all"
+            title="Edit Details"
           >
             <i className="fas fa-pen-to-square text-xs"></i>
+          </button>
+          <button
+            onClick={async () => {
+              const confirmed = await showAlert.confirm(
+                'Global Purge',
+                'Are you sure you want to permanently delete this assignment? All student submissions and grades for this task across the system will be purged.',
+                'Yes, Purge Globally'
+              );
+              if (confirmed) {
+                try {
+                  await apiRequest(`/office/delete-assignment/${row._id}`, {
+                    method: 'DELETE',
+                    body: { officeId: user.id || user._id }
+                  });
+                  showToast.success('Assignment deleted globally.');
+                  fetchData();
+                } catch (err) { }
+              }
+            }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer transition-all border-0"
+            title="Purge Globally"
+          >
+            <i className="fas fa-trash-alt text-xs"></i>
           </button>
         </div>
       )

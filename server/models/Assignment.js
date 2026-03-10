@@ -34,6 +34,10 @@ const assignmentSchema = new mongoose.Schema({
         deadline: Date
     }],
     fileUrl: String,
+    targetStudents: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

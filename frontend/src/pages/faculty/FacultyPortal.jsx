@@ -6,11 +6,13 @@ import FacultyStudents from './FacultyStudents.jsx';
 import FacultyEvaluation from './FacultyEvaluation.jsx';
 import FacultyReports from './FacultyReports.jsx';
 import StudentProfileDetail from './StudentProfileDetail.jsx';
+import RegisteredStudents from '../office/RegisteredStudents.jsx';
 import SupervisorProfile from '../../components/supervisor/SupervisorProfile.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 const facultyNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+  { id: 'registered-students', label: 'Registered Students', icon: 'fa-users' },
   { id: 'grading', label: 'Grading Summary', icon: 'fa-star' },
   { id: 'reports', label: 'Report Generation', icon: 'fa-file-invoice' },
   { id: 'profile', label: 'Profile', icon: 'fa-user-gear' },
@@ -46,6 +48,7 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<FacultyDashboard user={user} activePhase={activePhase} />} />
+          <Route path="registered-students" element={<RegisteredStudents user={user} />} />
           <Route path="grading" element={<FacultyEvaluation user={user} />} />
           <Route path="reports" element={<FacultyReports user={user} />} />
           <Route path="profile" element={<SupervisorProfile user={user} onUpdate={onUpdateUser} />} />

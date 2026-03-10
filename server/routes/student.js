@@ -136,10 +136,23 @@ router.post('/submit-agreement', async (req, res) => {
 // @desc    Get current student's marks
 router.get('/my-marks', protect, async (req, res) => {
     try {
-        const marks = await Mark.find({ student: req.user.id })
-            .populate('assignment', 'title deadline totalMarks status')
-            .sort({ createdAt: -1 });
-        res.json(marks);
+        const [marks, submissions] = await Promise.all([
+            Mark.find({ student: req.user.id })
+                .populate('assignment', 'title deadline totalMarks status')
+                .sort({ createdAt: -1 }),
+            Submission.find({ student: req.user.id }).select('assignment fileUrl fileName')
+        ]);
+
+        const consolidated = marks.map(m => {
+            const sub = submissions.find(s => s.assignment.toString() === m.assignment._id.toString());
+            return {
+                ...m.toObject(),
+                submissionFileUrl: sub?.fileUrl || null,
+                submissionFileName: sub?.fileName || null
+            };
+        });
+
+        res.json(consolidated);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -203,6 +216,7 @@ router.put('/update-profile', protect, async (req, res) => {
             // Upload to Cloudinary using their uploader
             const uploadRes = await cloudinary.uploader.upload(profilePicture, {
                 folder: 'dims/profiles',
+                upload_preset: 'public_preset',
                 public_id: `profile_${user._id}`
             });
 
@@ -230,6 +244,8 @@ router.put('/update-profile', protect, async (req, res) => {
                 fatherName: populatedUser.fatherName,
                 secondaryEmail: populatedUser.secondaryEmail,
                 section: populatedUser.section,
+                semester: populatedUser.semester,
+                cgpa: populatedUser.cgpa,
                 dateOfBirth: populatedUser.dateOfBirth,
                 profilePicture: populatedUser.profilePicture,
                 registeredCourse: populatedUser.registeredCourse,
@@ -253,21 +269,112 @@ router.put('/update-profile', protect, async (req, res) => {
 router.get('/assignments', protect, async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
-        if (!user.assignedFaculty) {
+
+        console.log('\n[ASSIGNMENT DEBUG] Student:', user.name, '|', user.email);
+        console.log('[ASSIGNMENT DEBUG] assignedSiteSupervisor:', user.assignedSiteSupervisor);
+        console.log('[ASSIGNMENT DEBUG] assignedCompanySupervisorEmail:', user.assignedCompanySupervisorEmail);
+        console.log('[ASSIGNMENT DEBUG] assignedFaculty:', user.assignedFaculty);
+
+        // Define filters for all potential assignment sources
+        const orFilters = [];
+
+        // 1. From Faculty Supervisor (Global to their assigned students)
+        if (user.assignedFaculty) {
+            orFilters.push({ createdBy: user.assignedFaculty });
+        }
+
+        // 2. From Site Supervisor — try every possible field to find the link
+        let siteSupervisorId = user.assignedSiteSupervisor; // Direct ObjectId (best case)
+
+        if (!siteSupervisorId) {
+            // Collect all candidate emails from every workflow stage
+            const candidateEmails = [
+                user.assignedCompanySupervisorEmail,
+                user.internshipRequest?.siteSupervisorEmail,
+                user.internshipAgreement?.companySupervisorEmail
+            ].filter(Boolean).map(e => e.toLowerCase().trim());
+
+            const candidateNames = [
+                user.assignedCompanySupervisor,
+                user.internshipRequest?.siteSupervisorName,
+                user.internshipAgreement?.companySupervisorName
+            ].filter(Boolean);
+
+            console.log('[ASSIGNMENT DEBUG] Candidate emails:', candidateEmails);
+            console.log('[ASSIGNMENT DEBUG] Candidate names:', candidateNames);
+
+            if (candidateEmails.length > 0) {
+                const supByEmail = await User.findOne({ email: { $in: candidateEmails }, role: 'site_supervisor' }, '_id');
+                if (supByEmail) {
+                    siteSupervisorId = supByEmail._id;
+                    console.log('[ASSIGNMENT DEBUG] Resolved by email:', siteSupervisorId);
+                }
+            }
+
+            // Name-based fallback as last resort
+            if (!siteSupervisorId && candidateNames.length > 0) {
+                for (const name of candidateNames) {
+                    const regex = new RegExp(name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+                    const supByName = await User.findOne({ name: { $regex: regex }, role: 'site_supervisor' }, '_id');
+                    if (supByName) {
+                        siteSupervisorId = supByName._id;
+                        console.log('[ASSIGNMENT DEBUG] Resolved by name:', name, '->', siteSupervisorId);
+                        break;
+                    }
+                }
+            }
+        }
+
+        console.log('[ASSIGNMENT DEBUG] Final siteSupervisorId:', siteSupervisorId || 'NOT SET — no supervisor link found on student record');
+
+        if (siteSupervisorId) {
+            orFilters.push({
+                $and: [
+                    { createdBy: siteSupervisorId },
+                    {
+                        $or: [
+                            { targetStudents: { $size: 0 } },
+                            { targetStudents: user._id }
+                        ]
+                    }
+                ]
+            });
+        }
+
+        // 3. From Internship Office (Global administrative tasks)
+        const officeUsers = await User.find({ role: 'internship_office' }, '_id');
+        if (officeUsers.length > 0) {
+            orFilters.push({ createdBy: { $in: officeUsers.map(u => u._id) } });
+        }
+
+        console.log('[ASSIGNMENT DEBUG] orFilters count:', orFilters.length, JSON.stringify(orFilters, null, 2));
+
+        if (orFilters.length === 0) {
+            console.log('[ASSIGNMENT DEBUG] No filters built — returning empty array');
             return res.json([]);
         }
 
-        const assignments = await Assignment.find({
-            createdBy: user.assignedFaculty,
-            status: 'Active',
-            startDate: { $lte: new Date() }
-        }).sort({ startDate: -1 });
+        // DEBUG: also query ALL assignments by the supervisor regardless of filters
+        if (siteSupervisorId) {
+            const allSupAssignments = await Assignment.find({ createdBy: siteSupervisorId });
+            console.log('[ASSIGNMENT DEBUG] ALL assignments by supervisor (raw):', allSupAssignments.length, allSupAssignments.map(a => ({ id: a._id, title: a.title, status: a.status, targetStudents: a.targetStudents })));
+        }
 
-        // Get submissions for these assignments
-        const submissions = await Submission.find({ student: req.user.id });
+        const [assignments, submissions, marks] = await Promise.all([
+            Assignment.find({
+                $or: orFilters,
+                status: 'Active'
+            }).sort({ createdAt: -1 }),
+            Submission.find({ student: req.user.id }),
+            Mark.find({ student: req.user.id })
+        ]);
+
+        console.log('[ASSIGNMENT DEBUG] Final assignments returned:', assignments.length);
+
 
         const result = assignments.map(assignment => {
             const submission = submissions.find(s => s.assignment.toString() === assignment._id.toString());
+            const mark = marks.find(m => m.assignment.toString() === assignment._id.toString());
             const now = new Date();
             const deadline = new Date(assignment.deadline);
 
@@ -279,13 +386,21 @@ router.get('/assignments', protect, async (req, res) => {
                 studentSubmission: submission ? {
                     fileUrl: submission.fileUrl,
                     fileName: submission.fileName
+                } : null,
+                marks: mark ? {
+                    siteSupervisorMarks: mark.siteSupervisorMarks,
+                    siteSupervisorRemarks: mark.siteSupervisorRemarks,
+                    facultyMarks: mark.facultyMarks,
+                    facultyRemarks: mark.facultyRemarks,
+                    isSiteSupervisorGraded: mark.isSiteSupervisorGraded,
+                    isFacultyGraded: mark.isFacultyGraded
                 } : null
             };
         });
 
         res.json(result);
     } catch (err) {
-        console.error(err);
+        console.error('Fetch assignments error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
