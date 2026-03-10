@@ -4,8 +4,8 @@ import { apiRequest } from '../../utils/api.js';
 export default function StudentResults() {
   const [marks, setMarks] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
+  const [gradeSummary, setGradeSummary] = useState(null);
   const [loading, setLoading] = useState(true);
-
 
   useEffect(() => { fetchData(); }, []);
 
@@ -16,21 +16,19 @@ export default function StudentResults() {
     window.location.assign(proxyUrl);
   };
 
-
-
-
   const fetchData = async () => {
     try {
-      const [marksData, evalData] = await Promise.all([
+      const [marksData, evalData, summaryData] = await Promise.all([
         apiRequest('/student/my-marks'),
-        apiRequest('/student/my-evaluations')
+        apiRequest('/student/my-evaluations'),
+        apiRequest('/student/my-grade')
       ]);
       setMarks(marksData || []);
       setEvaluations(evalData || []);
+      setGradeSummary(summaryData);
     } catch (_) { }
     finally { setLoading(false); }
   };
-
 
   const pctColor = (p) => {
     if (p >= 80) return 'bg-emerald-500';
@@ -43,9 +41,6 @@ export default function StudentResults() {
   const assignmentMax = marks.reduce((s, m) => s + (m.assignment?.totalMarks || 0), 0);
   const evalTotal = evaluations.reduce((s, e) => s + (e.totalMarks || 0), 0);
   const evalMax = evaluations.reduce((s, e) => s + (e.maxTotal || 0), 0);
-  const grandTotal = assignmentTotal + evalTotal;
-  const grandMax = assignmentMax + evalMax;
-  const grandPct = grandMax > 0 ? Math.round(grandTotal / grandMax * 100) : 0;
 
   if (loading) return (
     <div className="flex items-center justify-center py-32">
@@ -59,18 +54,24 @@ export default function StudentResults() {
       {/* Header */}
       <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Performance Transcript</h2>
-          <p className="text-sm text-gray-400 font-medium mt-1">Consolidated academic results for the current internship cycle.</p>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Grades</h2>
+          {gradeSummary && (
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mt-2 ${gradeSummary.status === 'Pass' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+              <i className={`fas ${gradeSummary.status === 'Pass' ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+              {gradeSummary.status}
+            </div>
+          )}
         </div>
-        {grandMax > 0 && (
+        {gradeSummary && (
           <div className="flex items-center gap-6">
             <div className="text-right">
-              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Score</div>
-              <div className="text-2xl font-black text-gray-800">{grandTotal} <span className="text-gray-300 font-medium">/ {grandMax}</span></div>
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Final Score</div>
+              <div className="text-2xl font-black text-gray-800">{gradeSummary.averageMarks} <span className="text-gray-300 font-medium">/ 10</span></div>
+              <div className="text-[10px] font-bold text-gray-400 mt-1">Grade: <span className="text-primary">{gradeSummary.grade}</span></div>
             </div>
             <div className="w-20 h-20 rounded-2xl flex flex-col items-center justify-center shadow-lg"
-              style={{ background: grandPct >= 80 ? '#d1fae5' : grandPct >= 60 ? '#fef3c7' : '#fee2e2' }}>
-              <span className="text-2xl font-black" style={{ color: grandPct >= 80 ? '#059669' : grandPct >= 60 ? '#d97706' : '#dc2626' }}>{grandPct}%</span>
+              style={{ background: gradeSummary.percentage >= 50 ? '#d1fae5' : '#fee2e2' }}>
+              <span className="text-2xl font-black" style={{ color: gradeSummary.percentage >= 50 ? '#059669' : '#dc2626' }}>{gradeSummary.percentage}%</span>
             </div>
           </div>
         )}
@@ -82,7 +83,7 @@ export default function StudentResults() {
           <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">Assignment Results</h3>
           {marks.length > 0 && (
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Total: {assignmentTotal} / {assignmentMax}
+              Total Assignments: {marks.length}
             </span>
           )}
         </div>
@@ -97,7 +98,7 @@ export default function StudentResults() {
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Total</th>
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">%</th>
                 <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Submission</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-40"></th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-40">Progress</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -109,18 +110,18 @@ export default function StudentResults() {
                   </td>
                 </tr>
               ) : marks.map((m, idx) => {
-                const max = m.assignment?.totalMarks || 0;
+                const max = m.assignment?.totalMarks || 10;
                 const obtained = m.marks || 0;
-                const p = max > 0 ? Math.round(obtained / max * 100) : 0;
+                const p = Math.round((obtained / max) * 100);
                 return (
                   <tr key={m._id} className="hover:bg-gray-50/40 transition-colors">
                     <td className="px-6 py-4 text-xs font-black text-gray-300">{idx + 1}</td>
                     <td className="px-6 py-4">
                       <p className="text-sm font-bold text-gray-800 leading-none">{m.assignment?.title || '—'}</p>
-                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">{m.assignment?.courseTitle || 'Industrial Task'}</p>
+                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">{m.assignment?.courseTitle || 'Company Task'}</p>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="text-sm font-black text-primary">{obtained}</span>
+                      <span className="text-sm font-black text-primary">{obtained.toFixed(1)}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="text-xs font-bold text-gray-400">{max}</span>
@@ -151,26 +152,6 @@ export default function StudentResults() {
                   </tr>
                 );
               })}
-              {marks.length > 0 && (
-                <tr className="bg-gray-50/60 font-black">
-                  <td className="px-6 py-4" colSpan="2">
-                    <span className="text-[10px] text-gray-500 uppercase tracking-widest">Projected Obtained</span>
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm font-black text-primary">{assignmentTotal}</td>
-                  <td className="px-6 py-4 text-center text-xs font-bold text-gray-400">{assignmentMax}</td>
-                  <td className="px-6 py-4 text-center text-xs font-black text-gray-700">
-                    {assignmentMax > 0 ? Math.round(assignmentTotal / assignmentMax * 100) : 0}%
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${pctColor(assignmentMax > 0 ? Math.round(assignmentTotal / assignmentMax * 100) : 0)}`}
-                        style={{ width: `${assignmentMax > 0 ? Math.round(assignmentTotal / assignmentMax * 100) : 0}%` }}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -182,7 +163,7 @@ export default function StudentResults() {
           <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between">
             <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">Supervisor Evaluations</h3>
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Total: {evalTotal} / {evalMax}
+              Total Points: {evalTotal} / {evalMax}
             </span>
           </div>
           <div className="overflow-x-auto">
@@ -195,12 +176,12 @@ export default function StudentResults() {
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Obtained</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Total</th>
                   <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">%</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-40"></th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-40">Progress</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {evaluations.map((e, idx) => {
-                  const p = e.maxTotal > 0 ? Math.round(e.totalMarks / e.maxTotal * 100) : 0;
+                  const p = e.maxTotal > 0 ? Math.round((e.totalMarks / e.maxTotal) * 100) : 0;
                   return (
                     <tr key={idx} className="hover:bg-gray-50/40 transition-colors">
                       <td className="px-6 py-4 text-xs font-black text-gray-300">{idx + 1}</td>

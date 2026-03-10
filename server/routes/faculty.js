@@ -189,12 +189,17 @@ router.post('/submit-marks', protect, isFaculty, async (req, res) => {
             return res.status(403).json({ message: 'Deadline Passed – Editing Locked' });
         }
 
-        if (marks > assignment.totalMarks) {
-            return res.status(400).json({ message: `Marks cannot exceed the total marks (${assignment.totalMarks}).` });
+        if (marks > 10) {
+            return res.status(400).json({ message: `Marks cannot exceed the total marks (10).` });
         }
 
         // 2. Upsert Mark
         let markEntry = await Mark.findOne({ assignment: assignmentId, student: studentId });
+
+        if (markEntry && markEntry.isFacultyGraded) {
+            return res.status(403).json({ message: 'Marks already finalized – Editing Locked' });
+        }
+
         const action = markEntry ? 'MARK_UPDATED' : 'MARK_ADDED';
 
         if (markEntry) {
@@ -258,9 +263,12 @@ router.post('/bulk-submit-marks', protect, isFaculty, async (req, res) => {
 
             // Skip if marks are empty or exceed total
             if (marks === null || marks === '') continue;
-            if (marks > assignment.totalMarks) continue;
+            if (marks > 10) continue;
 
             let markEntry = await Mark.findOne({ assignment: assignmentId, student: studentId });
+
+            if (markEntry && markEntry.isFacultyGraded) continue; // Skip if already graded
+
             const action = markEntry ? 'MARK_UPDATED' : 'MARK_ADDED';
 
             if (markEntry) {
@@ -316,7 +324,7 @@ router.post('/create-assignment', protect, isFaculty, uploadCloudinary.single('f
             description,
             startDate,
             deadline,
-            totalMarks: totalMarks || 100,
+            totalMarks: 10,
             createdBy: req.user.id,
             fileUrl: req.file ? req.file.path : null
         });
@@ -452,7 +460,7 @@ router.put('/update-assignment/:id', protect, isFaculty, uploadCloudinary.single
         assignment.description = description !== undefined ? description : assignment.description;
         assignment.startDate = startDate || assignment.startDate;
         assignment.deadline = deadline || assignment.deadline;
-        assignment.totalMarks = totalMarks || assignment.totalMarks;
+        assignment.totalMarks = 10;
 
         if (req.file) {
             // Note: Cloudinary doesn't automatically delete the old file without using its API directly
@@ -549,6 +557,163 @@ router.get('/student-profile/:id', protect, isFaculty, async (req, res) => {
 
         res.json(student);
     } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.get('/weekly-evaluations/:studentId', protect, isFaculty, async (req, res) => {
+    try {
+        const [marks, submissions] = await Promise.all([
+            Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline'),
+            Submission.find({ student: req.params.studentId }).select('assignment fileUrl fileName')
+        ]);
+
+        const consolidated = marks
+            .filter(m => m.assignment)
+            .map(m => {
+                const sub = submissions.find(s => s.assignment.toString() === m.assignment._id.toString());
+                return {
+                    ...m.toObject(),
+                    submission: sub ? { fileUrl: sub.fileUrl, fileName: sub.fileName } : null
+                };
+            });
+
+        res.json(consolidated);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/faculty/weekly-evaluations/:studentId
+// @desc    Grade student based on marks
+router.post('/weekly-evaluations/:studentId', protect, isFaculty, async (req, res) => {
+    try {
+        const { grades } = req.body; // Array of { markId, facultyMarks }
+
+        for (const grade of grades) {
+            // Validate that markId and facultyMarks are provided
+            if (!grade.markId || grade.facultyMarks === null || grade.facultyMarks === undefined || grade.facultyMarks === '') continue;
+
+            const mark = await Mark.findById(grade.markId);
+            if (mark && mark.student.toString() === req.params.studentId) {
+                if (mark.isFacultyGraded) continue; // Block re-editing
+
+                mark.facultyMarks = Number(grade.facultyMarks);
+                mark.isFacultyGraded = true;
+                mark.facultyId = req.user.id;
+                mark.history.push({
+                    marks: Number(grade.facultyMarks),
+                    role: 'faculty_supervisor',
+                    updatedBy: req.user.id
+                });
+                await mark.save();
+            }
+        }
+
+        res.json({ message: 'Grades updated successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// ── Grade helper ─────────────────────────────────────────────────────────────
+function calcGradeF(pct) {
+    if (pct >= 85) return { grade: 'A', status: 'Qualified' };
+    if (pct >= 80) return { grade: 'A-', status: 'Qualified' };
+    if (pct >= 75) return { grade: 'B+', status: 'Qualified' };
+    if (pct >= 71) return { grade: 'B', status: 'Qualified' };
+    if (pct >= 68) return { grade: 'B-', status: 'Qualified' };
+    if (pct >= 64) return { grade: 'C+', status: 'Qualified' };
+    if (pct >= 61) return { grade: 'C', status: 'Qualified' };
+    if (pct >= 58) return { grade: 'C-', status: 'Qualified' };
+    if (pct >= 54) return { grade: 'D+', status: 'Qualified' };
+    if (pct >= 50) return { grade: 'D', status: 'Qualified' };
+    return { grade: 'F', status: 'Failed' };
+}
+
+// @route   GET api/faculty/report-data/:type
+// @desc    Get real data for faculty PDF reports (student-list or evaluation)
+router.get('/report-data/:type', protect, isFaculty, async (req, res) => {
+    try {
+        const type = req.params.type;
+        const internStatuses = ['Assigned', 'Agreement Approved', 'Internship Approved', 'Pass', 'Fail'];
+        const students = await User.find({
+            assignedFaculty: req.user.id,
+            role: 'student',
+            status: { $in: internStatuses }
+        }).select('name reg assignedCompany assignedCompanySupervisor status internshipRequest');
+
+        let payload = {
+            supervisorName: req.user.name,
+            reportTitle: '',
+            tableHeader: [],
+            tableData: [],
+            columnsLayout: []
+        };
+
+        if (type === 'student-list') {
+            payload.reportTitle = 'Student Placement Report';
+            payload.tableHeader = ['Reg. #', 'Name', 'Company', 'Site Supervisor', 'Mode', 'Status'];
+            payload.columnsLayout = [100, '*', '*', '*', 55, 65];
+            payload.tableData = students.map(s => [
+                s.reg,
+                s.name,
+                s.assignedCompany || 'N/A',
+                s.assignedCompanySupervisor || 'Freelance',
+                s.internshipRequest?.mode || 'N/A',
+                s.status
+            ]);
+        } else if (type === 'evaluation') {
+            payload.reportTitle = 'Student Evaluation Report';
+            payload.tableHeader = ['Reg. #', 'Name', 'Tasks', 'Avg. Score', 'Percentage', 'Grade', 'Status'];
+            payload.columnsLayout = [100, '*', 50, 60, 60, 50, 60];
+
+            for (const s of students) {
+                const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+                if (marks.length === 0) {
+                    const isFailed = s.status === 'Fail';
+                    payload.tableData.push([
+                        s.reg,
+                        s.name,
+                        '0',
+                        isFailed ? '0.0' : 'N/A',
+                        isFailed ? '0%' : 'N/A',
+                        isFailed ? 'F' : 'N/A',
+                        isFailed ? 'Failed' : 'Pending'
+                    ]);
+                    continue;
+                }
+
+                const isFreelance = s.internshipRequest?.mode === 'Freelance' || !s.assignedCompanySupervisor;
+
+                const taskScores = marks.map(m => {
+                    const fScore = m.facultyMarks || 0;
+                    const sScore = m.siteSupervisorMarks || 0;
+                    return isFreelance ? fScore : (fScore + sScore) / 2;
+                });
+
+                const avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
+                const pct = Math.round((avg / 10) * 100);
+                const { grade, status } = calcGradeF(pct);
+
+                payload.tableData.push([
+                    s.reg,
+                    s.name,
+                    marks.length.toString(),
+                    avg.toFixed(1),
+                    `${pct}%`,
+                    grade,
+                    status
+                ]);
+            }
+        } else {
+            return res.status(400).json({ message: 'Invalid report type' });
+        }
+
+        res.json(payload);
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });

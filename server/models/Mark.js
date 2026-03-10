@@ -11,6 +11,10 @@ const markSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    marks: {
+        type: Number,
+        default: null
+    },
     siteSupervisorMarks: {
         type: Number,
         default: null
@@ -60,5 +64,34 @@ const markSchema = new mongoose.Schema({
 
 // Ensure one mark per student per assignment
 markSchema.index({ assignment: 1, student: 1 }, { unique: true });
+
+// Pre-save hook to calculate consolidated marks
+markSchema.pre('save', async function (next) {
+    if (this.isModified('facultyMarks') || this.isModified('siteSupervisorMarks') || this.isNew) {
+        try {
+            const User = mongoose.model('User');
+            const student = await User.findById(this.student);
+
+            if (student) {
+                const isFreelance = student.internshipRequest?.mode === 'Freelance' ||
+                    (!student.assignedSiteSupervisor && !student.assignedCompanySupervisor);
+
+                if (isFreelance) {
+                    // In freelance, only faculty marks count
+                    this.marks = this.facultyMarks;
+                } else {
+                    // Average of both for standard track
+                    // Only calculate if at least one exists. If both exist, average them.
+                    const f = this.facultyMarks || 0;
+                    const s = this.siteSupervisorMarks || 0;
+                    this.marks = (f + s) / 2;
+                }
+            }
+        } catch (err) {
+            console.error('Error in Mark pre-save hook:', err);
+        }
+    }
+    next();
+});
 
 export default mongoose.model('Mark', markSchema);

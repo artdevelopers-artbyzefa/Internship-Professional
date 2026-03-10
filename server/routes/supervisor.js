@@ -124,7 +124,7 @@ router.get('/interns', protect, async (req, res) => {
                 { 'internshipAgreement.companySupervisorEmail': userEmail },
                 { assignedCompanySupervisor: { $regex: nameRegex } }
             ]
-        }).select('name reg status profilePicture');
+        }).select('name reg status profilePicture internshipRequest');
 
         res.json(students);
     } catch (err) {
@@ -200,7 +200,7 @@ router.post('/assignments', protect, uploadCloudinary.single('file'), async (req
             description,
             startDate,
             deadline,
-            totalMarks,
+            totalMarks: 10,
             targetStudents: students,
             fileUrl: req.file ? req.file.path : null,
             createdBy: req.user.id,
@@ -311,6 +311,62 @@ router.delete('/assignments/:id', protect, async (req, res) => {
         res.json({ message: 'Assignment and all associated submissions/marks purged successfully.' });
     } catch (err) {
         console.error('Delete assignment error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/supervisor/student-grades
+// @desc    Get aggregated faculty grades for all students under this site supervisor
+router.get('/student-grades', protect, async (req, res) => {
+    try {
+        const supEmail = req.user.email?.toLowerCase();
+        const supName = req.user.name?.trim();
+        const escapeRegex = s => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+        const nameRegex = new RegExp(escapeRegex(supName), 'i');
+
+        const students = await User.find({
+            role: 'student',
+            $or: [
+                { assignedCompanySupervisorEmail: supEmail },
+                { 'internshipRequest.siteSupervisorEmail': supEmail },
+                { assignedCompanySupervisor: nameRegex }
+            ]
+        }).select('name reg assignedCompany');
+
+        const results = [];
+        for (const s of students) {
+            const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+            if (marks.length === 0) { results.push({ student: { name: s.name, reg: s.reg }, grade: 'N/A', percentage: null, assignmentsCount: 0 }); continue; }
+
+            const total = marks.reduce((sum, m) => sum + (m.facultyMarks || 0), 0);
+            const avg = total / marks.length;
+            const pct = Math.round((avg / 10) * 100);
+
+            let grade = 'F';
+            if (pct >= 85) grade = 'A';
+            else if (pct >= 80) grade = 'A-';
+            else if (pct >= 75) grade = 'B+';
+            else if (pct >= 71) grade = 'B';
+            else if (pct >= 68) grade = 'B-';
+            else if (pct >= 64) grade = 'C+';
+            else if (pct >= 61) grade = 'C';
+            else if (pct >= 58) grade = 'C-';
+            else if (pct >= 54) grade = 'D+';
+            else if (pct >= 50) grade = 'D';
+
+            results.push({
+                student: { name: s.name, reg: s.reg },
+                company: s.assignedCompany || 'N/A',
+                assignmentsCount: marks.length,
+                averageMarks: avg.toFixed(2),
+                percentage: pct,
+                grade,
+                status: pct >= 50 ? 'Pass' : 'Fail'
+            });
+        }
+        res.json(results);
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });

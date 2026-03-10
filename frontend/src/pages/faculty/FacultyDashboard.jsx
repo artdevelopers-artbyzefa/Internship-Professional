@@ -71,6 +71,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
   // Lock logic: Full dashboard activates after Phase 2 (order >= 3)
   const isLocked = activePhase !== undefined && (!activePhase || activePhase.order < 3);
   const isPhase1Active = activePhase?.key === 'registration';
+  const isPhase4 = activePhase?.order >= 4;
   const noPhaseActive = activePhase === null;
 
   return (
@@ -262,7 +263,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       {(!isLocked && activePhase?.order >= 3) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Assignment Management Card - Only for Faculty */}
-          {!isSupervisorPortal && (
+          {!isSupervisorPortal && activePhase?.order < 4 && (
             <div
               onClick={() => navigate(`${basePath}/add-assignment`)}
               className="p-8 rounded-[2.5rem] border-2 bg-white border-blue-50 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer group relative overflow-hidden"
@@ -273,12 +274,12 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
                 </div>
                 <div>
                   <h4 className="text-lg font-black text-gray-800 tracking-tight">Publish Tasks</h4>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Academic Assignments Hub</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Academic Assignments Centre</p>
                 </div>
               </div>
               <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">Upload weekly report templates, project tasks, and documentation rubrics.</p>
               <div className="text-xs font-black text-primary flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                Open Assignments Center <i className="fas fa-arrow-right text-[10px]"></i>
+                Open Assignments Centre <i className="fas fa-arrow-right text-[10px]"></i>
               </div>
             </div>
           )}
@@ -294,13 +295,13 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
                   <i className="fas fa-award"></i>
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-gray-800 tracking-tight">Grading &amp; Marks</h4>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Evaluation Portal</p>
+                  <h4 className="text-lg font-black text-gray-800 tracking-tight">{activePhase?.order >= 4 ? 'Acquired Marks' : 'Grading & Marks'}</h4>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{activePhase?.order >= 4 ? 'Student Records Ledger' : 'Evaluation Portal'}</p>
                 </div>
               </div>
               <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">Review student submissions and award marks based on their performance.</p>
               <div className="text-xs font-black text-rose-500 flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                Go to Grading Sheet <i className="fas fa-arrow-right text-[10px]"></i>
+                {activePhase?.order >= 4 ? 'View Final Registry' : 'Go to Grading Sheet'} <i className="fas fa-arrow-right text-[10px]"></i>
               </div>
             </div>
           )}
@@ -315,13 +316,13 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
                 <i className="fas fa-clipboard-check"></i>
               </div>
               <div>
-                <h4 className="text-lg font-black text-gray-800 tracking-tight">{isSupervisorPortal ? 'Intern Progress' : 'Internal Evaluation'}</h4>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Monitoring Hub</p>
+                <h4 className="text-lg font-black text-gray-800 tracking-tight">{isPhase4 ? 'Performance Summary' : (isSupervisorPortal ? 'Intern Progress' : 'Internal Evaluation')}</h4>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{isPhase4 ? 'Consolidated Results' : 'Monitoring Centre'}</p>
               </div>
             </div>
             <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">{isSupervisorPortal ? 'Evaluate student performance and professional conduct within your company.' : 'Assess student technical skills and draft final institutional evaluations.'}</p>
             <div className="text-xs font-black text-emerald-500 flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-              Launch Evaluation <i className="fas fa-arrow-right text-[10px]"></i>
+              Perform Evaluation <i className="fas fa-arrow-right text-[10px]"></i>
             </div>
           </div>
 

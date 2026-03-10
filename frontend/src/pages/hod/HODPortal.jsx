@@ -5,15 +5,15 @@ import HODDashboard from './HODDashboard.jsx';
 import HODApprovals from './HODApprovals.jsx';
 import HODApprovedResults from './HODApprovedResults.jsx';
 import HODReports from './HODReports.jsx';
+import HODArchive from './HODArchive.jsx';
 import RegisteredStudents from '../office/RegisteredStudents.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 const hodNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-shield-halved' },
-  { id: 'registered-students', label: 'Registered Students', icon: 'fa-users' },
-  { id: 'approvals', label: 'Pending Approvals', icon: 'fa-clock' },
-  { id: 'approved', label: 'Approved Results', icon: 'fa-circle-check' },
-  { id: 'reports', label: 'Reports', icon: 'fa-file-export' },
+  { id: 'registered-students', label: 'Student Records', icon: 'fa-users' },
+  { id: 'reports', label: 'Internship Analysis', icon: 'fa-file-export' },
+  { id: 'archive', label: 'Previous Cycles', icon: 'fa-database' },
 ];
 
 export default function HODPortal({ user, onLogout }) {
@@ -32,10 +32,10 @@ export default function HODPortal({ user, onLogout }) {
   // Determine current active page from URL
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
-  // Filter Nav Items based on Phase (Only show dashboard in Phase 1 & 2)
+  // Filter Nav Items based on Phase (Dashboard only in Phase 1 & 2, but keep Archive always)
   const isEarlyPhase = activePhase?.key === 'registration' || activePhase?.key === 'request_submission';
   const filteredNav = isEarlyPhase
-    ? hodNav.filter(item => item.id === 'dashboard')
+    ? hodNav.filter(item => item.id === 'dashboard' || item.id === 'archive')
     : hodNav;
 
   const handlePageChange = (newPageId) => {
@@ -69,9 +69,8 @@ export default function HODPortal({ user, onLogout }) {
         <Routes>
           <Route path="dashboard" element={<HODDashboard />} />
           <Route path="registered-students" element={<RegisteredStudents user={user} />} />
-          <Route path="approvals" element={<HODApprovals />} />
-          <Route path="approved" element={<HODApprovedResults />} />
           <Route path="reports" element={<HODReports />} />
+          <Route path="archive" element={<HODArchive />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </div>

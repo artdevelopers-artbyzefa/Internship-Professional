@@ -7,15 +7,26 @@ import StatusBadge from '../../components/ui/StatusBadge.jsx';
 import Button from '../../components/ui/Button.jsx';
 import { showToast } from '../../utils/notifications.jsx';
 import { apiRequest } from '../../utils/api.js';
+import { gradeColor } from '../../utils/helpers.js';
 
 export default function FacultyStudents({ user }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [gradeMap, setGradeMap] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchStudents();
+    if (user?.role !== 'site_supervisor') {
+      apiRequest('/faculty/report-data/evaluation')
+        .then(d => {
+          const map = {};
+          (d?.tableData || []).forEach(row => { map[row[0]] = { grade: row[5], pct: row[4], status: row[6] }; });
+          setGradeMap(map);
+        })
+        .catch(() => { });
+    }
   }, []);
 
   const fetchStudents = async () => {
@@ -65,7 +76,7 @@ export default function FacultyStudents({ user }) {
             <i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i>
           </div>
         ) : (
-          <DataTable columns={['Name', 'Reg. No.', 'Company', 'Status']}>
+          <DataTable columns={['Name', 'Reg. No.', 'Company', 'Grade', 'Status']}>
             {filtered.length > 0 ? (
               filtered.map(s => (
                 <TableRow key={s.id}>
@@ -77,12 +88,25 @@ export default function FacultyStudents({ user }) {
                       : s.company
                     }
                   </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const g = gradeMap[s.reg];
+                      if (!g || g.grade === 'N/A') return <span className="text-gray-300 text-xs font-bold">—</span>;
+                      const gc = gradeColor(g.grade);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-black tracking-widest border ${gc.bg} ${gc.text} ${gc.border}`}>{g.grade}</span>
+                          <span className={`text-xs font-black ${parseInt(g.pct) >= 75 ? 'text-emerald-600' : 'text-amber-600'}`}>{g.pct}</span>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell><StatusBadge status={s.status} /></TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-gray-400 font-medium">
+                <TableCell colSpan={5} className="text-center py-12 text-gray-400 font-medium">
                   No students found.
                 </TableCell>
               </TableRow>
