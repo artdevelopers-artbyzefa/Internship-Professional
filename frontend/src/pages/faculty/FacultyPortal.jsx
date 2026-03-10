@@ -10,14 +10,6 @@ import RegisteredStudents from '../office/RegisteredStudents.jsx';
 import SupervisorProfile from '../../components/supervisor/SupervisorProfile.jsx';
 import { apiRequest } from '../../utils/api.js';
 
-const facultyNav = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
-  { id: 'registered-students', label: 'Registered Students', icon: 'fa-users' },
-  { id: 'grading', label: 'Grading Summary', icon: 'fa-star' },
-  { id: 'reports', label: 'Report Generation', icon: 'fa-file-invoice' },
-  { id: 'profile', label: 'Profile', icon: 'fa-user-gear' },
-];
-
 export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,12 +21,22 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
       .catch(() => setActivePhase(null));
   }, []);
 
+  const currentPhaseOrder = activePhase ? activePhase.order : 1;
+  const isPhase4 = currentPhaseOrder >= 4;
+
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
   const handlePageChange = (newPageId) => {
     navigate(`/faculty/${newPageId}`);
   };
 
+  const filteredNav = [
+    { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+    ...(!isPhase4 ? [{ id: 'registered-students', label: 'Registered Students', icon: 'fa-users' }] : []),
+    { id: 'grading', label: isPhase4 ? 'Final Grading' : 'Weekly Grading', icon: 'fa-star' },
+    { id: 'reports', label: 'Evaluation Reports', icon: 'fa-file-invoice' },
+    { id: 'profile', label: 'Profile', icon: 'fa-user-gear' },
+  ];
 
   return (
     <AppLayout
@@ -42,7 +44,7 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
       onLogout={onLogout}
       activePage={currentPath}
       setActivePage={handlePageChange}
-      navItems={facultyNav}
+      navItems={filteredNav}
     >
       <div className="p-6">
         <Routes>

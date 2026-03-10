@@ -133,27 +133,43 @@ router.post('/submit-agreement', async (req, res) => {
 });
 
 // @route   GET api/student/my-marks
-// @desc    Get current student's marks
+// @desc    Get current student's marks with consolidated final scores
 router.get('/my-marks', protect, async (req, res) => {
     try {
+        const user = await User.findById(req.user.id);
         const [marks, submissions] = await Promise.all([
             Mark.find({ student: req.user.id })
-                .populate('assignment', 'title deadline totalMarks status')
+                .populate('assignment', 'title deadline totalMarks status courseTitle')
                 .sort({ createdAt: -1 }),
             Submission.find({ student: req.user.id }).select('assignment fileUrl fileName')
         ]);
 
+        const isFreelance = user.internshipRequest?.mode === 'Freelance' || (!user.assignedSiteSupervisor && !user.assignedCompanySupervisor);
+
         const consolidated = marks.map(m => {
             const sub = submissions.find(s => s.assignment.toString() === m.assignment._id.toString());
+
+            // Calculate obtained marks based on track
+            let obtained = 0;
+            if (isFreelance) {
+                obtained = m.facultyMarks || 0;
+            } else {
+                // Average of both if standard track
+                obtained = ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2;
+            }
+
             return {
                 ...m.toObject(),
+                marks: obtained, // Map the calculated score to 'marks' for frontend compatibility
                 submissionFileUrl: sub?.fileUrl || null,
-                submissionFileName: sub?.fileName || null
+                submissionFileName: sub?.fileName || null,
+                studentStatus: user.status
             };
         });
 
         res.json(consolidated);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -643,11 +659,20 @@ router.get('/eligibility/:userId', async (req, res) => {
 // @desc    Get the logged-in student's aggregated grade (avg of faculty marks)
 router.get('/my-grade', protect, async (req, res) => {
     try {
+        const user = await User.findById(req.user.id);
         const marks = await Mark.find({ student: req.user.id, isFacultyGraded: true });
         if (marks.length === 0) return res.json(null);
 
-        const totalObtained = marks.reduce((sum, m) => sum + (m.facultyMarks || 0), 0);
-        const avgScore = totalObtained / marks.length;   // out of 10
+        const isFreelance = user.internshipRequest?.mode === 'Freelance' || (!user.assignedSiteSupervisor && !user.assignedCompanySupervisor);
+
+        // Task Score = (Site + Faculty) / 2 OR Faculty if Freelance
+        const taskScores = marks.map(m => {
+            const fScore = m.facultyMarks || 0;
+            const sScore = m.siteSupervisorMarks || 0;
+            return isFreelance ? fScore : (fScore + sScore) / 2;
+        });
+
+        const avgScore = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
         const pct = Math.round((avgScore / 10) * 100);
 
         let grade = 'F', gp = '0.00', status = 'Fail';

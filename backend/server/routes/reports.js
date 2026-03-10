@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getPKTTime, getPKTDate } from '../utils/time.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +24,7 @@ const fonts = {
 
 const printer = new PrinterConstructor(fonts);
 
-router.post('/generate-pdf', async (req, res) => {
+router.post('/generate-pdf', protect, async (req, res) => {
     try {
         const {
             reportTitle = 'Student Report',

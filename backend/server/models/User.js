@@ -60,7 +60,8 @@ const userSchema = new mongoose.Schema({
             'Internship Request Submitted', 'Internship Approved', 'Internship Rejected',
             'Agreement Submitted - Self', 'Agreement Submitted - University Assigned',
             'Agreement Approved', 'Agreement Rejected', 'Assigned', // Student Final
-            'Pending Activation', 'Active', 'Inactive' // Faculty / Staff
+            'Pending Activation', 'Active', 'Inactive', // Faculty / Staff
+            'Pass', 'Fail'
         ],
         default: 'unverified'
     },

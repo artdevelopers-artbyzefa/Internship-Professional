@@ -15,17 +15,20 @@ export default function HODDashboard() {
   const [regStats, setRegStats] = useState(null);
   const [reqStats, setReqStats] = useState(null);
   const [comStats, setComStats] = useState(null);
+  const [studentStats, setStudentStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [phaseData, statsData] = await Promise.all([
+        const [phaseData, statsData, sStats] = await Promise.all([
           apiRequest('/phases/current'),
-          apiRequest('/analytics/registration-stats')
+          apiRequest('/analytics/registration-stats'),
+          apiRequest('/office/student-stats')
         ]);
         setActivePhase(phaseData);
         setRegStats(statsData);
+        setStudentStats(sStats);
 
         if (phaseData?.order >= 2) {
           const requestData = await apiRequest('/analytics/request-stats');
@@ -44,6 +47,12 @@ export default function HODDashboard() {
     };
     fetchAll();
   }, []);
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-32">
+      <i className="fas fa-circle-notch fa-spin text-3xl text-primary opacity-30"></i>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -67,7 +76,7 @@ export default function HODDashboard() {
               <i className="fas fa-chart-line"></i>
             </div>
             <div>
-              <h3 className="text-base md:text-lg font-black text-gray-800">Student Onboarding Analytics</h3>
+              <h3 className="text-base md:text-lg font-black text-gray-800">Active Participants</h3>
               <p className="text-[10px] md:text-sm text-gray-400 font-medium tracking-tight">Departmental breakdown of registration and eligibility metrics.</p>
             </div>
           </div>
@@ -92,6 +101,159 @@ export default function HODDashboard() {
             <div className="p-4 md:p-5 bg-amber-50 rounded-2xl border border-amber-100 text-center lg:text-left col-span-2 lg:col-span-1">
               <div className="text-2xl md:text-3xl font-black text-amber-600 mb-1">{regStats.siteSupervisorCount}</div>
               <div className="text-[9px] md:text-[10px] font-bold text-amber-400 uppercase tracking-widest leading-tight">Site Supervisors</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cohort Distribution Analytics ── */}
+      {studentStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-2">
+          {/* Departmental Mix */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+            <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Departmental Mix</h4>
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'CS', value: studentStats.departments?.cs || 0 },
+                      { name: 'SE', value: studentStats.departments?.se || 0 },
+                      { name: 'Other', value: studentStats.departments?.other || 0 }
+                    ]}
+                    innerRadius={25}
+                    outerRadius={45}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#3b82f6" />
+                    <Cell fill="#8b5cf6" />
+                    <Cell fill="#94a3b8" />
+                  </Pie>
+                  <Tooltip {...CHART_TOOLTIP_STYLE} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2 mt-2">
+              <span className="text-[8px] font-bold text-gray-400">CS: {studentStats.departments?.cs}</span>
+              <span className="text-[8px] font-bold text-gray-400">SE: {studentStats.departments?.se}</span>
+            </div>
+          </div>
+
+          {/* Eligibility Pie */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+            <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Cohort Eligibility</h4>
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Eligible', value: studentStats.eligibility.eligible },
+                      { name: 'Ineligible', value: studentStats.eligibility.ineligible }
+                    ]}
+                    innerRadius={25}
+                    outerRadius={45}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#10b981" />
+                    <Cell fill="#ef4444" />
+                  </Pie>
+                  <Tooltip {...CHART_TOOLTIP_STYLE} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /><span className="text-[8px] font-bold text-gray-500">{studentStats.eligibility.eligible} Ready</span></div>
+              <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-rose-500" /><span className="text-[8px] font-bold text-gray-500">{studentStats.eligibility.ineligible} Blocked</span></div>
+            </div>
+          </div>
+
+          {/* Mode Distribution */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+            <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Placement Mode</h4>
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Onsite', value: studentStats.modes.onsite },
+                      { name: 'Remote', value: studentStats.modes.remote },
+                      { name: 'Hybrid', value: studentStats.modes.hybrid },
+                      { name: 'Freelance', value: studentStats.modes.freelance },
+                      { name: 'Unrequested', value: studentStats.modes.unrequested }
+                    ]}
+                    innerRadius={25}
+                    outerRadius={45}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {COLORS.map((c, i) => <Cell key={i} fill={c} />)}
+                  </Pie>
+                  <Tooltip {...CHART_TOOLTIP_STYLE} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-[8px] font-black text-indigo-500 uppercase tracking-tighter mt-2 bg-indigo-50 px-2 py-0.5 rounded-full">
+              {studentStats.modes.freelance} Freelancers
+            </div>
+          </div>
+
+          {/* GPA Distribution */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+            <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">GPA Distribution</h4>
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Low (<2.0)', value: studentStats.gpa.low },
+                      { name: 'Normal', value: studentStats.gpa.medium },
+                      { name: 'High (3.5+)', value: studentStats.gpa.high }
+                    ]}
+                    innerRadius={25}
+                    outerRadius={45}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#ef4444" />
+                    <Cell fill="#3b82f6" />
+                    <Cell fill="#8b5cf6" />
+                  </Pie>
+                  <Tooltip {...CHART_TOOLTIP_STYLE} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-[8px] font-black text-rose-500 flex items-center gap-1 mt-2">
+              <i className="fas fa-triangle-exclamation" /> {studentStats.gpa.low} Low GPA
+            </div>
+          </div>
+
+          {/* Completion Analysis */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+            <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">Profile Quality</h4>
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Complete', value: studentStats.completion.complete },
+                      { name: 'Incomplete', value: studentStats.completion.missingSem + studentStats.completion.missingCGPA }
+                    ]}
+                    innerRadius={25}
+                    outerRadius={45}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#10b981" />
+                    <Cell fill="#f59e0b" />
+                  </Pie>
+                  <Tooltip {...CHART_TOOLTIP_STYLE} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-[8px] font-black text-amber-600 flex items-center gap-1 mt-2">
+              {studentStats.completion.missingSem + studentStats.completion.missingCGPA} Issues
             </div>
           </div>
         </div>
@@ -187,7 +349,7 @@ export default function HODDashboard() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                    <span>Evaluation Coverage</span>
+                    <span>Evaluation Statistics</span>
                     <span>{comStats.completionRate}%</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -203,137 +365,10 @@ export default function HODDashboard() {
         </div>
       )}
 
-      {/* ── Phase 2: Placement & Approvals ── */}
-      {activePhase?.order >= 2 && reqStats && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border-2 border-secondary/20 p-4 md:p-8 overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-3">
-              <span className="px-3 py-1 bg-secondary/10 text-secondary text-[10px] font-black rounded-full tracking-widest uppercase">
-                Phase 2 Data
-              </span>
-            </div>
-            <div className="flex items-center gap-4 mb-6 md:mb-8 mt-4 md:mt-0">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary text-lg md:text-xl">
-                <i className="fas fa-file-arrow-up"></i>
-              </div>
-              <div>
-                <h3 className="text-base md:text-lg font-black text-gray-800">Placement Submission Monitoring</h3>
-                <p className="text-[10px] md:text-sm text-gray-400 font-medium tracking-tight">Real-time oversight of student internship approval requests (AppEx-A).</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-8">
-              <div className="p-4 md:p-5 bg-gray-50 rounded-2xl border border-gray-100">
-                <div className="text-2xl font-black text-gray-800 mb-1">{regStats?.total || 0}</div>
-                <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-tight">Total Students</div>
-              </div>
-              <div className="p-4 md:p-5 bg-rose-50 rounded-2xl border border-rose-100">
-                <div className="text-2xl font-black text-rose-600 mb-1">{regStats?.ineligible || 0}</div>
-                <div className="text-[9px] font-bold text-rose-400 uppercase tracking-widest leading-tight">Ineligible</div>
-              </div>
-              <div className="p-4 md:p-5 bg-blue-50 rounded-2xl border border-blue-100">
-                <div className="text-2xl font-black text-blue-600 mb-1">{reqStats.eligible}</div>
-                <div className="text-[9px] font-bold text-blue-400 uppercase tracking-widest leading-tight">Eligible Only</div>
-              </div>
-              <div className="p-4 md:p-5 bg-indigo-50 rounded-2xl border border-indigo-100">
-                <div className="text-2xl font-black text-indigo-600 mb-1">{reqStats.submitted}</div>
-                <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest leading-tight">Submitted</div>
-              </div>
-              <div className="p-4 md:p-5 bg-emerald-50 rounded-2xl border border-emerald-100">
-                <div className="text-2xl font-black text-emerald-600 mb-1">{reqStats.approved}</div>
-                <div className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest leading-tight">Approved</div>
-              </div>
-              <div className="p-4 md:p-5 bg-amber-50 rounded-2xl border border-amber-100">
-                <div className="text-2xl font-black text-amber-600 mb-1">{reqStats.pending}</div>
-                <div className="text-[9px] font-bold text-amber-400 uppercase tracking-widest leading-tight">Pending</div>
-              </div>
-            </div>
-
-            {/* Placement Breakdown Graphs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t pt-8">
-              {/* Placement Type Pie Chart */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest text-center">Placement Type</h4>
-                <div className="h-[220px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: 'Self-Arranged', value: reqStats.breakdowns?.type?.self || 0 },
-                          { name: 'University Assigned', value: reqStats.breakdowns?.type?.university || 0 }
-                        ]}
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        <Cell fill="#3b82f6" />
-                        <Cell fill="#10b981" />
-                      </Pie>
-                      <Tooltip {...CHART_TOOLTIP_STYLE} />
-                      <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Internship Mode Pie Chart */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest text-center">Internship Mode</h4>
-                <div className="h-[220px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: 'Onsite', value: reqStats.breakdowns?.mode?.onsite || 0 },
-                          { name: 'Remote', value: reqStats.breakdowns?.mode?.remote || 0 },
-                          { name: 'Hybrid', value: reqStats.breakdowns?.mode?.hybrid || 0 },
-                          { name: 'Freelance', value: reqStats.breakdowns?.mode?.freelance || 0 }
-                        ]}
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {COLORS.map((color, index) => <Cell key={`cell-${index}`} fill={color} />)}
-                      </Pie>
-                      <Tooltip {...CHART_TOOLTIP_STYLE} />
-                      <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Supervisor Breakdown Bar Chart */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest text-center">Supervisor Distribution</h4>
-                <div className="h-[220px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <BarChart
-                      data={[
-                        { name: 'Faculty', count: reqStats.supervisors?.faculty || 0 },
-                        { name: 'Site', count: reqStats.supervisors?.site || 0 }
-                      ]}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} allowDecimals={false} />
-                      <Tooltip {...CHART_TOOLTIP_STYLE} />
-                      <Bar dataKey="count" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="mt-8">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-1 h-6 bg-primary rounded-full"></div>
-          <h3 className="font-black text-gray-800 tracking-tight text-lg">Departmental Record Registry</h3>
+          <div className="w-1.5 h-6 bg-primary rounded-full shadow-sm shadow-primary/20"></div>
+          <h3 className="font-black text-gray-800 tracking-tight text-xl">Supervisors</h3>
         </div>
         <RegistrationDetails />
       </div>

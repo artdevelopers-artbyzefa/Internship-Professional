@@ -95,27 +95,41 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
 
   const isWorkflowComplete = user.status === 'Agreement Approved' || user.status === 'Assigned';
   const isLocked = !hardCriteriaMet; // True lock = failed semester/CGPA/reg/email — cannot participate
-  const showPhase3Nav = activePhase?.order >= 3;
+
+  const currentPhaseOrder = activePhase ? activePhase.order : 1;
+  const showPhase3Nav = currentPhaseOrder >= 3;
+  const isPhase4 = currentPhaseOrder >= 4;
 
   // Nav: during pending setup, show dashboard + profile to let them complete
-  const studentNav = isPhase1
-    ? [
+  let studentNav = [];
+
+  if (isPhase1) {
+    studentNav = [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
-      // Show profile only if they are eligible by hard criteria (or pending setup)
       ...(hardCriteriaMet ? [{ id: 'profile', label: 'My Profile', icon: 'fa-user-pen', badge: isPendingSetup ? '!' : undefined }] : []),
-    ]
-    : [
+    ];
+  } else if (isPhase4) {
+    // Phase 4+: Completion view — only show results and results-related info
+    studentNav = [
+      { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
+      { id: 'results', label: 'Grades', icon: 'fa-award' },
+      { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' },
+    ];
+  } else {
+    // Phases 2 & 3
+    studentNav = [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
       ...(!showPhase3Nav ? [
         { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
         { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
       ] : []),
       ...(showPhase3Nav ? [
-        { id: 'assignments', label: 'Assignments', icon: 'fa-file-lines' },
-        { id: 'results', label: 'Results', icon: 'fa-award' },
+        { id: 'assignments', label: 'Company Tasks', icon: 'fa-file-lines' },
+        { id: 'results', label: 'Grades', icon: 'fa-award' },
       ] : []),
       { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' },
     ];
+  }
 
   return (
     <AppLayout

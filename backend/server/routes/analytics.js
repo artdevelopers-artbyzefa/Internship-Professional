@@ -800,7 +800,7 @@ router.get('/interns-paginated', protect, isManagement, async (req, res) => {
 
         let query = {
             role: 'student',
-            status: { $in: ['Assigned', 'Agreement Approved', 'Internship Approved'] }
+            status: { $in: ['Assigned', 'Agreement Approved', 'Internship Approved', 'Pass', 'Fail'] }
         };
 
         if (search) {
@@ -835,26 +835,26 @@ router.get('/interns-paginated', protect, isManagement, async (req, res) => {
 // @desc    Get stats for Phase 3: Internship Commences (Tasks, Submissions, Gradings)
 router.get('/commencement-stats', protect, isManagement, async (req, res) => {
     try {
-        const [activeInterns, assignments, submissions, evaluations] = await Promise.all([
-            User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } }),
+        const internStatuses = ['Assigned', 'Agreement Approved', 'Internship Approved', 'Pass', 'Fail'];
+
+        const [activeInterns, assignments, submissions, marks] = await Promise.all([
+            User.countDocuments({ role: 'student', status: { $in: internStatuses } }),
             Assignment.countDocuments({}),
             Submission.countDocuments({}),
-            Evaluation.find({ status: 'Submitted' })
+            Mark.find({}) // Fetch all marks for detailed breakdown
         ]);
 
-        const gradedByFaculty = evaluations.filter(e => e.source === 'faculty').length;
-        const gradedBySite = evaluations.filter(e => e.source === 'site_supervisor').length;
+        const totalPotentialMarks = activeInterns * assignments;
 
-        // Group evaluations by student to see how many have BOTH
-        const studentMap = {};
-        evaluations.forEach(e => {
-            const sid = e.student.toString();
-            if (!studentMap[sid]) studentMap[sid] = { faculty: false, site: false };
-            if (e.source === 'faculty') studentMap[sid].faculty = true;
-            if (e.source === 'site_supervisor') studentMap[sid].site = true;
+        let gradedByFaculty = 0;
+        let gradedBySite = 0;
+        let fullyGraded = 0;
+
+        marks.forEach(m => {
+            if (m.isFacultyGraded) gradedByFaculty++;
+            if (m.isSiteSupervisorGraded) gradedBySite++;
+            if (m.isFacultyGraded && m.isSiteSupervisorGraded) fullyGraded++;
         });
-
-        const fullyGraded = Object.values(studentMap).filter(v => v.faculty && v.site).length;
 
         res.json({
             activeInterns,
@@ -863,7 +863,7 @@ router.get('/commencement-stats', protect, isManagement, async (req, res) => {
             gradedByFaculty,
             gradedBySite,
             fullyGraded,
-            completionRate: activeInterns > 0 ? ((fullyGraded / activeInterns) * 100).toFixed(0) : 0
+            completionRate: totalPotentialMarks > 0 ? ((fullyGraded / totalPotentialMarks) * 100).toFixed(0) : 0
         });
     } catch (err) {
         console.error(err);

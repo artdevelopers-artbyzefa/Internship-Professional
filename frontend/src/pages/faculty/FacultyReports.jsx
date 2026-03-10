@@ -64,7 +64,8 @@ export default function FacultyReports({ user }) {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/reports/generate-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to generate PDF');
 
@@ -166,8 +167,8 @@ export default function FacultyReports({ user }) {
                       <td className="px-6 py-4 text-[10px] font-bold text-gray-400">{row[5] && row[5] !== 'N/A' ? gradePointsFromPct(pctNum) : '—'}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${row[6] === 'Qualified' ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                            : row[6] === 'Failed' ? 'bg-red-50 text-red-700 border-red-100'
-                              : 'bg-gray-50 text-gray-500 border-gray-100'
+                          : row[6] === 'Failed' ? 'bg-red-50 text-red-700 border-red-100'
+                            : 'bg-gray-50 text-gray-500 border-gray-100'
                           }`}>
                           <i className={`fas text-[8px] ${row[6] === 'Qualified' ? 'fa-check' : row[6] === 'Failed' ? 'fa-times' : 'fa-clock'}`} />
                           {row[6] || 'Pending'}
@@ -223,68 +224,6 @@ export default function FacultyReports({ user }) {
           </button>
         </div>
 
-        {/* Coming soon */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 opacity-60">
-          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center mb-4">
-            <i className="fas fa-file-word text-xl" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-800 mb-2">Official Letters</h3>
-          <p className="text-sm text-gray-500 mb-6">Internship completion letters in Word format.</p>
-          <div className="w-full py-3 rounded-xl bg-gray-50 text-gray-400 text-center text-sm font-bold border border-dashed border-gray-200">
-            Coming Soon
-          </div>
-        </div>
-      </div>
-
-      {/* Grade Scale Reference ──────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center">
-            <i className="fas fa-table text-sm" />
-          </div>
-          <h3 className="font-black text-gray-800">Grading Scale Reference</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-100">
-                {['Grade', 'Grade Points', 'Percentage Range', 'Status'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {[
-                ['A', '3.67–4.00', '85% and above', true],
-                ['A-', '3.34–3.66', '80 – 84%', true],
-                ['B+', '3.01–3.33', '75 – 79%', true],
-                ['B', '2.67–3.00', '71 – 74%', true],
-                ['B-', '2.34–2.66', '68 – 70%', true],
-                ['C+', '2.01–2.33', '64 – 67%', true],
-                ['C', '1.67–2.00', '61 – 63%', true],
-                ['C-', '1.31–1.66', '58 – 60%', true],
-                ['D+', '1.01–1.30', '54 – 57%', true],
-                ['D', '0.10–1.00', '50 – 53%', true],
-                ['F', '0.00', 'Below 50%', false],
-              ].map(([g, gp, range, pass]) => {
-                const c = gradeColor(g);
-                return (
-                  <tr key={g} className="hover:bg-gray-50/50">
-                    <td className="px-4 py-3"><GradeBadge grade={g} /></td>
-                    <td className="px-4 py-3 font-bold text-gray-700 text-xs">{gp}</td>
-                    <td className="px-4 py-3 font-bold text-gray-700 text-xs">{range}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black ${pass ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                        <i className={`fas text-[7px] ${pass ? 'fa-check' : 'fa-times'}`} />
-                        {pass ? 'Pass' : 'Fail'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   );

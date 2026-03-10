@@ -189,12 +189,17 @@ router.post('/submit-marks', protect, isFaculty, async (req, res) => {
             return res.status(403).json({ message: 'Deadline Passed – Editing Locked' });
         }
 
-        if (marks > assignment.totalMarks) {
-            return res.status(400).json({ message: `Marks cannot exceed the total marks (${assignment.totalMarks}).` });
+        if (marks > 10) {
+            return res.status(400).json({ message: `Marks cannot exceed the total marks (10).` });
         }
 
         // 2. Upsert Mark
         let markEntry = await Mark.findOne({ assignment: assignmentId, student: studentId });
+
+        if (markEntry && markEntry.isFacultyGraded) {
+            return res.status(403).json({ message: 'Marks already finalized – Editing Locked' });
+        }
+
         const action = markEntry ? 'MARK_UPDATED' : 'MARK_ADDED';
 
         if (markEntry) {
@@ -258,9 +263,12 @@ router.post('/bulk-submit-marks', protect, isFaculty, async (req, res) => {
 
             // Skip if marks are empty or exceed total
             if (marks === null || marks === '') continue;
-            if (marks > assignment.totalMarks) continue;
+            if (marks > 10) continue;
 
             let markEntry = await Mark.findOne({ assignment: assignmentId, student: studentId });
+
+            if (markEntry && markEntry.isFacultyGraded) continue; // Skip if already graded
+
             const action = markEntry ? 'MARK_UPDATED' : 'MARK_ADDED';
 
             if (markEntry) {
@@ -553,13 +561,24 @@ router.get('/student-profile/:id', protect, isFaculty, async (req, res) => {
     }
 });
 
-// @route   GET api/faculty/weekly-evaluations/:studentId
-// @desc    Get site supervisor grades and faculty marks for a student's assignments
 router.get('/weekly-evaluations/:studentId', protect, isFaculty, async (req, res) => {
     try {
-        const marks = await Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline');
-        // Only return marks that have an assignment (in case of orphan records)
-        res.json(marks.filter(m => m.assignment));
+        const [marks, submissions] = await Promise.all([
+            Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline'),
+            Submission.find({ student: req.params.studentId }).select('assignment fileUrl fileName')
+        ]);
+
+        const consolidated = marks
+            .filter(m => m.assignment)
+            .map(m => {
+                const sub = submissions.find(s => s.assignment.toString() === m.assignment._id.toString());
+                return {
+                    ...m.toObject(),
+                    submission: sub ? { fileUrl: sub.fileUrl, fileName: sub.fileName } : null
+                };
+            });
+
+        res.json(consolidated);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -572,13 +591,18 @@ router.post('/weekly-evaluations/:studentId', protect, isFaculty, async (req, re
         const { grades } = req.body; // Array of { markId, facultyMarks }
 
         for (const grade of grades) {
+            // Validate that markId and facultyMarks are provided
+            if (!grade.markId || grade.facultyMarks === null || grade.facultyMarks === undefined || grade.facultyMarks === '') continue;
+
             const mark = await Mark.findById(grade.markId);
             if (mark && mark.student.toString() === req.params.studentId) {
-                mark.facultyMarks = grade.facultyMarks;
+                if (mark.isFacultyGraded) continue; // Block re-editing
+
+                mark.facultyMarks = Number(grade.facultyMarks);
                 mark.isFacultyGraded = true;
                 mark.facultyId = req.user.id;
                 mark.history.push({
-                    marks: grade.facultyMarks,
+                    marks: Number(grade.facultyMarks),
                     role: 'faculty_supervisor',
                     updatedBy: req.user.id
                 });
@@ -613,10 +637,11 @@ function calcGradeF(pct) {
 router.get('/report-data/:type', protect, isFaculty, async (req, res) => {
     try {
         const type = req.params.type;
+        const internStatuses = ['Assigned', 'Agreement Approved', 'Internship Approved', 'Pass', 'Fail'];
         const students = await User.find({
             assignedFaculty: req.user.id,
             role: 'student',
-            status: { $in: ['Assigned', 'Agreement Approved'] }
+            status: { $in: internStatuses }
         }).select('name reg assignedCompany assignedCompanySupervisor status internshipRequest');
 
         let payload = {
@@ -639,11 +664,10 @@ router.get('/report-data/:type', protect, isFaculty, async (req, res) => {
                 s.internshipRequest?.mode || 'N/A',
                 s.status
             ]);
-
         } else if (type === 'evaluation') {
-            payload.reportTitle = 'Internship Performance Report';
-            payload.tableHeader = ['Reg. #', 'Name', 'Weeks', 'Avg (/ 10)', '%', 'Grade', 'Status'];
-            payload.columnsLayout = [100, '*', 40, 55, 35, 40, 60];
+            payload.reportTitle = 'Student Evaluation Report';
+            payload.tableHeader = ['Reg. #', 'Name', 'Tasks', 'Avg. Score', 'Percentage', 'Grade', 'Status'];
+            payload.columnsLayout = [100, '*', 50, 60, 60, 50, 60];
 
             for (const s of students) {
                 const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
@@ -651,10 +675,19 @@ router.get('/report-data/:type', protect, isFaculty, async (req, res) => {
                     payload.tableData.push([s.reg, s.name, '0', 'N/A', 'N/A', 'N/A', 'Pending']);
                     continue;
                 }
-                const total = marks.reduce((sum, m) => sum + (m.facultyMarks || 0), 0);
-                const avg = total / marks.length;
+
+                const isFreelance = s.internshipRequest?.mode === 'Freelance' || !s.assignedCompanySupervisor;
+
+                const taskScores = marks.map(m => {
+                    const fScore = m.facultyMarks || 0;
+                    const sScore = m.siteSupervisorMarks || 0;
+                    return isFreelance ? fScore : (fScore + sScore) / 2;
+                });
+
+                const avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
                 const pct = Math.round((avg / 10) * 100);
                 const { grade, status } = calcGradeF(pct);
+
                 payload.tableData.push([
                     s.reg,
                     s.name,

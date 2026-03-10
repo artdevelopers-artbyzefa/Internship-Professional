@@ -92,7 +92,6 @@ export default function SupervisorAssignments({ user }) {
             <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Assignment Management</h2>
-                    <p className="text-sm text-gray-500 font-medium mt-1">Deploy and track industrial tasks for assigned student interns.</p>
                 </div>
                 <button
                     onClick={() => setShowAdd(!showAdd)}
@@ -215,7 +214,7 @@ export default function SupervisorAssignments({ user }) {
                                 Cancel
                             </button>
                             <button type="submit" className="px-10 py-3 rounded-xl bg-gray-900 text-white font-bold text-xs shadow-lg shadow-gray-200 hover:bg-black transition-all active:scale-95 border-0 cursor-pointer">
-                                Deploy Assignment
+                                Submit Task
                             </button>
                         </div>
                     </form>

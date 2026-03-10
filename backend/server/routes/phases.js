@@ -1,10 +1,162 @@
 import express from 'express';
 import Phase from '../models/Phase.js';
 import AuditLog from '../models/AuditLog.js';
+import User from '../models/User.js';
+import Mark from '../models/Mark.js';
+import Submission from '../models/Submission.js';
+import Evaluation from '../models/Evaluation.js';
+import Archive from '../models/Archive.js';
 import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// ... existing DEFAULT_PHASES ...
+
+// @route   POST api/phases/:id/start
+// @desc    Manually activate a phase (IO override)
+router.post('/:id/start', async (req, res) => {
+    try {
+        const { officeId } = req.body;
+        const phase = await Phase.findById(req.params.id);
+        if (!phase) return res.status(404).json({ message: 'Phase not found.' });
+        if (phase.status === 'active') return res.status(400).json({ message: 'This phase is already active.' });
+        if (phase.status === 'completed') return res.status(400).json({ message: 'This phase is already completed.' });
+
+        // Logic for specific phase transitions
+        if (phase.order === 4) {
+            // PHASE 4: Evaluation & Grading
+            // Identify students who didn't participate (0 submissions)
+            const students = await User.find({ role: 'student' });
+            for (const student of students) {
+                const subCount = await Submission.countDocuments({ student: student._id });
+                if (subCount === 0) {
+                    // Mark as Failed if they were in an active track but did nothing
+                    const allowedStatuses = ['Assigned', 'Internship Approved', 'Agreement Approved'];
+                    if (allowedStatuses.includes(student.status)) {
+                        student.status = 'Fail'; // Or a custom status if preferred
+                        await student.save();
+                        console.log(`[PHASE 4] Student ${student.reg} marked as Failed (No Submissions).`);
+                    }
+                }
+            }
+        }
+
+        if (phase.order === 5) {
+            // PHASE 5: Completion & Archive
+            const students = await User.find({ role: 'student' }).populate('assignedFaculty');
+            const archiveData = [];
+
+            for (const s of students) {
+                // Calculate their final percentage and grade before reset
+                const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+                let avg = 0, pct = 0, grade = 'F';
+
+                if (marks.length > 0) {
+                    const isFreelance = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+                    const taskScores = marks.map(m => isFreelance ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2);
+                    avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
+                    pct = Math.round((avg / 10) * 100);
+                    // Use a simple grade mapping for archive
+                    if (pct >= 85) grade = 'A';
+                    else if (pct >= 80) grade = 'A-';
+                    else if (pct >= 75) grade = 'B+';
+                    else if (pct >= 71) grade = 'B';
+                    else if (pct >= 68) grade = 'B-';
+                    else if (pct >= 64) grade = 'C+';
+                    else if (pct >= 61) grade = 'C';
+                    else if (pct >= 58) grade = 'C-';
+                    else if (pct >= 54) grade = 'D+';
+                    else if (pct >= 50) grade = 'D';
+                }
+
+                archiveData.push({
+                    name: s.name,
+                    reg: s.reg,
+                    email: s.email,
+                    grade,
+                    percentage: pct,
+                    status: s.status,
+                    company: s.assignedCompany || 'N/A',
+                    mode: s.internshipRequest?.mode || 'N/A',
+                    faculty: s.assignedFaculty?.name || 'N/A'
+                });
+            }
+
+            // Save to Archive
+            const cycleName = `Internship Cycle - ${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
+            const stats = {
+                totalStudents: archiveData.length,
+                totalPassed: archiveData.filter(a => a.percentage >= 50).length,
+                totalFailed: archiveData.filter(a => a.percentage < 50).length,
+                averagePercentage: archiveData.length > 0 ? (archiveData.reduce((s, a) => s + a.percentage, 0) / archiveData.length) : 0
+            };
+
+            await new Archive({
+                cycleName,
+                year: new Date().getFullYear(),
+                students: archiveData,
+                statistics: stats,
+                archivedBy: officeId
+            }).save();
+
+            // DATA PURGE & RESET
+            // 1. Delete all process records
+            await Promise.all([
+                Submission.deleteMany({}),
+                Mark.deleteMany({}),
+                Evaluation.deleteMany({}),
+                // We keep Companies and Users (Accounts)
+            ]);
+
+            // 2. Reset Students to baseline
+            await User.updateMany(
+                { role: 'student' },
+                {
+                    $set: {
+                        status: 'verified',
+                        assignedFaculty: null,
+                        assignedSiteSupervisor: null,
+                        assignedCompany: null,
+                        assignedCompanySupervisor: null,
+                        assignedCompanySupervisorEmail: null,
+                        internshipRequest: {},
+                        internshipAgreement: {}
+                    }
+                }
+            );
+
+            // 3. Reset all Phases to pending except Phase 1 stays active for the next cycle
+            await Phase.updateMany({}, { $set: { status: 'pending', startedAt: null, completedAt: null, startedBy: null, completedBy: null } });
+            const p1 = await Phase.findOne({ order: 1 });
+            if (p1) {
+                p1.status = 'active';
+                p1.startedAt = new Date();
+                p1.startedBy = officeId;
+                await p1.save();
+            }
+
+            await new AuditLog({ action: 'SYSTEM_RESET_PHASE_5', performedBy: officeId, details: `Cycle "${cycleName}" archived and system reset.`, ipAddress: req.ip }).save();
+            console.log(`[${getPKTTime()}] [PHASE 5] System Reset & Archived: ${cycleName}`);
+
+            return res.json({ message: `Cycle archived and system reset. Starting Phase 1 again.` });
+        }
+
+        await Phase.updateMany({ status: 'active' }, { $set: { status: 'completed', completedAt: new Date(), completedBy: officeId } });
+
+        phase.status = 'active';
+        phase.startedAt = new Date();
+        phase.startedBy = officeId;
+        await phase.save();
+
+        await new AuditLog({ action: 'PHASE_STARTED', performedBy: officeId, details: `Phase "${phase.label}" manually started.`, ipAddress: req.ip }).save();
+        console.log(`[${getPKTTime()}] [PHASE] Manually started: ${phase.label}`);
+        res.json({ message: `"${phase.label}" is now active.` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 
 // ── Default phase definitions ─────────────────────────────────────────────
 const DEFAULT_PHASES = [

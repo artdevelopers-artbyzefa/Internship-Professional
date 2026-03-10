@@ -87,11 +87,6 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
         </div>
       </div>
 
-      {/* Centre — phase chip */}
-      <div className="flex-1 flex justify-center px-2">
-        <PhaseChip activePhase={activePhase} />
-      </div>
-
       {/* Right */}
       <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
         {/* Notifications */}

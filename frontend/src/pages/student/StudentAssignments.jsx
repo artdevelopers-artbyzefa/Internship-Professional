@@ -206,8 +206,7 @@ export default function StudentAssignments({ user }) {
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-hidden relative">
         <div className="relative z-10">
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Academic Deliverables Portal</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">Submit technical reports and industrial task logs for evaluation.</p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Company Tasks</h2>
         </div>
         <div className="absolute right-0 top-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16"></div>
       </div>
@@ -265,8 +264,8 @@ export default function StudentAssignments({ user }) {
                       </p>
                       <p className="text-xs text-gray-400 max-w-[280px] leading-relaxed">
                         {activeTab === 'pending'
-                          ? 'Great job! You have completed all your currently assigned industrial tasks.'
-                          : 'Your submitted industrial reports and technical feedback will be archived here.'}
+                          ? 'Great job! You have completed all your currently assigned company tasks.'
+                          : 'Your submitted company reports and technical feedback will be archived here.'}
                       </p>
                     </div>
                   </td>
@@ -277,12 +276,12 @@ export default function StudentAssignments({ user }) {
                     <tr className="hover:bg-gray-50/30 transition-colors group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-sm border ${a.courseTitle?.includes('Industrial') ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-blue-50 text-primary border-blue-100'}`}>
-                            <i className={`fas ${a.courseTitle?.includes('Industrial') ? 'fa-briefcase' : 'fa-graduation-cap'}`}></i>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-sm border ${a.courseTitle?.includes('Company') ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-blue-50 text-primary border-blue-100'}`}>
+                            <i className={`fas ${a.courseTitle?.includes('Company') ? 'fa-briefcase' : 'fa-graduation-cap'}`}></i>
                           </div>
                           <div>
                             <p className="text-sm font-bold text-gray-800 leading-none mb-1">{a.title}</p>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Category: {a.courseTitle}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Category: {a.courseTitle || 'Company Task'}</p>
                           </div>
                         </div>
                       </td>

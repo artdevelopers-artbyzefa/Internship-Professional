@@ -298,7 +298,7 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
                       </div>
                       <div>
                         <p className="text-sm font-bold text-gray-800 leading-none">{a.title}</p>
-                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{a.courseTitle || 'Industrial Task'}</p>
+                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{a.courseTitle || 'Company Task'}</p>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0 flex items-center gap-4">

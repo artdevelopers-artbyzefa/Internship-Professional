@@ -16,13 +16,22 @@ function GradeBadge({ grade }) {
   );
 }
 
-function calcStats(marks, localScores) {
-  const rows = marks.map(m => ({
-    obtained: localScores[m._id] !== '' ? Number(localScores[m._id]) : (m.facultyMarks ?? null)
-  })).filter(r => r.obtained !== null && !isNaN(r.obtained));
+function calcStats(marks, localScores, isFreelance) {
+  const rows = marks.map(m => {
+    const fInput = localScores[m._id];
+    const fScore = (fInput !== '' && fInput !== undefined) ? Number(fInput) : m.facultyMarks;
+    const sScore = m.siteSupervisorMarks || 0;
+
+    if (fScore === null || fScore === undefined) return null;
+
+    // Formula: (Site + Faculty) / 2 OR just Faculty for Freelance
+    const obtained = isFreelance ? fScore : (sScore + fScore) / 2;
+    return { obtained };
+  }).filter(r => r !== null);
 
   if (rows.length === 0) return { avg: null, pct: null, grade: null };
-  const avg = rows.reduce((s, r) => s + r.obtained, 0) / rows.length;
+  const totalObtained = rows.reduce((s, r) => s + r.obtained, 0);
+  const avg = totalObtained / rows.length;
   const pct = Math.round((avg / 10) * 100);
   const grade = gradeFromPct(pct);
   return { avg: avg.toFixed(1), pct, grade };
@@ -45,6 +54,14 @@ export default function FacultyEvaluation({ user }) {
     catch { } finally { setLoading(false); }
   };
 
+  const handleDownload = (mark) => {
+    if (!mark.submission?.fileUrl) return;
+    const name = mark.assignment?.title || 'Report';
+    const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}_Report`;
+    const proxyUrl = `${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(mark.submission.fileUrl)}&filename=${cleanName}.pdf`;
+    window.location.assign(proxyUrl);
+  };
+
   const handleSelect = async (s) => {
     setSelected(s); setFetchingEval(true); setScores({});
     try {
@@ -63,14 +80,26 @@ export default function FacultyEvaluation({ user }) {
   };
 
   const handleSubmit = async () => {
+    // Only send marks that have a value
+    const gradesToSend = Object.keys(scores)
+      .filter(id => scores[id] !== '' && scores[id] !== null)
+      .map(id => ({
+        markId: id,
+        facultyMarks: Number(scores[id])
+      }));
+
+    if (gradesToSend.length === 0) {
+      showToast.error('Please enter at least one mark.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const grades = Object.keys(scores).map(markId => ({
-        markId, facultyMarks: Number(scores[markId]) || 0
-      }));
-      await apiRequest(`/faculty/weekly-evaluations/${selected.id || selected._id}`, { method: 'POST', body: { grades } });
+      await apiRequest(`/faculty/weekly-evaluations/${selected.id || selected._id}`, {
+        method: 'POST',
+        body: { grades: gradesToSend }
+      });
       showToast.success('Weekly grades saved successfully.');
-      // refresh
       handleSelect(selected);
     } catch (err) { showToast.error(err.message); }
     finally { setSubmitting(false); }
@@ -78,7 +107,7 @@ export default function FacultyEvaluation({ user }) {
 
   if (loading) return <div className="flex items-center justify-center py-24"><div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin" /></div>;
 
-  const { avg, pct, grade } = selected ? calcStats(weeklyMarks, scores) : {};
+  const { avg, pct, grade } = selected ? calcStats(weeklyMarks, scores, selected.isFreelance) : {};
 
   return (
     <div className="space-y-6">
@@ -141,7 +170,14 @@ export default function FacultyEvaluation({ user }) {
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{selected.reg}</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
+                  {weeklyMarks.length > 0 && weeklyMarks.some(m => !m.isFacultyGraded) && (
+                    <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting} className="rounded-xl font-bold tracking-widest uppercase text-[10px] px-6 h-9 shadow-lg shadow-primary/10">
+                      Save Grades
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {fetchingEval ? (
@@ -162,6 +198,15 @@ export default function FacultyEvaluation({ user }) {
                           <div className="flex items-center gap-2 mb-1">
                             <span className="w-5 h-5 bg-gray-100 text-gray-500 text-[9px] font-black rounded-md flex items-center justify-center">{idx + 1}</span>
                             <p className="font-bold text-gray-800 text-sm">{mark.assignment?.title}</p>
+                            {mark.submission && (
+                              <button
+                                onClick={() => handleDownload(mark)}
+                                className="w-6 h-6 rounded bg-primary/5 text-primary hover:bg-primary/10 border-0 flex items-center justify-center cursor-pointer ml-1"
+                                title="Download Submission"
+                              >
+                                <i className="fas fa-download text-[10px]" />
+                              </button>
+                            )}
                           </div>
                           {mark.isSiteSupervisorGraded && mark.siteSupervisorRemarks !== 'Freelance Track - Auto bypassed site supervisor' ? (
                             <p className="text-[10px] text-emerald-600 font-bold">Site Supervisor: {mark.siteSupervisorMarks} / 10</p>
@@ -169,6 +214,9 @@ export default function FacultyEvaluation({ user }) {
                             <p className="text-[10px] text-indigo-500 font-bold">Freelance Track — no site supervisor</p>
                           ) : (
                             <p className="text-[10px] text-gray-400">Site supervisor hasn't graded yet.</p>
+                          )}
+                          {!mark.submission && (
+                            <p className="text-[8px] text-rose-400 font-bold uppercase tracking-widest mt-1">Pending Submission</p>
                           )}
                           {/* per-row progress bar */}
                           {hasScore && (
@@ -186,16 +234,18 @@ export default function FacultyEvaluation({ user }) {
                           <div className="relative">
                             <input
                               type="number" min="0" max="10"
-                              className="w-16 p-2 text-center border-2 border-gray-200 rounded-xl outline-none focus:border-primary font-black text-lg text-primary transition-colors"
+                              className={`w-16 p-2 text-center border-2 rounded-xl outline-none font-black text-lg transition-colors ${mark.isFacultyGraded ? 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed' : 'border-gray-200 focus:border-primary text-primary'}`}
                               value={myScore}
                               onChange={e => handleScoreChange(mark._id, e.target.value)}
                               placeholder="—"
+                              disabled={mark.isFacultyGraded}
                             />
                             <span className="absolute -bottom-4 left-0 right-0 text-center text-[8px] font-bold text-gray-300">/ 10</span>
                           </div>
                           {gradeRow && (
-                            <div className="mt-5">
+                            <div className="mt-5 flex flex-col items-center gap-1">
                               <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${gc.bg} ${gc.text} ${gc.border}`}>{gradeRow}</span>
+                              {mark.isFacultyGraded && <span className="text-[7px] font-black text-gray-300 uppercase tracking-widest">Finalized</span>}
                             </div>
                           )}
                         </div>
@@ -205,13 +255,6 @@ export default function FacultyEvaluation({ user }) {
                 </div>
               )}
 
-              {weeklyMarks.length > 0 && (
-                <div className="pt-6 border-t mt-4 flex justify-end">
-                  <Button variant="primary" size="lg" onClick={handleSubmit} loading={submitting} className="font-bold tracking-widest uppercase text-xs">
-                    <i className="fas fa-save mr-2" /> Save Grades
-                  </Button>
-                </div>
-              )}
             </Card>
           </div>
 
@@ -255,24 +298,6 @@ export default function FacultyEvaluation({ user }) {
                   <p className="text-xs font-bold">Enter marks to see live grade.</p>
                 </div>
               )}
-            </div>
-
-            {/* Grade Scale */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Grade Scale</h4>
-              <div className="space-y-1.5">
-                {[['A', '≥85%'], ['A-', '80-84%'], ['B+', '75-79%'], ['B', '71-74%'], ['B-', '68-70%'], ['C+', '64-67%'], ['C', '61-63%'], ['C-', '58-60%'], ['D+', '54-57%'], ['D', '50-53%'], ['F', '<50%']].map(([g, r]) => {
-                  const c = gradeColor(g);
-                  const active = grade === g;
-                  return (
-                    <div key={g} className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all ${active ? `${c.bg} ${c.border} border-2` : 'border border-transparent'}`}>
-                      <span className={`text-[10px] font-black ${active ? c.text : 'text-gray-700'}`}>{g}</span>
-                      <span className={`text-[9px] font-bold ${active ? c.text : 'text-gray-400'}`}>{r}</span>
-                      {active && <i className={`fas fa-arrow-left text-[8px] ${c.text}`} />}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </div>

@@ -124,7 +124,7 @@ router.get('/interns', protect, async (req, res) => {
                 { 'internshipAgreement.companySupervisorEmail': userEmail },
                 { assignedCompanySupervisor: { $regex: nameRegex } }
             ]
-        }).select('name reg status profilePicture');
+        }).select('name reg status profilePicture internshipRequest');
 
         res.json(students);
     } catch (err) {

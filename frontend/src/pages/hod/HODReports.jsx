@@ -96,7 +96,10 @@ export default function HODReports() {
         columnsLayout: [80, '*', '*', '*', 40, 35, 35, 55, 55]
       };
       const res = await fetch(`${import.meta.env.VITE_API_URL}/reports/generate-pdf`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'include'
       });
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -119,7 +122,7 @@ export default function HODReports() {
       {/* Header ─────────────────────────────────────────────────────────── */}
       <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Institutional Analytics Portal</h2>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Internship Analysis</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">
             Complete grade analytics across the entire active internship cohort.
           </p>
@@ -225,45 +228,12 @@ export default function HODReports() {
         </div>
       </div>
 
-      {/* Grade Scale Reference ──────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center"><i className="fas fa-table text-sm" /></div>
-          <h3 className="font-black text-gray-800">Semester System Grade Scale</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-100">
-                {['Grade', 'Grade Points', 'Percentage', 'Pass/Fail'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {[['A', '3.67–4.00', '85%+', true], ['A-', '3.34–3.66', '80–84%', true], ['B+', '3.01–3.33', '75–79%', true], ['B', '2.67–3.00', '71–74%', true], ['B-', '2.34–2.66', '68–70%', true], ['C+', '2.01–2.33', '64–67%', true], ['C', '1.67–2.00', '61–63%', true], ['C-', '1.31–1.66', '58–60%', true], ['D+', '1.01–1.30', '54–57%', true], ['D', '0.10–1.00', '50–53%', true], ['F', '0.00', '< 50%', false]].map(([g, gp, r, pass]) => (
-                <tr key={g} className="hover:bg-gray-50/50">
-                  <td className="px-4 py-3"><GradeBadge grade={g} /></td>
-                  <td className="px-4 py-3 text-xs font-bold text-gray-600">{gp}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-gray-600">{r}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black ${pass ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                      <i className={`fas text-[7px] ${pass ? 'fa-check' : 'fa-times'}`} />{pass ? 'Pass' : 'Fail'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Full Student Grade Ledger ──────────────────────────────────────── */}
+      {/* Student Grade Records ────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center"><i className="fas fa-book-open text-sm" /></div>
-            <h3 className="font-black text-gray-800">Complete Grade Ledger</h3>
+            <h3 className="font-black text-gray-800">Student Grade Records</h3>
             <span className="text-[10px] font-black bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full border border-gray-100 uppercase tracking-widest">{filtered.length} Records</span>
           </div>
           <input
@@ -275,7 +245,7 @@ export default function HODReports() {
         {filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
             <i className="fas fa-inbox text-3xl opacity-40 block mb-3" />
-            <p className="text-sm font-bold">No evaluated students found{search ? ' matching your search' : ''}.</p>
+            <p className="text-sm font-bold">No Results yet{search ? ' matching your search' : ''}.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -155,7 +155,6 @@ export default function SupervisorGrading({ user }) {
             <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Industrial Evaluation Centre</h2>
-                    <p className="text-sm text-gray-500 font-medium mt-1">Select an industrial task to review and grade intern submissions.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <select
