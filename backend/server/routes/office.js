@@ -1557,7 +1557,7 @@ router.get('/aggregated-marks', protect, async (req, res) => {
         const results = [];
         for (const s of students) {
             const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
-            if (marks.length === 0) continue;
+            if (marks.length === 0 && s.status !== 'Fail') continue;
 
             const isFreelance = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
 
@@ -1567,7 +1567,7 @@ router.get('/aggregated-marks', protect, async (req, res) => {
                 return isFreelance ? fScore : (fScore + sScore) / 2;
             });
 
-            const avgScore = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
+            const avgScore = marks.length > 0 ? (taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length) : 0;
             const pct = Math.round((avgScore / 10) * 100);
             const { grade, gp, status } = calcGrade(pct);
 

@@ -51,7 +51,7 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<FacultyDashboard user={user} activePhase={activePhase} />} />
           <Route path="registered-students" element={<RegisteredStudents user={user} />} />
-          <Route path="grading" element={<FacultyEvaluation user={user} />} />
+          <Route path="grading" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
           <Route path="reports" element={<FacultyReports user={user} />} />
           <Route path="profile" element={<SupervisorProfile user={user} onUpdate={onUpdateUser} />} />
           <Route path="students/:studentId" element={<StudentProfileDetail />} />

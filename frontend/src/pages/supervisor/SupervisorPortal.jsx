@@ -33,6 +33,17 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
         navigate(`/supervisor/${newPageId}`);
     };
 
+    const filteredNav = supervisorNav.filter(item => {
+        if (activePhase?.order >= 4) {
+            return ['dashboard', 'grading', 'profile'].includes(item.id);
+        }
+        return true;
+    }).map(item => {
+        if (activePhase?.order >= 4 && item.id === 'grading') {
+            return { ...item, label: 'Evaluation Reports', icon: 'fa-clipboard-check' };
+        }
+        return item;
+    });
 
     return (
         <AppLayout
@@ -40,7 +51,7 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
             onLogout={onLogout}
             activePage={currentPath}
             setActivePage={handlePageChange}
-            navItems={supervisorNav}
+            navItems={filteredNav}
         >
             <div className="p-6">
                 <Routes>
@@ -48,7 +59,7 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
                     <Route path="dashboard" element={<SupervisorDashboard user={user} activePhase={activePhase} />} />
                     <Route path="registered-students" element={<RegisteredStudents user={user} />} />
                     <Route path="assignments" element={<SupervisorAssignments user={user} />} />
-                    <Route path="grading" element={<SupervisorGrading user={user} />} />
+                    <Route path="grading" element={<SupervisorGrading user={user} activePhase={activePhase} />} />
                     <Route path="profile" element={<SupervisorProfile user={user} onUpdate={onUpdateUser} />} />
 
                     <Route path="*" element={<Navigate to="dashboard" replace />} />

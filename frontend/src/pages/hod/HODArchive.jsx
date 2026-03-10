@@ -9,7 +9,7 @@ export default function HODArchive() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        apiRequest('/hod/archives')
+        apiRequest('/office/archives')
             .then(data => setArchives(data || []))
             .catch(err => console.error(err))
             .finally(() => setLoading(false));

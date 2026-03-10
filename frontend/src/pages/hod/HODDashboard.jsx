@@ -16,19 +16,22 @@ export default function HODDashboard() {
   const [reqStats, setReqStats] = useState(null);
   const [comStats, setComStats] = useState(null);
   const [studentStats, setStudentStats] = useState(null);
+  const [archiveStats, setArchiveStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [phaseData, statsData, sStats] = await Promise.all([
+        const [phaseData, statsData, sStats, archives] = await Promise.all([
           apiRequest('/phases/current'),
           apiRequest('/analytics/registration-stats'),
-          apiRequest('/office/student-stats')
+          apiRequest('/office/student-stats'),
+          apiRequest('/office/archives')
         ]);
         setActivePhase(phaseData);
         setRegStats(statsData);
         setStudentStats(sStats);
+        setArchiveStats(archives);
 
         if (phaseData?.order >= 2) {
           const requestData = await apiRequest('/analytics/request-stats');
@@ -61,6 +64,17 @@ export default function HODDashboard() {
           <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">HOD Oversight Dashboard</h2>
           <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Final approval and quality assurance of internship evaluations (CS Dept).</p>
         </div>
+        {archiveStats?.length > 0 && (
+          <div className="flex items-center gap-4 bg-gray-50 px-5 py-3 rounded-2xl border border-gray-100 shadow-sm border-l-4 border-l-primary">
+            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary border border-gray-50">
+              <i className="fas fa-database text-sm" />
+            </div>
+            <div>
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight">Institutional Memory</div>
+              <div className="text-base font-black text-gray-800">{archiveStats.length} Archived Cycles</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Phase 1: Registration Status ── */}

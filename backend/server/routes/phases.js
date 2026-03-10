@@ -57,7 +57,8 @@ router.post('/:id/start', async (req, res) => {
                     const taskScores = marks.map(m => isFreelance ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2);
                     avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
                     pct = Math.round((avg / 10) * 100);
-                    // Use a simple grade mapping for archive
+
+                    // Simple grade mapping
                     if (pct >= 85) grade = 'A';
                     else if (pct >= 80) grade = 'A-';
                     else if (pct >= 75) grade = 'B+';
@@ -68,6 +69,8 @@ router.post('/:id/start', async (req, res) => {
                     else if (pct >= 58) grade = 'C-';
                     else if (pct >= 54) grade = 'D+';
                     else if (pct >= 50) grade = 'D';
+                } else if (s.status === 'Fail') {
+                    avg = 0; pct = 0; grade = 'F';
                 }
 
                 archiveData.push({
@@ -100,33 +103,17 @@ router.post('/:id/start', async (req, res) => {
                 archivedBy: officeId
             }).save();
 
-            // DATA PURGE & RESET
+            // DATA PURGE & RESET (Clean Slate)
             // 1. Delete all process records
             await Promise.all([
                 Submission.deleteMany({}),
                 Mark.deleteMany({}),
                 Evaluation.deleteMany({}),
-                // We keep Companies and Users (Accounts)
+                // Delete all students and supervisors to force a clean slate for next cycle
+                User.deleteMany({ role: { $nin: ['hod', 'internship_office'] } })
             ]);
 
-            // 2. Reset Students to baseline
-            await User.updateMany(
-                { role: 'student' },
-                {
-                    $set: {
-                        status: 'verified',
-                        assignedFaculty: null,
-                        assignedSiteSupervisor: null,
-                        assignedCompany: null,
-                        assignedCompanySupervisor: null,
-                        assignedCompanySupervisorEmail: null,
-                        internshipRequest: {},
-                        internshipAgreement: {}
-                    }
-                }
-            );
-
-            // 3. Reset all Phases to pending except Phase 1 stays active for the next cycle
+            // 2. Reset all Phases to pending except Phase 1 stays active for the next cycle
             await Phase.updateMany({}, { $set: { status: 'pending', startedAt: null, completedAt: null, startedBy: null, completedBy: null } });
             const p1 = await Phase.findOne({ order: 1 });
             if (p1) {
@@ -231,31 +218,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-// @route   POST api/phases/:id/start
-// @desc    Manually activate a phase (IO override)
-router.post('/:id/start', async (req, res) => {
-    try {
-        const { officeId } = req.body;
-        const phase = await Phase.findById(req.params.id);
-        if (!phase) return res.status(404).json({ message: 'Phase not found.' });
-        if (phase.status === 'active') return res.status(400).json({ message: 'This phase is already active.' });
-        if (phase.status === 'completed') return res.status(400).json({ message: 'This phase is already completed.' });
-
-        await Phase.updateMany({ status: 'active' }, { $set: { status: 'completed', completedAt: new Date(), completedBy: officeId } });
-
-        phase.status = 'active';
-        phase.startedAt = new Date();
-        phase.startedBy = officeId;
-        await phase.save();
-
-        await new AuditLog({ action: 'PHASE_STARTED', performedBy: officeId, details: `Phase "${phase.label}" manually started.`, ipAddress: req.ip }).save();
-        console.log(`[${getPKTTime()}] [PHASE] Manually started: ${phase.label}`);
-        res.json({ message: `"${phase.label}" is now active.` });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
 
 // @route   POST api/phases/:id/complete
 router.post('/:id/complete', async (req, res) => {

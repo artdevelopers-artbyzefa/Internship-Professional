@@ -672,7 +672,16 @@ router.get('/report-data/:type', protect, isFaculty, async (req, res) => {
             for (const s of students) {
                 const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
                 if (marks.length === 0) {
-                    payload.tableData.push([s.reg, s.name, '0', 'N/A', 'N/A', 'N/A', 'Pending']);
+                    const isFailed = s.status === 'Fail';
+                    payload.tableData.push([
+                        s.reg,
+                        s.name,
+                        '0',
+                        isFailed ? '0.0' : 'N/A',
+                        isFailed ? '0%' : 'N/A',
+                        isFailed ? 'F' : 'N/A',
+                        isFailed ? 'Failed' : 'Pending'
+                    ]);
                     continue;
                 }
 

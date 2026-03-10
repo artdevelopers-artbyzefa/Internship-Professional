@@ -38,7 +38,8 @@ function calcStats(marks, localScores, isFreelance) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function FacultyEvaluation({ user }) {
+export default function FacultyEvaluation({ user, activePhase }) {
+  const isPhase4 = activePhase?.order >= 4;
   const [students, setStudents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,12 +75,14 @@ export default function FacultyEvaluation({ user }) {
   };
 
   const handleScoreChange = (id, val) => {
+    if (isPhase4) return; // Block changes in Phase 4
     const n = Number(val);
     if (val !== '' && (n < 0 || n > 10)) return; // enforce /10
     setScores(prev => ({ ...prev, [id]: val }));
   };
 
   const handleSubmit = async () => {
+    if (isPhase4) return; // Block submission in Phase 4
     // Only send marks that have a value
     const gradesToSend = Object.keys(scores)
       .filter(id => scores[id] !== '' && scores[id] !== null)
@@ -107,7 +110,14 @@ export default function FacultyEvaluation({ user }) {
 
   if (loading) return <div className="flex items-center justify-center py-24"><div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin" /></div>;
 
-  const { avg, pct, grade } = selected ? calcStats(weeklyMarks, scores, selected.isFreelance) : {};
+  const stats = selected ? calcStats(weeklyMarks, scores, selected.isFreelance) : {};
+  let { avg, pct, grade } = stats;
+
+  if (selected?.status === 'Fail' && avg === null) {
+    avg = '0.0';
+    pct = 0;
+    grade = 'F';
+  }
 
   return (
     <div className="space-y-6">
@@ -115,9 +125,11 @@ export default function FacultyEvaluation({ user }) {
       {/* Header */}
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Grade Internship</h2>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">{isPhase4 ? 'Internship Performance Ledger' : 'Grade Internship'}</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">
-            Assign a mark out of <span className="font-black text-gray-700">10</span> per weekly assignment. The student's final grade is the average.
+            {isPhase4
+              ? 'Finalized results and evaluation scores for the current internship cycle.'
+              : 'Assign a mark out of 10 per weekly assignment. The student\'s final grade is the average.'}
           </p>
         </div>
         {selected && (
@@ -131,19 +143,25 @@ export default function FacultyEvaluation({ user }) {
         /* Student List */
         <Card className="rounded-[2.5rem]">
           <h3 className="text-lg font-bold text-gray-800 tracking-tight mb-5">Assigned Interns</h3>
-          <DataTable columns={['Student', 'Reg. No.', 'Company', 'Track', 'Action']}>
+          <DataTable columns={['Student', 'Reg. No.', 'Company', 'Status', 'Action']}>
             {students.length > 0 ? students.map(s => (
               <TableRow key={s.id || s._id}>
                 <TableCell><strong>{s.name}</strong></TableCell>
                 <TableCell muted>{s.reg}</TableCell>
                 <TableCell>{s.company || 'Not Assigned'}</TableCell>
                 <TableCell>
-                  <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-500">Weekly Track</span>
+                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${s.status === 'Fail' ? 'bg-red-50 text-red-500' : 'bg-indigo-50 text-indigo-500'}`}>
+                    {s.status === 'Fail' ? 'Automated Fail' : 'Weekly Track'}
+                  </span>
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="primary" onClick={() => handleSelect(s)} className="rounded-xl font-black uppercase tracking-widest text-[9px]">
-                    Grade Intern
-                  </Button>
+                  {s.status === 'Fail' ? (
+                    <span className="text-[10px] font-black text-red-400 uppercase tracking-widest bg-red-50 px-3 py-2 rounded-xl border border-red-100 italic">No Submissions</span>
+                  ) : (
+                    <Button size="sm" variant={isPhase4 ? 'outline' : 'primary'} onClick={() => handleSelect(s)} className="rounded-xl font-black uppercase tracking-widest text-[9px]">
+                      {isPhase4 ? 'View Result' : 'Grade Intern'}
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             )) : (
@@ -172,7 +190,7 @@ export default function FacultyEvaluation({ user }) {
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
-                  {weeklyMarks.length > 0 && weeklyMarks.some(m => !m.isFacultyGraded) && (
+                  {weeklyMarks.length > 0 && weeklyMarks.some(m => !m.isFacultyGraded) && !isPhase4 && (
                     <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting} className="rounded-xl font-bold tracking-widest uppercase text-[10px] px-6 h-9 shadow-lg shadow-primary/10">
                       Save Grades
                     </Button>
@@ -234,11 +252,11 @@ export default function FacultyEvaluation({ user }) {
                           <div className="relative">
                             <input
                               type="number" min="0" max="10"
-                              className={`w-16 p-2 text-center border-2 rounded-xl outline-none font-black text-lg transition-colors ${mark.isFacultyGraded ? 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed' : 'border-gray-200 focus:border-primary text-primary'}`}
+                              className={`w-16 p-2 text-center border-2 rounded-xl outline-none font-black text-lg transition-colors ${mark.isFacultyGraded || isPhase4 ? 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed' : 'border-gray-200 focus:border-primary text-primary'}`}
                               value={myScore}
                               onChange={e => handleScoreChange(mark._id, e.target.value)}
                               placeholder="—"
-                              disabled={mark.isFacultyGraded}
+                              disabled={mark.isFacultyGraded || isPhase4}
                             />
                             <span className="absolute -bottom-4 left-0 right-0 text-center text-[8px] font-bold text-gray-300">/ 10</span>
                           </div>

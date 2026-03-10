@@ -32,10 +32,10 @@ export default function HODPortal({ user, onLogout }) {
   // Determine current active page from URL
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
-  // Filter Nav Items based on Phase (Only show dashboard in Phase 1 & 2)
+  // Filter Nav Items based on Phase (Dashboard only in Phase 1 & 2, but keep Archive always)
   const isEarlyPhase = activePhase?.key === 'registration' || activePhase?.key === 'request_submission';
   const filteredNav = isEarlyPhase
-    ? hodNav.filter(item => item.id === 'dashboard')
+    ? hodNav.filter(item => item.id === 'dashboard' || item.id === 'archive')
     : hodNav;
 
   const handlePageChange = (newPageId) => {
