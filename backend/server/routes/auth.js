@@ -6,6 +6,7 @@ import User from '../models/User.js';
 import { sendVerificationEmail, sendPasswordResetCode } from '../emailServices/emailService.js';
 import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
+import { cloudinary } from '../utils/cloudinary.js';
 
 const router = express.Router();
 
@@ -29,15 +30,11 @@ router.get('/me', protect, async (req, res) => {
             internshipRequest: user.internshipRequest,
             internshipAgreement: user.internshipAgreement,
             mustChangePassword: user.mustChangePassword,
-
-            // New profile fields
             fatherName: user.fatherName,
             section: user.section,
             dateOfBirth: user.dateOfBirth,
             profilePicture: user.profilePicture,
             registeredCourse: user.registeredCourse,
-
-            // Assignment data
             assignedFaculty: user.assignedFaculty,
             assignedCompany: user.assignedCompany,
             assignedCompanySupervisor: user.assignedCompanySupervisor
@@ -69,13 +66,9 @@ router.post('/register', async (req, res) => {
         console.log(`\n[${getPKTTime()}] AUTH: Registration attempt for ${req.body.email}`);
         const { name, reg, semester, cgpa, email, password, role } = req.body;
         console.log(`[DATA] Saving Student with Full Reg: ${reg}`);
-
-        // IMPORTANT RULE: Only students can register
         if (role !== 'student') {
             return res.status(403).json({ message: 'Public registration only allowed for students.' });
         }
-
-        // 1. Validate Email Domain
         const emailLower = email.toLowerCase().trim();
         if (!emailLower.endsWith('@cuiatd.edu.pk')) {
             return res.status(400).json({ message: 'Only @cuiatd.edu.pk emails are allowed.' });
@@ -600,6 +593,79 @@ router.post('/supervisor-set-password', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// @route   GET api/auth/download-proxy
+// @desc    Securely proxy Cloudinary downloads to bypass CORS and private access issues
+router.get('/download-proxy', protect, async (req, res) => {
+    let target = '';
+    try {
+        const { url, filename } = req.query;
+        if (!url) return res.status(400).json({ message: 'URL required' });
+        target = decodeURIComponent(url);
+
+        console.log(`\n[PROXY-DL] Requesting: ${target}`);
+
+        // Try primary URL first (fastest)
+        let response = await fetch(target);
+
+        // If 401/404 on Cloudinary, it might be private or MIS-categorized (raw vs image)
+        if (!response.ok && target.includes('cloudinary.com/dos6h3v5l')) {
+            console.log(`[PROXY-DL] [WARN] Status ${response.status}. Attempting SDK Rescue...`);
+
+            // Extract Public ID
+            const parts = target.split('/');
+            const uploadIndex = parts.indexOf('upload');
+            if (uploadIndex > -1) {
+                const resType = parts[uploadIndex - 1]; // image, raw, etc.
+                let pubIdExt = parts.slice(uploadIndex + 1).join('/');
+                if (pubIdExt.startsWith('v')) pubIdExt = pubIdExt.split('/').slice(1).join('/');
+                const pubId = pubIdExt.substring(0, pubIdExt.lastIndexOf('.')) || pubIdExt;
+
+                try {
+                    // Use SDK with API Key/Secret to fetch the resource details (Bypasses 401)
+                    const resource = await cloudinary.api.resource(pubId, { resource_type: resType });
+                    if (resource && resource.secure_url) {
+                        console.log(`[PROXY-DL] [FIXED] Found via SDK: ${resource.secure_url}`);
+                        response = await fetch(resource.secure_url);
+                        if (response.ok) target = resource.secure_url;
+                    }
+                } catch (sdkErr) {
+                    console.error(`[PROXY-DL] [SDK-FAIL] Error: ${sdkErr.message}`);
+                    // Fallback to raw swap if SDK fails
+                    if (resType === 'image' && target.toLowerCase().endsWith('.pdf')) {
+                        const rawT = target.replace('/image/upload/', '/raw/upload/');
+                        console.log(`[PROXY-DL] [RETRY-RAW] Trying raw path: ${rawT}`);
+                        const rawResp = await fetch(rawT);
+                        if (rawResp.ok) { response = rawResp; target = rawT; }
+                    }
+                }
+            }
+        }
+
+        if (!response.ok) {
+            console.error(`[PROXY-DL] [FAIL] Could not retrieve file. Final status: ${response.status}`);
+            return res.redirect(target);
+        }
+
+        const contentType = response.headers.get('content-type');
+        const safeName = (filename || 'Document').replace(/[^\x00-\x7F]/g, "").replace(/["\s]/g, "_").replace(/\.pdf$/i, "");
+
+        res.setHeader('Content-Type', contentType || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`);
+
+        const arrayBuffer = await response.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+        console.log(`[PROXY-DL] [SUCCESS] ${arrayBuffer.byteLength} bytes delivered.`);
+
+    } catch (err) {
+        console.error(`[PROXY-DL] [SYSTEM-ERROR]`, err);
+        if (target) return res.redirect(target);
+        res.status(500).json({ message: 'Download failed.' });
+    }
+});
+
+
+
 
 // @route   POST api/auth/logout
 // @desc    Logout user / Clear cookie

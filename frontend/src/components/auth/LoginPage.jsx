@@ -181,7 +181,7 @@ export default function LoginPage({ onLogin }) {
               { label: 'HOD', role: 'hod', email: 'hod@cuiatd.edu.pk', icon: 'fa-user-tie', color: 'bg-blue-50 text-blue-600' },
               { label: 'IO Office', role: 'internship_office', email: 'io@cuiatd.edu.pk', icon: 'fa-building-shield', color: 'bg-indigo-50 text-indigo-600' },
               { label: 'Faculty', role: 'faculty_supervisor', email: 'drarslanrathore@gmail.com', icon: 'fa-chalkboard-user', color: 'bg-amber-50 text-amber-600' },
-              { label: 'Site Sup', role: 'site_supervisor', email: 'eathorgaming@gmail.com', icon: 'fa-user-gear', color: 'bg-rose-50 text-rose-600' }
+              { label: 'Site Sup', role: 'site_supervisor', email: 'bilalrathore577@gmail.com', icon: 'fa-user-gear', color: 'bg-rose-50 text-rose-600' }
             ].map((testUser) => (
               <button
                 key={testUser.role}

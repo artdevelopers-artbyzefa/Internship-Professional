@@ -32,6 +32,21 @@ router.get('/all-students', async (req, res) => {
     }
 });
 
+// @route   GET api/office/registered-students
+// @desc    Get all students with populated supervisor details
+router.get('/registered-students', async (req, res) => {
+    try {
+        const students = await User.find({ role: 'student' })
+            .populate('assignedFaculty', 'name email')
+            .populate('assignedSiteSupervisor', 'name email')
+            .select('name email reg semester status assignedFaculty assignedSiteSupervisor assignedCompany assignedCompanySupervisor createdAt')
+            .sort({ createdAt: -1 });
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET api/office/internship-request-students
 // @desc    Get all students who have submitted, approved, or rejected internship requests
 router.get('/internship-request-students', async (req, res) => {
@@ -129,6 +144,15 @@ router.post('/assign-site-supervisor', async (req, res) => {
 
         student.assignedCompanySupervisor = siteSupervisorName;
         student.assignedCompanySupervisorEmail = siteSupervisorEmail?.toLowerCase().trim();
+
+        // Link the ObjectId if the supervisor already exists as a user
+        if (siteSupervisorEmail) {
+            const supervisorUser = await User.findOne({ email: siteSupervisorEmail.toLowerCase().trim(), role: 'site_supervisor' });
+            if (supervisorUser) {
+                student.assignedSiteSupervisor = supervisorUser._id;
+            }
+        }
+
         // Also update internship request fields for record
         if (student.internshipRequest) {
             student.internshipRequest.siteSupervisorName = siteSupervisorName;
@@ -249,6 +273,8 @@ router.post('/onboard-and-assign-site-supervisor', async (req, res) => {
         // 3. Update Student
         student.assignedCompanySupervisor = siteSupervisorName;
         student.assignedCompanySupervisorEmail = emailLower;
+        student.assignedSiteSupervisor = user._id; // Linked ObjectId
+
         if (student.internshipRequest) {
             student.internshipRequest.siteSupervisorName = siteSupervisorName;
             student.internshipRequest.siteSupervisorEmail = emailLower;
@@ -439,11 +465,20 @@ router.post('/assign-student', async (req, res) => {
         // 1. Update Student Record
         student.assignedFaculty = facultyId;
         student.assignedCompany = companyName;
+
         // siteSupervisor is an object { name, email, whatsappNumber }
         student.assignedCompanySupervisor = siteSupervisor.name;
         student.assignedCompanySupervisorEmail = siteSupervisor.email?.toLowerCase().trim();
-        student.status = 'Assigned';
 
+        // Link ObjectId for site supervisor if exists
+        if (siteSupervisor.email) {
+            const supervisorUser = await User.findOne({ email: siteSupervisor.email.toLowerCase().trim(), role: 'site_supervisor' });
+            if (supervisorUser) {
+                student.assignedSiteSupervisor = supervisorUser._id;
+            }
+        }
+
+        student.status = 'Assigned';
         await student.save();
 
         // 2. Log Action
@@ -1378,6 +1413,37 @@ router.get('/evaluations', protect, async (req, res) => {
             .sort({ submittedAt: -1 });
         res.json(evaluations);
     } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   DELETE api/office/delete-assignment/:id
+router.delete('/delete-assignment/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const assignment = await Assignment.findById(id);
+        if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+
+        const Submission = await import('../models/Submission.js').then(m => m.default);
+
+        // Purge all associated components
+        await Promise.all([
+            Assignment.findByIdAndDelete(id),
+            Submission.deleteMany({ assignment: id }),
+            Mark.deleteMany({ assignment: id })
+        ]);
+
+        // Audit Log
+        await new AuditLog({
+            action: 'ASSIGNMENT_DELETED',
+            performedBy: req.body.officeId || 'SYSTEM',
+            details: `Permanent Deletion: ${assignment.title} and all associated submissions purged.`,
+            ipAddress: req.ip
+        }).save();
+
+        res.json({ message: 'Assignment and associated data purged successfully.' });
+    } catch (err) {
+        console.error('Delete assignment error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });

@@ -131,16 +131,13 @@ export default function InternshipRequestForm({ user }) {
         </div>
 
         {isOfficiallyAssigned && (
-          <Alert type="success" className="mb-6 border-2 border-primary/20 bg-primary/5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
-                <i className="fas fa-certificate"></i>
-              </div>
-              <div>
-                <p className="text-xs font-black text-gray-800 uppercase tracking-widest">Enrollment Confirmed</p>
-                <p className="text-[11px] text-gray-500 font-medium">Your final internship placement has been locked by the Internship Office. Details below are official.</p>
-              </div>
-            </div>
+          <Alert
+            type="success"
+            title="Enrollment Confirmed"
+            icon="fa-certificate"
+            className="mb-6"
+          >
+            Your final internship placement has been locked by the Internship Office. Details below are official.
           </Alert>
         )}
 

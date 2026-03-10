@@ -5,10 +5,12 @@ import SupervisorDashboard from './SupervisorDashboard.jsx';
 import SupervisorAssignments from './SupervisorAssignments.jsx';
 import SupervisorGrading from './SupervisorGrading.jsx';
 import SupervisorProfile from '../../components/supervisor/SupervisorProfile.jsx';
+import RegisteredStudents from '../office/RegisteredStudents.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 const supervisorNav = [
     { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+    { id: 'registered-students', label: 'Registered Students', icon: 'fa-users' },
     { id: 'assignments', label: 'Assignment Summary', icon: 'fa-tasks' },
     { id: 'grading', label: 'Grading', icon: 'fa-star' },
     { id: 'profile', label: 'Profile', icon: 'fa-user-gear' },
@@ -44,6 +46,7 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
                 <Routes>
                     <Route path="/" element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<SupervisorDashboard user={user} activePhase={activePhase} />} />
+                    <Route path="registered-students" element={<RegisteredStudents user={user} />} />
                     <Route path="assignments" element={<SupervisorAssignments user={user} />} />
                     <Route path="grading" element={<SupervisorGrading user={user} />} />
                     <Route path="profile" element={<SupervisorProfile user={user} onUpdate={onUpdateUser} />} />

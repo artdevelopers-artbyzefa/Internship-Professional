@@ -11,26 +11,46 @@ const markSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    faculty: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    marks: {
+    siteSupervisorMarks: {
         type: Number,
-        required: true,
-        min: 0
+        default: null
     },
-    createdBy: {
+    siteSupervisorRemarks: {
+        type: String,
+        default: ''
+    },
+    facultyMarks: {
+        type: Number,
+        default: null
+    },
+    facultyRemarks: {
+        type: String,
+        default: ''
+    },
+    isSiteSupervisorGraded: {
+        type: Boolean,
+        default: false
+    },
+    isFacultyGraded: {
+        type: Boolean,
+        default: false
+    },
+    siteSupervisorCriteria: {
+        type: Map,
+        of: Boolean,
+        default: {}
+    },
+    siteSupervisorId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
-    lastUpdatedBy: {
+    facultyId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
     history: [{
         marks: Number,
+        role: String, // 'site_supervisor' or 'faculty_supervisor'
         updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         updatedAt: { type: Date, default: Date.now }
     }]
