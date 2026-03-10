@@ -1,12 +1,15 @@
 import express from 'express';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
+import Assignment from '../models/Assignment.js';
+import Mark from '../models/Mark.js';
 import { protect } from '../middleware/auth.js';
+import { uploadCloudinary } from '../utils/cloudinary.js';
 
 const router = express.Router();
 
 // @route   GET api/supervisor/profile
-// @desc    Get supervisor profile with company details
+// @desc    Get supervisor profile with company details and counts
 router.get('/profile', protect, async (req, res) => {
     try {
         if (req.user.role !== 'site_supervisor') {
@@ -16,10 +19,23 @@ router.get('/profile', protect, async (req, res) => {
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
-        // Find the company this supervisor belongs to
-        const company = await Company.findOne({
-            'siteSupervisors.email': user.email
-        });
+        const userEmail = user.email.toLowerCase();
+        const escapeRegex = (s) => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+        const nameRegex = new RegExp(escapeRegex(user.name.trim()), 'i');
+
+        const [company, studentCount] = await Promise.all([
+            Company.findOne({ 'siteSupervisors.email': userEmail }),
+            User.countDocuments({
+                role: 'student',
+                $or: [
+                    { assignedSiteSupervisor: user._id },
+                    { assignedCompanySupervisorEmail: userEmail },
+                    { 'internshipRequest.siteSupervisorEmail': userEmail },
+                    { 'internshipAgreement.companySupervisorEmail': userEmail },
+                    { assignedCompanySupervisor: { $regex: nameRegex } }
+                ]
+            })
+        ]);
 
         res.json({
             user: {
@@ -35,15 +51,17 @@ router.get('/profile', protect, async (req, res) => {
                 name: company.name,
                 regNo: company.regNo,
                 scope: company.scope
-            } : null
+            } : null,
+            stats: {
+                studentCount
+            }
         });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// @route   PUT api/supervisor/profile
-// @desc    Update supervisor phone number
+// @route   POST api/supervisor/update-phone
 router.post('/update-phone', protect, async (req, res) => {
     try {
         if (req.user.role !== 'site_supervisor') {
@@ -59,10 +77,9 @@ router.post('/update-phone', protect, async (req, res) => {
         user.whatsappNumber = whatsappNumber;
         await user.save();
 
-        // Also update in Company record to keep in sync
-        const company = await Company.findOne({ 'siteSupervisors.email': user.email });
+        const company = await Company.findOne({ 'siteSupervisors.email': user.email.toLowerCase() });
         if (company) {
-            const supervisorIndex = company.siteSupervisors.findIndex(s => s.email === user.email);
+            const supervisorIndex = company.siteSupervisors.findIndex(s => s.email.toLowerCase() === user.email.toLowerCase());
             if (supervisorIndex > -1) {
                 company.siteSupervisors[supervisorIndex].whatsappNumber = whatsappNumber;
                 await company.save();
@@ -75,31 +92,71 @@ router.post('/update-phone', protect, async (req, res) => {
     }
 });
 
-// @route   GET api/supervisor/my-students
-// @desc    Get all students assigned to this site supervisor
-router.get('/my-students', protect, async (req, res) => {
+// @route   GET api/supervisor/interns
+router.get('/interns', protect, async (req, res) => {
     try {
         if (req.user.role !== 'site_supervisor') {
             return res.status(403).json({ message: 'Access denied.' });
         }
 
-        const escapeRegex = (string) => string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+        const userEmail = req.user.email.toLowerCase().trim();
+        const escapeRegex = (s) => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+        const nameRegex = new RegExp(escapeRegex(req.user.name.trim()), 'i');
 
         const students = await User.find({
-            assignedCompanySupervisor: { $regex: new RegExp(`^${escapeRegex(req.user.name.trim())}$`, 'i') },
-            role: 'student'
-        }).select('name reg internshipAgreement.companyName status assignedCompany');
+            role: 'student',
+            $or: [
+                { assignedSiteSupervisor: req.user.id },
+                { assignedCompanySupervisorEmail: userEmail },
+                { 'internshipRequest.siteSupervisorEmail': userEmail },
+                { 'internshipAgreement.companySupervisorEmail': userEmail },
+                { assignedCompanySupervisor: { $regex: nameRegex } }
+            ]
+        }).select('name reg status profilePicture');
 
-        const result = students.map(s => ({
-            id: s._id,
-            name: s.name,
-            reg: s.reg,
-            company: s.assignedCompany || s.internshipAgreement?.companyName || 'N/A',
-            status: s.status
-        }));
-
-        res.json(result);
+        res.json(students);
     } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/supervisor/assignments
+router.get('/assignments', protect, async (req, res) => {
+    try {
+        if (req.user.role !== 'site_supervisor') {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        const assignments = await Assignment.find({ createdBy: req.user.id });
+        res.json(assignments);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/supervisor/assignments
+router.post('/assignments', protect, uploadCloudinary.single('file'), async (req, res) => {
+    try {
+        if (req.user.role !== 'site_supervisor') {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        const { title, description, startDate, deadline, totalMarks } = req.body;
+        const assignment = new Assignment({
+            title,
+            description,
+            startDate,
+            deadline,
+            totalMarks,
+            fileUrl: req.file ? req.file.path : null,
+            createdBy: req.user.id,
+            courseTitle: 'Industrial Task'
+        });
+
+        await assignment.save();
+        res.status(201).json(assignment);
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });

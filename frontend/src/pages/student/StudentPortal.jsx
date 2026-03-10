@@ -15,7 +15,8 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
   const location = useLocation();
   const status = user.status || 'verified';
   const [activePhase, setActivePhase] = useState(undefined);
-  const [isEligible, setIsEligible] = useState(true); // default allow until loaded
+  const [isEligible, setIsEligible] = useState(true);
+  const [hardCriteriaMet, setHardCriteriaMet] = useState(true); // can the student participate at all?
 
   useEffect(() => {
     const userId = user.id || user._id;
@@ -26,22 +27,24 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       .then(([phase, eligData]) => {
         setActivePhase(phase);
         setIsEligible(eligData?.eligible ?? true);
+        setHardCriteriaMet(eligData?.hardCriteriaMet ?? true);
       })
       .catch(() => setActivePhase(null));
   }, []);
 
-  // Phase 1 = Student Registration — students only see the dashboard
   const isGlobalPhase1 = activePhase?.key === 'registration';
+  // Derive from real user data so it reacts when onUpdateUser is called
+  const isProfileComplete = !!(user.fatherName && user.section && user.dateOfBirth && user.profilePicture);
 
-  // A student is effectively in "Phase 1" if the global phase is registration 
-  // OR if they are ineligible (stuck at Phase 1)
-  const isPhase1 = isGlobalPhase1 || !isEligible;
+  // isPhase1 = student sees the onboarding/dashboard-only view
+  // TRUE when: global is in registration, student fails hard criteria, OR profile is not done yet
+  const isPhase1 = isGlobalPhase1 || !hardCriteriaMet || !isProfileComplete;
 
-  // Phase 2+ starts (request_submission) — unlock the workflow ONLY if eligible
-  const canSubmitRequest = isEligible && (activePhase?.key === 'request_submission' || (activePhase && activePhase.order >= 2));
+  // pendingSetup = student PASSES hard criteria but just hasn't filled profile yet
+  // This is the "welcome, now set up your profile" state
+  const isPendingSetup = hardCriteriaMet && !isProfileComplete;
 
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
-
   const handlePageChange = (newPageId) => navigate(`/student/${newPageId}`);
 
   // Navigation routing logic — phase aware
@@ -49,11 +52,24 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
     if (activePhase === undefined) return; // wait for phase to load
     const isAtBase = location.pathname === '/student' || location.pathname === '/student/';
 
+    // If profile is not complete but hard criteria are met, only allow dashboard + profile
+    const restrictedPaths = ['internship-assessment', 'internship-status', 'agreement-form', 'assignments', 'results'];
+    if (!isProfileComplete && restrictedPaths.includes(currentPath)) {
+      navigate('/student/dashboard', { replace: true });
+      return;
+    }
+
     if (!isAtBase) return;
 
-    // During Phase 1 (Global or Eligibility Stuck): everyone goes to dashboard regardless of their status
-    if (isPhase1) {
+    // Hard-locked (ineligible) or global Phase 1 → always dashboard
+    if (isGlobalPhase1 || !hardCriteriaMet) {
       navigate('/student/dashboard', { replace: true });
+      return;
+    }
+
+    // Profile incomplete but eligible → redirect to profile to finish setup
+    if (isPendingSetup) {
+      navigate('/student/profile', { replace: true });
       return;
     }
 
@@ -64,6 +80,10 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
     }
 
     // Phase 2+ — follow normal workflow routing (only for eligible)
+    if (status === 'verified' || status === 'Internship Request Submitted' || status === 'Internship Approved' || status.includes('Agreement Submitted') || status === 'Agreement Rejected') {
+      // Allow progression
+    }
+
     if (status === 'verified' || status === 'Internship Request Submitted' || status === 'Internship Rejected') {
       navigate('/student/internship-request', { replace: true });
     } else if (status === 'Internship Approved' || status.includes('Agreement Submitted') || status === 'Agreement Rejected') {
@@ -71,23 +91,29 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
     } else {
       navigate('/student/dashboard', { replace: true });
     }
-  }, [activePhase, isPhase1, status, location.pathname]);
+  }, [activePhase, isPhase1, isPendingSetup, status, location.pathname]);
 
   const isWorkflowComplete = user.status === 'Agreement Approved' || user.status === 'Assigned';
-  const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
+  const isLocked = !hardCriteriaMet; // True lock = failed semester/CGPA/reg/email — cannot participate
+  const showPhase3Nav = activePhase?.order >= 3;
 
-  const isLocked = !isEligible;
-
-  // Authority Nav Protocol for Phase 2+ Students
+  // Nav: during pending setup, show dashboard + profile to let them complete
   const studentNav = isPhase1
     ? [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
-      ...(isLocked ? [] : [{ id: 'profile', label: 'My Profile', icon: 'fa-user-pen' }]),
+      // Show profile only if they are eligible by hard criteria (or pending setup)
+      ...(hardCriteriaMet ? [{ id: 'profile', label: 'My Profile', icon: 'fa-user-pen', badge: isPendingSetup ? '!' : undefined }] : []),
     ]
     : [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
-      { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
-      { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
+      ...(!showPhase3Nav ? [
+        { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
+        { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
+      ] : []),
+      ...(showPhase3Nav ? [
+        { id: 'assignments', label: 'Assignments', icon: 'fa-file-lines' },
+        { id: 'results', label: 'Results', icon: 'fa-award' },
+      ] : []),
       { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' },
     ];
 
@@ -98,31 +124,35 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       activePage={currentPath}
       setActivePage={handlePageChange}
       navItems={studentNav}
-      disableSidebar={!isWorkflowComplete && isPhase1}
+      disableSidebar={isLocked && (isGlobalPhase1 || !hardCriteriaMet)}
     >
       <div className="p-6">
         <Routes>
           {/* Dashboard & Profile — always accessible */}
-          <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} activePhase={activePhase} />} />
-          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} isEligible={isEligible} isPhase1={isPhase1} activePhase={activePhase} />} />
+          <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} hardCriteriaMet={hardCriteriaMet} isProfileComplete={isProfileComplete} activePhase={activePhase} />} />
+          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} activePhase={activePhase} />} />
 
           {/* Institutional Workflow Routes */}
           <Route path="internship-assessment" element={
-            isPhase1 ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} />
           } />
           <Route path="internship-status" element={
-            isPhase1 ? <Navigate to="../dashboard" replace /> : <InternshipStatus user={user} activePhase={activePhase} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipStatus user={user} activePhase={activePhase} />
           } />
           <Route path="agreement-form" element={
-            isPhase1 ? <Navigate to="../dashboard" replace /> : <StudentAgreementForm user={user} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <StudentAgreementForm user={user} />
           } />
 
           {/* Backward compatibility for Phase 2 workflow trigger link */}
           <Route path="internship-request" element={<Navigate to="../internship-assessment" replace />} />
 
           {/* Protected Routes (for later phases) */}
-          <Route path="assignments" element={isProfileComplete ? <StudentAssignments user={user} /> : <Navigate to="../dashboard" replace />} />
-          <Route path="results" element={isProfileComplete ? <StudentResults user={user} /> : <Navigate to="../dashboard" replace />} />
+          <Route path="assignments" element={
+            isProfileComplete && showPhase3Nav ? <StudentAssignments user={user} /> : <Navigate to="../dashboard" replace />
+          } />
+          <Route path="results" element={
+            isProfileComplete && showPhase3Nav ? <StudentResults user={user} /> : <Navigate to="../dashboard" replace />
+          } />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

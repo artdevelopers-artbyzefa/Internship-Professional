@@ -9,7 +9,7 @@ export default function AddAssignment({ user }) {
   const [assignments, setAssignments] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  
+
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -27,7 +27,7 @@ export default function AddAssignment({ user }) {
     try {
       const data = await apiRequest('/faculty/my-created-assignments');
       setAssignments(data);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleFileChange = (e) => {
@@ -46,25 +46,25 @@ export default function AddAssignment({ user }) {
   const handleEdit = (a) => {
     setEditMode(true);
     setEditingId(a._id);
-    
+
     // Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
     const formatDateForInput = (d) => {
-        if (!d) return '';
-        const date = new Date(d);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      if (!d) return '';
+      const date = new Date(d);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
     };
 
     setForm({
-        title: a.title,
-        description: a.description || '',
-        startDate: formatDateForInput(a.startDate),
-        deadline: formatDateForInput(a.deadline),
-        totalMarks: a.totalMarks || 100
+      title: a.title,
+      description: a.description || '',
+      startDate: formatDateForInput(a.startDate),
+      deadline: formatDateForInput(a.deadline),
+      totalMarks: a.totalMarks || 100
     });
     setFile(null); // Keep existing file unless new one is selected
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -73,10 +73,10 @@ export default function AddAssignment({ user }) {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this assignment?')) return;
     try {
-        await apiRequest(`/faculty/delete-assignment/${id}`, { method: 'DELETE' });
-        showToast.success('Assignment deleted successfully');
-        fetchAssignments();
-    } catch (err) {}
+      await apiRequest(`/faculty/delete-assignment/${id}`, { method: 'DELETE' });
+      showToast.success('Assignment deleted successfully');
+      fetchAssignments();
+    } catch (err) { }
   };
 
   const handleSubmit = async (e) => {
@@ -87,8 +87,8 @@ export default function AddAssignment({ user }) {
     }
 
     if (new Date(form.deadline) < new Date(form.startDate)) {
-        showToast.error('Deadline cannot be before the Start Date');
-        return;
+      showToast.error('Deadline cannot be before the Start Date');
+      return;
     }
 
     setLoading(true);
@@ -101,16 +101,16 @@ export default function AddAssignment({ user }) {
       formData.append('totalMarks', form.totalMarks);
       if (file) formData.append('file', file);
 
-      const endpoint = editMode 
-        ? `/faculty/update-assignment/${editingId}` 
+      const endpoint = editMode
+        ? `/faculty/update-assignment/${editingId}`
         : '/faculty/create-assignment';
-      
+
       const method = editMode ? 'PUT' : 'POST';
 
       await apiRequest(endpoint, {
         method,
         body: formData,
-        headers: {} 
+        headers: {}
       });
 
       showToast.success(`Assignment ${editMode ? 'updated' : 'created'} successfully`);
@@ -124,12 +124,12 @@ export default function AddAssignment({ user }) {
 
   const formatDisplayDate = (d) => {
     if (!d) return '-';
-    return new Date(d).toLocaleString('en-GB', { 
-        day: '2-digit', 
-        month: 'short', 
-        year: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
+    return new Date(d).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -148,22 +148,22 @@ export default function AddAssignment({ user }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-[11px] font-black tracking-widest text-gray-400 mb-2">Course Title</label>
-              <input 
-                type="text" 
-                value="Internship" 
-                disabled 
+              <input
+                type="text"
+                value="Internship"
+                disabled
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-400"
               />
             </div>
 
             <div>
               <label className="block text-[11px] font-black tracking-widest text-gray-400 mb-2">Assignment Title</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 required
                 placeholder="e.g. Weekly Report 1"
                 value={form.title}
-                onChange={(e) => setForm({...form, title: e.target.value})}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all outline-none"
               />
             </div>
@@ -171,10 +171,10 @@ export default function AddAssignment({ user }) {
 
           <div>
             <label className="block text-[11px] font-black tracking-widest text-gray-400 mb-2">Description (Optional)</label>
-            <textarea 
+            <textarea
               placeholder="Provide instructions for students..."
               value={form.description}
-              onChange={(e) => setForm({...form, description: e.target.value})}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all outline-none min-h-[100px]"
             />
           </div>
@@ -182,21 +182,21 @@ export default function AddAssignment({ user }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-[11px] font-black tracking-widest text-gray-400 mb-2">Start Date & Time</label>
-              <input 
-                type="datetime-local" 
+              <input
+                type="datetime-local"
                 required
                 value={form.startDate}
-                onChange={(e) => setForm({...form, startDate: e.target.value})}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all outline-none"
               />
             </div>
             <div>
               <label className="block text-[11px] font-black tracking-widest text-gray-400 mb-2">Deadline Date & Time</label>
-              <input 
-                type="datetime-local" 
+              <input
+                type="datetime-local"
                 required
                 value={form.deadline}
-                onChange={(e) => setForm({...form, deadline: e.target.value})}
+                onChange={(e) => setForm({ ...form, deadline: e.target.value })}
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all outline-none"
               />
             </div>
@@ -207,9 +207,9 @@ export default function AddAssignment({ user }) {
               Assignment File {editMode ? "(Leave empty to keep current)" : "(PDF, DOCX, ZIP, Image)"}
             </label>
             <div className="relative group">
-              <input 
+              <input
                 id="assignmentFile"
-                type="file" 
+                type="file"
                 required={!editMode}
                 onChange={handleFileChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -226,25 +226,25 @@ export default function AddAssignment({ user }) {
           </div>
 
           <div className="pt-4 flex items-center gap-3">
-            <Button 
-                type="submit" 
-                variant="primary" 
-                className="px-8 py-3.5 rounded-xl shadow-lg shadow-blue-600/20"
-                loading={loading}
+            <Button
+              type="submit"
+              variant="primary"
+              className="px-8 py-3.5 rounded-xl shadow-lg shadow-blue-600/20"
+              loading={loading}
             >
-              <i className={`fas ${editMode ? 'fa-save' : 'fa-paper-plane'} mr-2`}></i> 
+              <i className={`fas ${editMode ? 'fa-save' : 'fa-paper-plane'} mr-2`}></i>
               {editMode ? 'Update Assignment' : 'Create Assignment'}
             </Button>
-            
+
             {editMode && (
-                <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={resetForm}
-                    className="px-8 py-3.5 rounded-xl"
-                >
-                    Cancel
-                </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetForm}
+                className="px-8 py-3.5 rounded-xl"
+              >
+                Cancel
+              </Button>
             )}
           </div>
         </form>
@@ -274,46 +274,46 @@ export default function AddAssignment({ user }) {
                 assignments.map((a) => (
                   <tr key={a._id} className="hover:bg-gray-50 transition-colors group">
                     <td className="px-6 py-4 border-b border-gray-100">
-                        <div className="text-sm font-bold text-gray-900">{a.title}</div>
-                        <div className="text-[10px] text-gray-400 truncate max-w-[200px]" title={a.description}>{a.description || 'No description'}</div>
+                      <div className="text-sm font-bold text-gray-900">{a.title}</div>
+                      <div className="text-[10px] text-gray-400 truncate max-w-[200px]" title={a.description}>{a.description || 'No description'}</div>
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100 text-sm font-medium text-gray-600">
-                        {formatDisplayDate(a.startDate)}
+                      {formatDisplayDate(a.startDate)}
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100 text-sm font-medium text-gray-600">
-                        {formatDisplayDate(a.deadline)}
+                      {formatDisplayDate(a.deadline)}
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100 text-sm font-bold text-gray-700">
-                        {a.totalMarks}
+                      {a.totalMarks}
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                             {a.fileUrl && (
-                                <a 
-                                    href={`${import.meta.env.VITE_API_URL}${a.fileUrl}`} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="w-8 h-8 rounded-lg bg-blue-50 text-secondary flex items-center justify-center hover:bg-secondary hover:text-white transition-all"
-                                    title="View File"
-                                >
-                                    <i className="fas fa-eye text-xs"></i>
-                                </a>
-                            )}
-                            <button 
-                                onClick={() => handleEdit(a)}
-                                className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border-0 cursor-pointer"
-                                title="Edit"
-                            >
-                                <i className="fas fa-pen text-xs"></i>
-                            </button>
-                            <button 
-                                onClick={() => handleDelete(a._id)}
-                                className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all border-0 cursor-pointer"
-                                title="Delete"
-                            >
-                                <i className="fas fa-trash text-xs"></i>
-                            </button>
-                        </div>
+                      <div className="flex items-center justify-end gap-2">
+                        {a.fileUrl && (
+                          <a
+                            href={a.fileUrl.startsWith('http') ? a.fileUrl : `${import.meta.env.VITE_API_URL.replace(/\/api$/, '')}${a.fileUrl}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-8 h-8 rounded-lg bg-blue-50 text-secondary flex items-center justify-center hover:bg-secondary hover:text-white transition-all"
+                            title="View File"
+                          >
+                            <i className="fas fa-eye text-xs"></i>
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleEdit(a)}
+                          className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border-0 cursor-pointer"
+                          title="Edit"
+                        >
+                          <i className="fas fa-pen text-xs"></i>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(a._id)}
+                          className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all border-0 cursor-pointer"
+                          title="Delete"
+                        >
+                          <i className="fas fa-trash text-xs"></i>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

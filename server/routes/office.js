@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import Company from '../models/Company.js';
 import Assignment from '../models/Assignment.js';
 import Mark from '../models/Mark.js';
+import Evaluation from '../models/Evaluation.js';
 import AuditLog from '../models/AuditLog.js';
 import {
     sendFacultyNominationEmail,
@@ -14,6 +15,7 @@ import {
     sendCompanySupervisorActivationEmail
 } from '../emailServices/emailService.js';
 import { getPKTTime } from '../utils/time.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -126,6 +128,7 @@ router.post('/assign-site-supervisor', async (req, res) => {
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
         student.assignedCompanySupervisor = siteSupervisorName;
+        student.assignedCompanySupervisorEmail = siteSupervisorEmail?.toLowerCase().trim();
         // Also update internship request fields for record
         if (student.internshipRequest) {
             student.internshipRequest.siteSupervisorName = siteSupervisorName;
@@ -245,6 +248,7 @@ router.post('/onboard-and-assign-site-supervisor', async (req, res) => {
 
         // 3. Update Student
         student.assignedCompanySupervisor = siteSupervisorName;
+        student.assignedCompanySupervisorEmail = emailLower;
         if (student.internshipRequest) {
             student.internshipRequest.siteSupervisorName = siteSupervisorName;
             student.internshipRequest.siteSupervisorEmail = emailLower;
@@ -437,6 +441,7 @@ router.post('/assign-student', async (req, res) => {
         student.assignedCompany = companyName;
         // siteSupervisor is an object { name, email, whatsappNumber }
         student.assignedCompanySupervisor = siteSupervisor.name;
+        student.assignedCompanySupervisorEmail = siteSupervisor.email?.toLowerCase().trim();
         student.status = 'Assigned';
 
         await student.save();
@@ -486,18 +491,38 @@ router.get('/faculty-students/:facultyId', async (req, res) => {
 // @desc    Get all students assigned to a specific site supervisor within a company
 router.get('/supervisor-students', async (req, res) => {
     try {
-        const { company, supervisor } = req.query;
-        if (!company || !supervisor) {
-            return res.status(400).json({ message: 'Company and Supervisor name are required.' });
+        const { company, supervisor, email } = req.query;
+        if (!email && (!company || !supervisor)) {
+            return res.status(400).json({ message: 'Email or Company/Supervisor name are required.' });
         }
 
-        const escapeRegex = (string) => string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+        const query = { role: 'student' };
+        if (email) {
+            const escapeRegex = (string) => string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+            const emailLower = email.toLowerCase().trim();
+            const conditions = [
+                { assignedCompanySupervisorEmail: emailLower }
+            ];
 
-        const students = await User.find({
-            role: 'student',
-            assignedCompany: { $regex: new RegExp(`^${escapeRegex(company.trim())}$`, 'i') },
-            assignedCompanySupervisor: { $regex: new RegExp(`^${escapeRegex(supervisor.trim())}$`, 'i') }
-        }).select('name email reg semester status');
+            if (company && supervisor) {
+                conditions.push({
+                    assignedCompany: { $regex: new RegExp(`^${escapeRegex(company.trim())}$`, 'i') },
+                    assignedCompanySupervisor: { $regex: new RegExp(`^${escapeRegex(supervisor.trim())}$`, 'i') }
+                });
+            } else if (supervisor) {
+                conditions.push({
+                    assignedCompanySupervisor: { $regex: new RegExp(`^${escapeRegex(supervisor.trim())}$`, 'i') }
+                });
+            }
+
+            query.$or = conditions;
+        } else {
+            const escapeRegex = (string) => string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+            query.assignedCompany = { $regex: new RegExp(`^${escapeRegex(company.trim())}$`, 'i') };
+            query.assignedCompanySupervisor = { $regex: new RegExp(`^${escapeRegex(supervisor.trim())}$`, 'i') };
+        }
+
+        const students = await User.find(query).select('name email reg semester status');
         res.json(students);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
@@ -510,44 +535,96 @@ router.get('/companies', async (req, res) => {
     try {
         const companies = await Company.find().sort({ createdAt: -1 });
 
-        // Aggregate students assigned to each company supervisor email
-        const assignmentsCount = await User.aggregate([
+        // Aggregate students assigned to each company supervisor
+        // Use separate match logic for email (robust) and name/company (fallback for legacy)
+        const assignmentsByEmail = await User.aggregate([
+            { $match: { role: 'student', assignedCompanySupervisorEmail: { $exists: true, $ne: null } } },
+            { $group: { _id: '$assignedCompanySupervisorEmail', count: { $sum: 1 } } }
+        ]);
+
+        const assignmentsByName = await User.aggregate([
             { $match: { role: 'student', assignedCompanySupervisor: { $exists: true, $ne: null } } },
-            // Group by the name strictly, since email might not be directly assigned on student level.
-            // But since assignedCompany is there, we can group by both.
             { $group: { _id: { company: '$assignedCompany', supervisor: '$assignedCompanySupervisor' }, count: { $sum: 1 } } }
         ]);
 
-        const countMap = {};
         const companyCountMap = {};
-
-        assignmentsCount.forEach(curr => {
+        assignmentsByName.forEach(curr => {
             const comp = curr._id.company || 'Unknown';
-            const sup = curr._id.supervisor || 'Unknown';
-
-            if (!companyCountMap[comp]) companyCountMap[comp] = 0;
-            companyCountMap[comp] += curr.count;
-
-            const supKey = `${comp}_${sup.toLowerCase().trim()}`;
-            countMap[supKey] = curr.count;
+            companyCountMap[comp] = (companyCountMap[comp] || 0) + curr.count;
         });
+
+        // For student-submitted companies, fetch assigned students to supplement any missing supervisor info
+        const studentSubmissionNames = companies
+            .filter(c => c.source === 'student_submission')
+            .map(c => c.name.trim());
+
+        const studentSupervisorMap = {};
+        if (studentSubmissionNames.length > 0) {
+            const assignedStudents = await User.find({
+                role: 'student',
+                assignedCompany: { $in: studentSubmissionNames },
+                assignedCompanySupervisor: { $exists: true, $nin: [null, ''] }
+            }).select('assignedCompany assignedCompanySupervisor assignedCompanySupervisorEmail internshipRequest.siteSupervisorEmail internshipRequest.siteSupervisorPhone internshipRequest.siteSupervisorName');
+
+            assignedStudents.forEach(s => {
+                const compKey = (s.assignedCompany || '').trim();
+                // Use best available email: assigned field first, then from internship request
+                const email = (
+                    s.assignedCompanySupervisorEmail ||
+                    s.internshipRequest?.siteSupervisorEmail ||
+                    ''
+                ).toLowerCase().trim();
+                const phone = s.internshipRequest?.siteSupervisorPhone || '';
+                const name = s.assignedCompanySupervisor || s.internshipRequest?.siteSupervisorName || '';
+                const mapKey = email || name;
+
+                if (!studentSupervisorMap[compKey]) studentSupervisorMap[compKey] = {};
+                if (!studentSupervisorMap[compKey][mapKey]) {
+                    studentSupervisorMap[compKey][mapKey] = {
+                        name,
+                        email,
+                        whatsappNumber: phone,
+                        assignedStudents: 1
+                    };
+                } else {
+                    studentSupervisorMap[compKey][mapKey].assignedStudents++;
+                }
+            });
+        }
 
         const companiesWithCounts = companies.map(company => {
             const companyObj = company.toObject();
             companyObj.assignedStudents = companyCountMap[company.name] || 0;
 
             companyObj.siteSupervisors = companyObj.siteSupervisors.map(sup => {
-                const supNameLower = sup.name.toLowerCase().trim();
-                const studentCount = assignmentsCount.find(a =>
+                const supEmail = sup.email?.toLowerCase().trim();
+                const supNameLower = sup.name?.toLowerCase().trim();
+
+                const studentCountByEmail = assignmentsByEmail.find(a => a._id === supEmail);
+                const studentCountByName = assignmentsByName.find(a =>
                     (a._id.company || '').toLowerCase().trim() === (company.name || '').toLowerCase().trim() &&
                     (a._id.supervisor || '').toLowerCase().trim() === supNameLower
                 );
 
                 return {
                     ...sup,
-                    assignedStudents: studentCount ? studentCount.count : 0
+                    assignedStudents: studentCountByEmail ? studentCountByEmail.count : (studentCountByName ? studentCountByName.count : 0)
                 };
             });
+
+            // Merge in supervisors from students that aren't already in the company's siteSupervisors list
+            if (company.source === 'student_submission') {
+                const fromStudents = Object.values(studentSupervisorMap[company.name.trim()] || {});
+                fromStudents.forEach(studentSup => {
+                    const alreadyListed = companyObj.siteSupervisors.some(
+                        s => (s.email || '').toLowerCase().trim() === studentSup.email ||
+                            (s.name || '').toLowerCase().trim() === (studentSup.name || '').toLowerCase().trim()
+                    );
+                    if (!alreadyListed) {
+                        companyObj.siteSupervisors.push(studentSup);
+                    }
+                });
+            }
 
             return companyObj;
         });
@@ -747,18 +824,16 @@ router.post('/edit-site-supervisor/:id', async (req, res) => {
             await user.save();
         }
 
-        // 2. Update Company Record
-        if (companyId) {
-            const company = await Company.findById(companyId);
-            if (company) {
-                const supIndex = company.siteSupervisors.findIndex(s => s.email === emailLower);
-                if (supIndex > -1) {
-                    company.siteSupervisors[supIndex].name = name || company.siteSupervisors[supIndex].name;
-                    company.siteSupervisors[supIndex].whatsappNumber = whatsappNumber || company.siteSupervisors[supIndex].whatsappNumber;
-                    await company.save();
+        // 2. Update all Company Records containing this supervisor
+        await Company.updateMany(
+            { 'siteSupervisors.email': emailLower },
+            {
+                $set: {
+                    'siteSupervisors.$.name': name || user?.name,
+                    'siteSupervisors.$.whatsappNumber': whatsappNumber || user?.whatsappNumber
                 }
             }
-        }
+        );
 
         // 3. Audit Log
         await new AuditLog({
@@ -1290,6 +1365,19 @@ router.post('/bulk-update-marks', async (req, res) => {
         res.json({ message: 'Administrative mark update successful' });
     } catch (err) {
         console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/office/evaluations
+// @desc    Get all evaluations
+router.get('/evaluations', protect, async (req, res) => {
+    try {
+        const evaluations = await Evaluation.find()
+            .populate('student', 'name reg semester')
+            .sort({ submittedAt: -1 });
+        res.json(evaluations);
+    } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 });

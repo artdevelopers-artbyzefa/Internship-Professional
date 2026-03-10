@@ -22,7 +22,7 @@ export default function OfficeDashboard({ user }) {
         setActivePhase(phaseData);
 
         // Fetch phase-specific stats if moving to Phase 2
-        if (phaseData?.key === 'request_submission' || phaseData?.order >= 2) {
+        if (phaseData?.key === 'placement_process' || phaseData?.order >= 2) {
           const reqData = await apiRequest('/analytics/request-stats');
           setReqStats(reqData);
         }
@@ -52,7 +52,7 @@ export default function OfficeDashboard({ user }) {
       </div>
 
       {/* ── Phase 1: Registration Stats ── */}
-      {activePhase?.key === 'registration' && regStats && (
+      {activePhase?.order >= 1 && regStats && (
         <div className="bg-white rounded-2xl shadow-sm border-2 border-primary/20 p-4 md:p-8 overflow-hidden relative mb-6">
           <div className="absolute top-0 right-0 p-3">
             <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full tracking-widest uppercase">
@@ -94,12 +94,12 @@ export default function OfficeDashboard({ user }) {
         </div>
       )}
 
-      {/* ── Phase 2: Internship Request Stats ── */}
-      {activePhase?.key === 'request_submission' && reqStats && (
+      {/* ── Phase 2: Placement & Approvals ── */}
+      {activePhase?.order >= 2 && reqStats && (
         <div className="bg-white rounded-2xl shadow-sm border-2 border-secondary/20 p-4 md:p-8 overflow-hidden relative mb-6">
           <div className="absolute top-0 right-0 p-3">
             <span className="px-3 py-1 bg-secondary/10 text-secondary text-[10px] font-black rounded-full tracking-widest uppercase">
-              Phase: Internship Requests
+              Phase 2 Activity
             </span>
           </div>
           <div className="flex items-center gap-4 mb-6 md:mb-8 mt-4 md:mt-0">
@@ -137,7 +137,7 @@ export default function OfficeDashboard({ user }) {
         </div>
       )}
 
-      {activePhase?.key === 'registration' && (
+      {activePhase?.order >= 1 && (
         <div className="mt-8 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full"></div>

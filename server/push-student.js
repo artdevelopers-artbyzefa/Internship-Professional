@@ -20,20 +20,20 @@ const pushStudent = async () => {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('Connected to Database');
 
-        const rollPart = 'fa23-bcs-013'.toUpperCase();
+        const rollPart = 'fa23-bcs-014'.toUpperCase();
         const email = `${rollPart}@cuiatd.edu.pk`.toLowerCase();
         const hashedPassword = await bcrypt.hash('CUI@12345', 12);
 
         const studentData = {
-            name: 'Arslan Rathore (Test)',
+            name: 'Bilal Rathore',
             email: email,
             password: hashedPassword,
             role: 'student',
-            reg: `CIIT/${rollPart}/ATD`, // Manually set it to avoid validation error
+            reg: `CIIT/${rollPart}/ATD`, 
             semester: '5',
-            cgpa: '3.45', // Eligible CGPA
+            cgpa: '3.45', 
             status: 'verified',
-            fatherName: 'Muhammad Rathore',
+            fatherName: 'Zahid Rathore',
             section: 'A',
             dateOfBirth: new Date('2003-05-15'),
             registeredCourse: 'Internship'
@@ -53,7 +53,7 @@ const pushStudent = async () => {
         console.log(`Roll Number: ${rollPart}`);
         console.log(`Status: ${studentData.status}`);
         console.log(`CGPA: ${studentData.cgpa}`);
-        console.log(`Password: CUI@12345`);
+        console.log(`Password: Megamix@123`);
 
         await mongoose.connection.close();
         console.log('Mongoose connection closed.');

@@ -19,6 +19,7 @@ export default function RegistrationDetails() {
 
     const tabs = [
         { id: 'students', label: 'Students', icon: 'fa-user-graduate', endpoint: '/analytics/students-paginated' },
+        { id: 'interns', label: 'Active Interns', icon: 'fa-briefcase', endpoint: '/analytics/interns-paginated' },
         { id: 'faculty', label: 'Faculty Advisors', icon: 'fa-user-tie', endpoint: '/analytics/faculty-paginated' },
         { id: 'site_supervisors', label: 'Site Supervisors', icon: 'fa-building-user', endpoint: '/analytics/site-supervisors-paginated' },
     ];
@@ -72,6 +73,21 @@ export default function RegistrationDetails() {
                 render: (val) => (
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${val ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                         {val ? 'YES' : 'NO'}
+                    </span>
+                )
+            }
+        ],
+        interns: [
+            { key: 'name', label: 'Intern' },
+            { key: 'reg', label: 'Reg. #' },
+            { key: 'assignedCompany', label: 'Company' },
+            { key: 'assignedFaculty', label: 'Academic Sup.', render: (val) => val?.name || 'N/A' },
+            {
+                key: 'status',
+                label: 'Phase 3 Status',
+                render: (val) => (
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-blue-100 text-blue-700">
+                        {val}
                     </span>
                 )
             }

@@ -6,6 +6,8 @@ import User from '../models/User.js';
 import Mark from '../models/Mark.js';
 import Assignment from '../models/Assignment.js';
 import Submission from '../models/Submission.js';
+import Evaluation from '../models/Evaluation.js';
+import Phase from '../models/Phase.js';
 import { protect } from '../middleware/auth.js';
 import { getPKTTime } from '../utils/time.js';
 import { uploadCloudinary, cloudinary } from '../utils/cloudinary.js';
@@ -143,6 +145,18 @@ router.get('/my-marks', protect, async (req, res) => {
     }
 });
 
+// @route   GET api/student/my-evaluations
+// @desc    Get current student's evaluations (Internal / Final)
+router.get('/my-evaluations', protect, async (req, res) => {
+    try {
+        const evaluations = await Evaluation.find({ student: req.user.id, status: 'Submitted' })
+            .select('marks totalMarks maxTotal source comments submittedAt');
+        res.json(evaluations);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   PUT api/student/update-profile
 // @desc    Update student profile information
 router.put('/update-profile', protect, async (req, res) => {
@@ -156,6 +170,11 @@ router.put('/update-profile', protect, async (req, res) => {
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
         if (secondaryEmail) {
             const lowerEmail = secondaryEmail.toLowerCase().trim();
+
+            // Prevent editing if already set
+            if (user.secondaryEmail && user.secondaryEmail !== lowerEmail) {
+                return res.status(400).json({ message: 'Secondary email is already registered and cannot be modified.' });
+            }
 
             // Crucial Security: Ensure secondary email is not already a PRIMARY email or someone else's secondary
             const collision = await User.findOne({
@@ -380,19 +399,67 @@ router.get('/eligibility/:userId', async (req, res) => {
         });
         if (!regOk) eligible = false;
 
-        // 5. Profile completeness (soft warning — does not block)
-        const profileComplete = !!(user.fatherName && user.section && user.dateOfBirth);
+        // 5. Profile completeness (Mandatory for Phase 2 entry)
+        const profileComplete = !!(user.fatherName && user.section && user.dateOfBirth && user.profilePicture);
         checks.push({
             key: 'profile',
             label: 'Profile Completeness',
             detail: profileComplete
                 ? 'Your profile is complete with all required personal details.'
-                : "Father's Name, Section, or Date of Birth is missing. Complete your profile to proceed smoothly.",
+                : "Mandatory Profile Action: Father's Name, Section, Date of Birth, or Profile Picture is missing. Complete your profile to unlock the internship workflow.",
             passed: profileComplete,
-            warning: !profileComplete
+            warning: false
         });
 
-        res.json({ eligible, studentName: user.name, reg: user.reg, semester: user.semester, checks });
+        // 6. Phase-based eligibility (LOCKED if Phase 3+ started and status != Assigned)
+        const currentPhase = await Phase.findOne({ status: 'active' });
+        const phaseOrder = currentPhase ? currentPhase.order : 1;
+        let p3Eligible = true;
+        let p3Detail = "The internship cycle is in preliminary stages.";
+
+        if (phaseOrder >= 3) {
+            const allowed = [
+                'Assigned',
+                'Internship Approved',
+                'Agreement Submitted - Self',
+                'Agreement Submitted - University Assigned',
+                'Agreement Approved'
+            ];
+
+            if (allowed.includes(user.status)) {
+                p3Detail = "Placement confirmed or pending final sign-off. You are eligible for internship tasks and evaluations.";
+                p3Eligible = true;
+            } else {
+                p3Detail = "Internship Commenced: Unfortunately, you did not secure an approved placement before the start of Phase 3. You are ineligible to proceed.";
+                p3Eligible = false;
+            }
+        } else {
+            p3Detail = `Phase ${phaseOrder} is currently active. Please complete your placement steps to ensure eligibility for Phase 3.`;
+            p3Eligible = true; // Still eligible to finish phase 1/2
+        }
+
+        checks.push({
+            key: 'phase_eligibility',
+            label: 'Cycle Progression Eligibility',
+            detail: p3Detail,
+            passed: p3Eligible
+        });
+
+        // Hard criteria are those that the student CANNOT change (Semester, Verification, CGPA, Reg)
+        const hardCriteriaMet = semOk && verified && cgpaOk && regOk && p3Eligible;
+
+        // Final eligibility is both hard criteria AND profile completion
+        eligible = hardCriteriaMet && profileComplete;
+
+        res.json({
+            eligible,
+            hardCriteriaMet,
+            profileComplete,
+            studentName: user.name,
+            reg: user.reg,
+            semester: user.semester,
+            checks
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });

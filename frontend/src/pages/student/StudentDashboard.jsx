@@ -3,80 +3,18 @@ import Card from '../../components/ui/Card.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import Phase1EligibilityBanner from '../../components/student/Phase1EligibilityBanner.jsx';
+import StudentProfileCard from '../../components/student/StudentProfileCard.jsx';
 import { apiRequest } from '../../utils/api.js';
 
-export default function StudentDashboard({ user, isEligible, isPhase1, activePhase }) {
+export default function StudentDashboard({ user, isEligible, isPhase1, isPendingSetup, hardCriteriaMet, isProfileComplete: isProfileCompleteProp, activePhase }) {
   const [showAlert, setShowAlert] = React.useState(true);
-  const isProfileComplete = user.fatherName && user.section && user.dateOfBirth && user.profilePicture;
+  const isProfileComplete = isProfileCompleteProp ?? !!(user.fatherName && user.section && user.dateOfBirth && user.profilePicture);
 
   // Authority Progression Counter: The primary driver for dashboard projection
   const phaseOrder = activePhase?.order || 1;
-  const isLocked = phaseOrder === 1 && !isEligible;
+  const isLocked = !hardCriteriaMet; // True lock = failed CGPA/semester/etc.
 
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
-
-  const extractProgram = (reg) => {
-    if (!reg) return 'N/A';
-    const parts = reg.split('-');
-    if (parts.length >= 2) return parts[1];
-    return 'N/A';
-  };
-
-  const InfoItem = ({ label, value, grow = 0 }) => (
-    <div className={`p-4 border-b border-r last:border-r-0 flex flex-col justify-center min-h-[70px] ${grow ? 'md:col-span-2' : ''}`}>
-      <span className="text-[10px] font-black text-gray-400 tracking-[0.2em] leading-none mb-2 uppercase">{label}</span>
-      <span className="font-black text-gray-800 truncate tracking-tight">{value || 'NOT SET'}</span>
-    </div>
-  );
-
-  const ProfileTable = () => (
-    <div className="bg-white border-2 border-gray-100 rounded-3xl overflow-hidden shadow-sm text-[13px] mb-8">
-      <div className="flex flex-col lg:flex-row">
-        <div className="lg:w-48 bg-gray-50/50 flex items-center justify-center p-6 border-r-2 border-gray-100">
-          <div className="w-32 h-32 rounded-[2rem] bg-white border-4 border-white shadow-xl overflow-hidden flex items-center justify-center group relative ring-1 ring-gray-100">
-            {user.profilePicture ? (
-              <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <i className="fas fa-user text-5xl text-gray-200"></i>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-4">
-          <InfoItem label="Full Name" value={user.name} grow={1} />
-          <InfoItem label="Registration No" value={user.reg} />
-          <InfoItem label="Father Name" value={user.fatherName} />
-          <InfoItem label="Program" value={extractProgram(user.reg)} />
-          <InfoItem label="Section" value={user.section} />
-          <InfoItem label="DOB" value={formatDate(user.dateOfBirth)} />
-          <InfoItem label="Institutional Email" value={user.email} grow={1} />
-          {user.secondaryEmail && (
-            <InfoItem
-              label="Secondary Email"
-              value={
-                <span className="flex items-center gap-2">
-                  <span className="truncate">{user.secondaryEmail}</span>
-                  <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0">Linked</span>
-                </span>
-              }
-              grow={1}
-            />
-          )}
-          <InfoItem
-            label="Faculty Supervisor"
-            value={
-              user.assignedFaculty?.name ||
-              (user.internshipRequest?.facultyStatus === 'Pending' ? 'Pending Approval' :
-                user.internshipRequest?.facultyStatus === 'Rejected' ? 'Rejected - Reassign Needed' : 'Not Assigned')
-            }
-            grow={1}
-          />
-        </div>
-      </div>
-    </div>
-  );
+  // Helpers and ProfileTable moved to StudentProfileCard and handled at Portal level
 
   // ── PHASE 1: REGISTRATION & ELIGIBILITY DESIGN ──
   const Phase1Dashboard = () => (
@@ -86,7 +24,7 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
             <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Phase 1</span>
-            <span className="text-sm font-bold text-primary">Self-Registration & Verification</span>
+            <span className="text-sm font-bold text-primary">Self-Registration &amp; Verification</span>
           </div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-3">Welcome to DIMS Portal</h2>
           <p className="text-gray-500 font-medium max-w-xl">
@@ -97,20 +35,43 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
 
       <Phase1EligibilityBanner user={user} />
 
-      {(!isProfileComplete && showAlert && !isLocked) && (
-        <Alert type="warning" className="mb-8 rounded-[1.5rem] border-2 shadow-lg" onClose={() => setShowAlert(false)}>
+      {/* Pending Setup State: eligible but profile not filled */}
+      {isPendingSetup && (
+        <div className="mt-8 p-8 bg-gradient-to-br from-amber-50 to-orange-50/40 rounded-[2.5rem] border-2 border-amber-200 shadow-xl shadow-amber-50/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-amber-400 flex items-center justify-center text-white text-2xl shadow-lg shadow-amber-200 flex-shrink-0">
+              <i className="fas fa-id-card-clip"></i>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-amber-600 tracking-widest uppercase mb-1">Action Required — Profile Setup</p>
+              <h3 className="text-xl font-black text-gray-900 tracking-tight">Complete Your Profile to Continue</h3>
+              <p className="text-sm text-gray-500 mt-1 max-w-md">
+                Great news — you meet all academic eligibility criteria! Complete your personal profile (Father&apos;s Name, Section, DOB &amp; Profile Picture) to unlock the internship workflow.
+              </p>
+            </div>
+          </div>
+          <a href="/student/profile" className="flex-shrink-0">
+            <button className="font-black text-xs px-8 py-4 rounded-2xl bg-amber-500 text-white shadow-xl shadow-amber-200 hover:bg-amber-600 transition-all active:scale-95 border-0 cursor-pointer uppercase tracking-widest whitespace-nowrap">
+              Complete Profile Now <i className="fas fa-arrow-right ml-2 text-[10px]"></i>
+            </button>
+          </a>
+        </div>
+      )}
+
+      {(!isProfileComplete && showAlert && !isLocked && !isPendingSetup) && (
+        <Alert type="warning" className="mb-8 rounded-[1.5rem] border-2 shadow-lg mt-8" onClose={() => setShowAlert(false)}>
           <div className="flex items-center gap-4 py-1">
             <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 flex-shrink-0">
               <i className="fas fa-user-pen"></i>
             </div>
             <p className="font-bold text-amber-900">
-              Institutional Profile Incomplete: <span className="font-medium text-amber-700">Please provide your Father's Name, Section, and DOB in the Profile section to unlock Phase 2.</span>
+              Institutional Profile Incomplete: <span className="font-medium text-amber-700">Please provide your Father&apos;s Name, Section, and DOB in the Profile section to unlock Phase 2.</span>
             </p>
           </div>
         </Alert>
       )}
 
-      {!isLocked && <ProfileTable />}
+      {/* ProfileTable moved to main return */}
     </div>
   );
 
@@ -129,7 +90,9 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Internship Cycle Active</span>
           </div>
-          <h3 className="text-2xl font-black text-gray-800 tracking-tight mb-2">Internship Phase 2</h3>
+          <h3 className="text-2xl font-black text-gray-800 tracking-tight mb-2">
+            {activePhase?.order <= 2 ? 'Placement & Onboarding' : 'Academic Execution'}
+          </h3>
           <p className="text-gray-500 text-sm font-medium max-w-md leading-relaxed">
             The internship cycle is now open. Complete the steps below to submit and finalize your placement.
           </p>
@@ -139,7 +102,7 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Current Phase</p>
           <p className="text-xl font-black text-primary tracking-tight">{activePhase?.label || 'In Progress'}</p>
           <div className="mt-4 w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-            <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${(phaseOrder / 9) * 100}%` }}></div>
+            <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${(phaseOrder / 5) * 100}%` }}></div>
           </div>
         </div>
       </div>
@@ -160,8 +123,8 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
         </Alert>
       )}
 
-      {/* Dynamic Workflow Trigger Card */}
-      {!isLocked && (
+      {/* Dynamic Workflow Trigger Card - ONLY show in Phase 2 */}
+      {(!isLocked && phaseOrder === 2) && (
         <div className={`p-8 rounded-[2.5rem] border-2 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all shadow-xl mb-8 ${isRequestInLog ? 'bg-emerald-50/50 border-emerald-100 shadow-emerald-50/50' : 'bg-primary/5 border-primary/10 shadow-primary/5'}`}>
           <div className="flex items-center gap-6">
             <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white text-3xl shadow-2xl ${isRequestInLog ? 'bg-emerald-500 rotate-3' : 'bg-primary -rotate-3'}`}>
@@ -193,16 +156,129 @@ export default function StudentDashboard({ user, isEligible, isPhase1, activePha
         </div>
       )}
 
-      {!isLocked && <ProfileTable />}
+      {/* ── Phase 3: Internship Commences (Assignment Submissions) ── */}
+      {(!isLocked && phaseOrder >= 3) && (
+        <div className="p-8 rounded-[2.5rem] border-2 bg-gradient-to-br from-indigo-50 to-blue-50/30 border-indigo-100 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all shadow-xl shadow-indigo-50/50 mb-8 animate-in zoom-in-95 duration-500">
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 rounded-3xl bg-indigo-600 flex items-center justify-center text-white text-3xl shadow-2xl shadow-indigo-200 rotate-2">
+              <i className="fas fa-file-arrow-up"></i>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-indigo-500 tracking-widest uppercase mb-1">Phase 3 — Internship Commences</p>
+              <h4 className="text-2xl font-black text-gray-800 tracking-tight">Assignment Submissions</h4>
+              <p className="text-sm text-gray-500 font-medium mt-1 max-w-sm">
+                The technical phase has begun. Submit your monthly reports, task logs, and final evaluation files for faculty review.
+              </p>
+            </div>
+          </div>
+
+          <a href="/student/assignments" className="flex-shrink-0">
+            <button className="font-black text-xs px-10 py-5 rounded-2xl bg-indigo-600 text-white shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 border-0 cursor-pointer uppercase tracking-widest">
+              Go to Assignments <i className="fas fa-arrow-right ml-2 text-[10px]"></i>
+            </button>
+          </a>
+        </div>
+      )}
+
+      {/* ── PHASE 4: EVALUATION & RESULTS ── */}
+      {(!isLocked && phaseOrder >= 4) && (
+        <div className="p-8 rounded-[2.5rem] border-2 bg-gradient-to-br from-emerald-50 to-teal-50/30 border-emerald-100 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all shadow-xl shadow-emerald-50/50 mb-8 animate-in zoom-in-95 duration-500">
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 rounded-3xl bg-emerald-500 flex items-center justify-center text-white text-3xl shadow-2xl shadow-emerald-200 -rotate-2">
+              <i className="fas fa-award"></i>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-emerald-500 tracking-widest uppercase mb-1">Phase 4 — Results &amp; Completion</p>
+              <h4 className="text-2xl font-black text-gray-800 tracking-tight">Final Academic Results</h4>
+              <p className="text-sm text-gray-500 font-medium mt-1 max-w-sm">
+                Your internship evaluations have been finalized. View your performance transcript and aggregate marks.
+              </p>
+            </div>
+          </div>
+
+          <a href="/student/results" className="flex-shrink-0">
+            <button className="font-black text-xs px-10 py-5 rounded-2xl bg-emerald-500 text-white shadow-xl shadow-emerald-200 hover:bg-emerald-600 transition-all active:scale-95 border-0 cursor-pointer uppercase tracking-widest">
+              View My Results <i className="fas fa-certificate ml-2 text-[10px]"></i>
+            </button>
+          </a>
+        </div>
+      )}
+
+      {/* ProfileTable moved to main return */}
     </div>
   );
 
   return (
-    <div className="max-w-7xl mx-auto py-2">
+    <div className="max-w-7xl mx-auto py-2 px-4 md:px-0">
       <NoticeModal />
 
-      {/* Dynamic Phase Router (Counter Based) */}
-      {phaseOrder === 1 ? <Phase1Dashboard /> : <Phase2PlusDashboard />}
+      {/* Top-level Profile Summary Card — Exclusive to Dashboard */}
+      {!isLocked && <StudentProfileCard user={user} />}
+
+      {/* Dynamic Phase Router (Prop Based) — prioritizes personal onboarding */}
+      {isPhase1 ? <Phase1Dashboard /> : <Phase2PlusDashboard />}
+
+      {/* Institutional Profile Information */}
+      <div className="mt-12 mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1.5 h-6 bg-primary rounded-full"></div>
+          <h3 className="text-xl font-black text-gray-800 tracking-tight">Institutional Profile Information</h3>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden transform transition-all hover:shadow-md">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50/50">
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Attribute</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Verification Detail</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {[
+                { label: "Full Name", value: user.name, icon: "fa-user" },
+                { label: "Father's Name", value: user.fatherName || "—", icon: "fa-person-half-dress" },
+                { label: "Registration No.", value: user.reg, icon: "fa-id-card" },
+                { label: "Semester", value: user.semester || "—", icon: "fa-university" },
+                { label: "Current CGPA", value: user.cgpa || "—", icon: "fa-chart-simple" },
+                { label: "Institutional Email", value: user.email, icon: "fa-envelope" },
+                { label: "WhatsApp Contact", value: user.whatsappNumber || "—", icon: "fa-whatsapp" },
+                { label: "Section / Group", value: user.section || "—", icon: "fa-users-rectangle" },
+                {
+                  label: "Date of Birth",
+                  value: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : "—",
+                  icon: "fa-calendar-day"
+                },
+                { label: "Degree Program", value: user.registeredCourse || "BS Computer Science", icon: "fa-graduation-cap" }
+              ].map((item, idx) => (
+                <tr key={idx} className="group hover:bg-blue-50/30 transition-colors">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:text-primary transition-all">
+                        <i className={`fas ${item.icon} text-xs`}></i>
+                      </div>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{item.label}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className={`text-sm font-black ${item.value === "—" ? 'text-gray-300 italic' : 'text-gray-800'}`}>
+                      {item.value}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100">
+                      <i className="fas fa-check-double scale-75"></i> VERIFIED
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 px-4 text-[10px] font-bold text-gray-400 italic">
+          * These details are synchronized with the departmental registry. For any discrepancies, please visit the Internship Office.
+        </p>
+      </div>
     </div>
   );
 }

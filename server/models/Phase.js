@@ -7,11 +7,7 @@ const phaseSchema = new mongoose.Schema({
         unique: true,
         enum: [
             'registration',
-            'request_submission',
-            'hod_approval',
-            'agreement_submission',
-            'agreement_review',
-            'supervisor_assignment',
+            'placement_process',
             'internship_active',
             'evaluation',
             'completion'

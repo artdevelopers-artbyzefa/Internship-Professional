@@ -7,15 +7,11 @@ const router = express.Router();
 
 // Default phase definitions — seeded on first request
 const DEFAULT_PHASES = [
-    { key: 'registration', label: 'Student Registration', description: 'The internship office onboards student accounts and the portal is open for login.', icon: 'fa-user-plus', order: 1 },
-    { key: 'request_submission', label: 'Internship Request', description: 'Students submit their internship preference requests (self-arranged or university-assigned).', icon: 'fa-file-arrow-up', order: 2 },
-    { key: 'hod_approval', label: 'HOD Approval', description: 'Head of Department reviews and approves or rejects student internship requests.', icon: 'fa-user-check', order: 3 },
-    { key: 'agreement_submission', label: 'Agreement Submission', description: 'Approved students submit their formal internship agreement form (AppEx-B).', icon: 'fa-file-signature', order: 4 },
-    { key: 'agreement_review', label: 'Agreement Review & Verify', description: 'The internship office reviews, verifies company details, and approves/rejects agreements.', icon: 'fa-magnifying-glass', order: 5 },
-    { key: 'supervisor_assignment', label: 'Supervisor Assignment', description: 'The office assigns faculty supervisors and finalizes company placements for each student.', icon: 'fa-user-tie', order: 6 },
-    { key: 'internship_active', label: 'Internship Running', description: 'Internship period is underway. Faculty supervisors monitor and evaluate assigned students.', icon: 'fa-business-time', order: 7 },
-    { key: 'evaluation', label: 'Evaluation & Marking', description: 'Faculty supervisors submit marks and evaluations for their assigned students.', icon: 'fa-star-half-stroke', order: 8 },
-    { key: 'completion', label: 'Completion & Closure', description: 'Final results are compiled. The internship cycle is officially closed.', icon: 'fa-flag-checkered', order: 9 },
+    { key: 'registration', label: 'Phase 1: Student Registration', description: 'The internship office onboards student accounts and the portal is open for login.', icon: 'fa-user-plus', order: 1 },
+    { key: 'placement_process', label: 'Phase 2: Placement & Approvals', description: 'Students submit requests, HOD approves, and formal agreements are verified.', icon: 'fa-file-signature', order: 2 },
+    { key: 'internship_active', label: 'Phase 3: Internship Commences', description: 'Internship period is underway. Students submit assignments and faculty evaluate performance.', icon: 'fa-business-time', order: 3 },
+    { key: 'evaluation', label: 'Phase 4: Evaluation & Marking', description: 'Faculty supervisors submit marks and evaluations for their assigned students.', icon: 'fa-star-half-stroke', order: 4 },
+    { key: 'completion', label: 'Phase 5: Completion & Closure', description: 'Final results are compiled. The internship cycle is officially closed.', icon: 'fa-flag-checkered', order: 5 },
 ];
 
 // Helper: Initialize phases in DB if not present

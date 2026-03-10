@@ -22,14 +22,14 @@ export default function FacultyAssignments() {
       if (data.length > 0) {
         setSelectedId(data[0]._id);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   useEffect(() => {
     if (selectedId) {
       fetchSubmissions();
     } else {
-        setStudents([]);
+      setStudents([]);
     }
   }, [selectedId]);
 
@@ -39,7 +39,7 @@ export default function FacultyAssignments() {
       const data = await apiRequest(`/faculty/assignment-submissions/${selectedId}`);
       setStudents(data);
       setSelectedStudents([]); // Reset selection
-    } catch (err) {}
+    } catch (err) { }
     finally {
       setLoading(false);
     }
@@ -54,32 +54,36 @@ export default function FacultyAssignments() {
   };
 
   const toggleSelect = (submissionId) => {
-    setSelectedStudents(prev => 
-      prev.includes(submissionId) 
-        ? prev.filter(id => id !== submissionId) 
+    setSelectedStudents(prev =>
+      prev.includes(submissionId)
+        ? prev.filter(id => id !== submissionId)
         : [...prev, submissionId]
     );
   };
 
   const handleDownload = async (fileUrl, reg, name) => {
+    if (!fileUrl) return;
     try {
-        const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
-        const response = await fetch(`${baseUrl}${fileUrl}`, {
-            credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Download failed');
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const extension = fileUrl.split('.').pop();
-        a.download = `${reg}-${name.replace(/\s+/g, '_')}.${extension}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+      const isFullUrl = fileUrl.startsWith('http');
+      const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
+      const targetUrl = isFullUrl ? fileUrl : `${baseUrl}${fileUrl}`;
+
+      const response = await fetch(targetUrl, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const extension = fileUrl.split('.').pop();
+      a.download = `${reg}-${name.replace(/\s+/g, '_')}.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
-        showToast.error('Failed to download file');
+      showToast.error('Failed to download file');
     }
   };
 
@@ -121,9 +125,9 @@ export default function FacultyAssignments() {
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student Submissions</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Review and download reports submitted by your assigned interns.</p>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <select 
+          <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-secondary/20 outline-none min-w-[240px] appearance-none"
@@ -133,9 +137,9 @@ export default function FacultyAssignments() {
               <option key={a._id} value={a._id}>{a.title}</option>
             ))}
           </select>
-          <Button 
-            variant="outline" 
-            onClick={fetchSubmissions} 
+          <Button
+            variant="outline"
+            onClick={fetchSubmissions}
             disabled={!selectedId || loading}
             className="p-2.5"
           >
@@ -148,13 +152,13 @@ export default function FacultyAssignments() {
         <div className="flex items-center justify-between mb-6">
           <div className="text-xs font-black tracking-widest text-gray-400">Student Submissions</div>
           {selectedStudents.length > 0 && (
-            <Button 
-              variant="primary" 
-              size="sm" 
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleBulkDownload}
               className="bg-secondary hover:bg-blue-700 shadow-md shadow-blue-600/20"
             >
-              <i className="fas fa-file-zipper mr-2"></i> 
+              <i className="fas fa-file-zipper mr-2"></i>
               Download Selected ({selectedStudents.length})
             </Button>
           )}
@@ -165,8 +169,8 @@ export default function FacultyAssignments() {
             <thead>
               <tr className="bg-gray-50/50">
                 <th className="px-6 py-4 border-y border-gray-100 w-12">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     onChange={toggleSelectAll}
                     checked={students.length > 0 && selectedStudents.length === students.filter(s => s.submissionId).length && students.filter(s => s.submissionId).length > 0}
                     className="rounded border-gray-300 text-secondary focus:ring-secondary cursor-pointer"
@@ -191,8 +195,8 @@ export default function FacultyAssignments() {
                 students.map((student, idx) => (
                   <tr key={idx} className="hover:bg-gray-50 transition-colors group">
                     <td className="px-6 py-4 border-b border-gray-100">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         disabled={!student.submissionId}
                         checked={!!student.submissionId && selectedStudents.includes(student.submissionId)}
                         onChange={() => toggleSelect(student.submissionId)}
@@ -207,8 +211,8 @@ export default function FacultyAssignments() {
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider
-                        ${student.status === 'Submitted' 
-                          ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100' 
+                        ${student.status === 'Submitted'
+                          ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100'
                           : 'bg-amber-50 text-amber-600 ring-1 ring-amber-100'}`}>
                         <i className={`fas ${student.status === 'Submitted' ? 'fa-circle-check' : 'fa-clock'} mr-1.5`}></i>
                         {student.status}
@@ -216,7 +220,7 @@ export default function FacultyAssignments() {
                     </td>
                     <td className="px-6 py-4 border-b border-gray-100 text-right">
                       {student.fileUrl && (
-                        <button 
+                        <button
                           onClick={() => handleDownload(student.fileUrl, student.reg, student.name)}
                           className="w-8 h-8 rounded-lg bg-lightbg text-secondary flex items-center justify-center hover:bg-secondary hover:text-white transition-all ml-auto border-0 cursor-pointer"
                           title="Download Submission"

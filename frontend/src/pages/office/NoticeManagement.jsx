@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button.jsx';
 import { FormGroup, TextInput, SelectInput, TextareaInput } from '../../components/ui/FormInput.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import Card from '../../components/ui/Card.jsx';
+import { showToast, showAlert } from '../../utils/notifications.jsx';
 
 export default function NoticeManagement({ user }) {
     const [notices, setNotices] = useState([]);

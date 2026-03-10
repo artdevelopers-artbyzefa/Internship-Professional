@@ -41,7 +41,11 @@ export default function FacultyStudents({ user }) {
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Assigned Students</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">Registry of interns under your academic supervision.</p>
+          <p className="text-sm text-gray-500 font-medium mt-1">
+            {user?.role === 'site_supervisor'
+              ? 'Registry of interns under your industrial mentorship.'
+              : 'Registry of interns under your academic supervision.'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <SearchBar value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." className="min-w-[280px]" />
@@ -67,7 +71,12 @@ export default function FacultyStudents({ user }) {
                 <TableRow key={s.id}>
                   <TableCell><strong>{s.name}</strong></TableCell>
                   <TableCell muted>{s.reg}</TableCell>
-                  <TableCell>{s.company}</TableCell>
+                  <TableCell>
+                    {s.isFreelance
+                      ? <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full font-bold text-[10px] whitespace-nowrap"><i className="fas fa-laptop-code mr-1"></i>{s.company}</span>
+                      : s.company
+                    }
+                  </TableCell>
                   <TableCell><StatusBadge status={s.status} /></TableCell>
                 </TableRow>
               ))
