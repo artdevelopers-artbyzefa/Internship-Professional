@@ -7,6 +7,7 @@ import FacultyEvaluation from './FacultyEvaluation.jsx';
 import FacultyReports from './FacultyReports.jsx';
 import StudentProfileDetail from './StudentProfileDetail.jsx';
 import RegisteredStudents from '../office/RegisteredStudents.jsx';
+import SupervisionRequests from './SupervisionRequests.jsx';
 import SupervisorProfile from '../../components/supervisor/SupervisorProfile.jsx';
 import { apiRequest } from '../../utils/api.js';
 
@@ -30,13 +31,36 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
     navigate(`/faculty/${newPageId}`);
   };
 
+  // Phase-aware navigation
   const filteredNav = [
     { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
-    ...(!isPhase4 ? [{ id: 'registered-students', label: 'Registered Students', icon: 'fa-users' }] : []),
-    { id: 'grading', label: isPhase4 ? 'Final Grading' : 'Weekly Grading', icon: 'fa-star' },
-    { id: 'reports', label: 'Evaluation Reports', icon: 'fa-file-invoice' },
-    { id: 'profile', label: 'Profile', icon: 'fa-user-gear' },
   ];
+
+  if (currentPhaseOrder === 2) {
+    filteredNav.push({ id: 'requests', label: 'Internship Requests', icon: 'fa-user-pen' });
+  }
+
+  if (currentPhaseOrder >= 3) {
+    if (!isPhase4) {
+      filteredNav.push({ id: 'registered-students', label: 'Registered Students', icon: 'fa-users' });
+      filteredNav.push({ id: 'grading', label: 'Weekly Grading', icon: 'fa-star' });
+    } else {
+      filteredNav.push({ id: 'grading', label: 'Final Grading', icon: 'fa-star' });
+    }
+    filteredNav.push({ id: 'reports', label: 'Evaluation Reports', icon: 'fa-file-invoice' });
+  }
+
+  filteredNav.push({ id: 'profile', label: 'Profile', icon: 'fa-user-gear' });
+
+  // Safety check to prevent infinite navigation loops
+  useEffect(() => {
+    if (activePhase === undefined) return;
+
+    const restrictedPaths = ['registered-students', 'grading', 'reports'];
+    if (activePhase?.order < 3 && restrictedPaths.includes(currentPath)) {
+      navigate('/faculty/dashboard', { replace: true });
+    }
+  }, [activePhase, currentPath, navigate]);
 
   return (
     <AppLayout
@@ -50,6 +74,7 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<FacultyDashboard user={user} activePhase={activePhase} />} />
+          <Route path="requests" element={<SupervisionRequests user={user} />} />
           <Route path="registered-students" element={<RegisteredStudents user={user} />} />
           <Route path="grading" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
           <Route path="reports" element={<FacultyReports user={user} />} />

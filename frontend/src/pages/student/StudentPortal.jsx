@@ -120,7 +120,7 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
     studentNav = [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house' },
       ...(!showPhase3Nav ? [
-        { id: 'internship-assessment', label: 'Internship Assessment', icon: 'fa-clipboard-list', disabled: isLocked },
+        { id: 'internship-assessment', label: 'Internship Request', icon: 'fa-clipboard-list', disabled: isLocked },
         { id: 'internship-status', label: 'Internship Status', icon: 'fa-bars-progress', disabled: isLocked },
       ] : []),
       ...(showPhase3Nav ? [
@@ -139,6 +139,7 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       setActivePage={handlePageChange}
       navItems={studentNav}
       disableSidebar={isLocked && (isGlobalPhase1 || !hardCriteriaMet)}
+      hideLogout={true}
     >
       <div className="p-6">
         <Routes>

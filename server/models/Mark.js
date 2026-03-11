@@ -66,7 +66,7 @@ const markSchema = new mongoose.Schema({
 markSchema.index({ assignment: 1, student: 1 }, { unique: true });
 
 // Pre-save hook to calculate consolidated marks
-markSchema.pre('save', async function (next) {
+markSchema.pre('save', async function () {
     if (this.isModified('facultyMarks') || this.isModified('siteSupervisorMarks') || this.isNew) {
         try {
             const User = mongoose.model('User');
@@ -91,7 +91,6 @@ markSchema.pre('save', async function (next) {
             console.error('Error in Mark pre-save hook:', err);
         }
     }
-    next();
 });
 
 export default mongoose.model('Mark', markSchema);

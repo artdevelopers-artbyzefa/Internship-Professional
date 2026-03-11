@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../utils/api.js';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
+import RegisteredStudents from '../office/RegisteredStudents.jsx';
 
 export default function SupervisorDashboard({ user, activePhase }) {
     const [profile, setProfile] = useState(null);
@@ -9,19 +10,21 @@ export default function SupervisorDashboard({ user, activePhase }) {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
+    const isPhase2OrLower = activePhase?.order <= 2;
+
     const today = new Date();
     const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
 
     useEffect(() => {
         Promise.all([
             apiRequest('/supervisor/profile'),
-            apiRequest('/supervisor/assignments')
+            !isPhase2OrLower ? apiRequest('/supervisor/assignments') : Promise.resolve([])
         ]).then(([profileData, assignmentData]) => {
             setProfile(profileData);
             setAssignments(assignmentData || []);
         }).catch(console.error)
             .finally(() => setLoading(false));
-    }, []);
+    }, [isPhase2OrLower]);
 
     const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
@@ -61,8 +64,8 @@ export default function SupervisorDashboard({ user, activePhase }) {
                         {dayEvents.map((ev, i) => (
                             <div key={i} title={ev.title}
                                 className={`px-1.5 py-0.5 rounded text-[8px] font-bold border truncate ${ev.type === 'deadline'
-                                        ? 'bg-rose-50 text-rose-600 border-rose-100'
-                                        : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                    ? 'bg-rose-50 text-rose-600 border-rose-100'
+                                    : 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                     }`}>
                                 <i className={`fas ${ev.type === 'deadline' ? 'fa-flag-checkered' : 'fa-play'} mr-1`} />
                                 {ev.title}
@@ -78,10 +81,15 @@ export default function SupervisorDashboard({ user, activePhase }) {
     if (loading) return <div className="p-20 text-center"><i className="fas fa-circle-notch fa-spin text-primary text-2xl" /></div>;
 
     const stats = [
-        { label: 'Assigned Interns', value: profile?.stats?.studentCount || 0, icon: 'fa-users', color: 'blue' },
-        { label: 'Active Tasks', value: profile?.stats?.assignmentCount || 0, icon: 'fa-tasks', color: 'emerald' },
-        { label: 'Pending Evaluations', value: profile?.stats?.pendingEvaluations || 0, icon: 'fa-clock', color: 'amber' }
+        { label: 'Assigned Interns', value: profile?.stats?.studentCount || 0, icon: 'fa-users', color: 'blue' }
     ];
+
+    if (!isPhase2OrLower) {
+        stats.push(
+            { label: 'Active Tasks', value: profile?.stats?.assignmentCount || 0, icon: 'fa-tasks', color: 'emerald' },
+            { label: 'Pending Evaluations', value: profile?.stats?.pendingEvaluations || 0, icon: 'fa-clock', color: 'amber' }
+        );
+    }
 
     return (
         <div className="max-w-7xl mx-auto space-y-8">
@@ -117,13 +125,26 @@ export default function SupervisorDashboard({ user, activePhase }) {
                 </div>
             </div>
 
+            {/* Phase info bar for Phase 2 */}
+            {isPhase2OrLower && (
+                <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 flex items-center gap-4">
+                    <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center text-white text-sm shadow-md shadow-blue-200">
+                        <i className="fas fa-info-circle text-lg" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-black text-blue-700 uppercase tracking-widest">Phase 2: Placement & Approvals</p>
+                        <p className="text-xs text-blue-500 font-medium mt-0.5">Assigned interns are currently undergoing administrative approvals. Assignments and grading will unlock in Phase 3.</p>
+                    </div>
+                </div>
+            )}
+
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`grid grid-cols-1 ${isPhase2OrLower ? 'md:grid-cols-1' : 'md:grid-cols-3'} gap-6`}>
                 {stats.map((stat, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-5">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg ${stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
-                                stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
-                                    'bg-amber-50 text-amber-600'}`}>
+                            stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                'bg-amber-50 text-amber-600'}`}>
                             <i className={`fas ${stat.icon}`} />
                         </div>
                         <div>
@@ -134,101 +155,109 @@ export default function SupervisorDashboard({ user, activePhase }) {
                 ))}
             </div>
 
-            {/* Full-width Calendar */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Toolbar */}
-                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/40 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-1 h-5 bg-primary rounded-full" />
-                        <h3 className="text-xs font-black text-gray-700 uppercase tracking-widest">Assignment Calendar</h3>
-                        {assignments.length > 0 && (
-                            <span className="px-2 py-0.5 bg-rose-50 text-rose-500 text-[9px] font-black rounded-full border border-rose-100 uppercase tracking-wider">
-                                {assignments.length} Task{assignments.length !== 1 ? 's' : ''}
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-black text-gray-700">
-                            {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                        </span>
-                        <div className="flex gap-1">
-                            <button onClick={prevMonth} className="w-7 h-7 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-primary transition-all flex items-center justify-center cursor-pointer">
-                                <i className="fas fa-chevron-left text-[10px]" />
-                            </button>
-                            <button onClick={nextMonth} className="w-7 h-7 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-primary transition-all flex items-center justify-center cursor-pointer">
-                                <i className="fas fa-chevron-right text-[10px]" />
-                            </button>
+            {isPhase2OrLower ? (
+                <div className="space-y-6">
+                    <RegisteredStudents user={user} />
+                </div>
+            ) : (
+                <>
+                    {/* Full-width Calendar */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        {/* Toolbar */}
+                        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/40 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-5 bg-primary rounded-full" />
+                                <h3 className="text-xs font-black text-gray-700 uppercase tracking-widest">Assignment Calendar</h3>
+                                {assignments.length > 0 && (
+                                    <span className="px-2 py-0.5 bg-rose-50 text-rose-500 text-[9px] font-black rounded-full border border-rose-100 uppercase tracking-wider">
+                                        {assignments.length} Task{assignments.length !== 1 ? 's' : ''}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-black text-gray-700">
+                                    {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                </span>
+                                <div className="flex gap-1">
+                                    <button onClick={prevMonth} className="w-7 h-7 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-primary transition-all flex items-center justify-center cursor-pointer">
+                                        <i className="fas fa-chevron-left text-[10px]" />
+                                    </button>
+                                    <button onClick={nextMonth} className="w-7 h-7 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-primary transition-all flex items-center justify-center cursor-pointer">
+                                        <i className="fas fa-chevron-right text-[10px]" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Day names */}
+                        <div className="grid grid-cols-7 border-b border-gray-50">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                                <div key={d} className="py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">{d}</div>
+                            ))}
+                        </div>
+
+                        {/* Grid */}
+                        <div className="grid grid-cols-7">
+                            {renderCalendar()}
+                        </div>
+
+                        {/* Legend */}
+                        <div className="px-6 py-3 bg-gray-50/30 border-t border-gray-50 flex items-center gap-6">
+                            <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                <span className="w-3 h-3 rounded bg-primary inline-block" /> Today
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                <span className="w-3 h-3 rounded bg-emerald-400 inline-block" /> Task Start Date
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                                <span className="w-3 h-3 rounded bg-rose-400 inline-block" /> Submission Deadline
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Day names */}
-                <div className="grid grid-cols-7 border-b border-gray-50">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                        <div key={d} className="py-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">{d}</div>
-                    ))}
-                </div>
-
-                {/* Grid */}
-                <div className="grid grid-cols-7">
-                    {renderCalendar()}
-                </div>
-
-                {/* Legend */}
-                <div className="px-6 py-3 bg-gray-50/30 border-t border-gray-50 flex items-center gap-6">
-                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                        <span className="w-3 h-3 rounded bg-primary inline-block" /> Today
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                        <span className="w-3 h-3 rounded bg-emerald-400 inline-block" /> Task Start Date
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                        <span className="w-3 h-3 rounded bg-rose-400 inline-block" /> Submission Deadline
-                    </div>
-                </div>
-            </div>
-
-            {/* Upcoming deadlines quick view */}
-            {assignments.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-                        <h3 className="text-xs font-black text-gray-600 uppercase tracking-widest">Task Deadlines</h3>
-                        <button onClick={() => navigate('/supervisor/assignments')}
-                            className="text-[10px] font-black text-primary hover:underline bg-transparent border-0 cursor-pointer uppercase tracking-wider">
-                            Manage Tasks →
-                        </button>
-                    </div>
-                    <div className="divide-y divide-gray-50">
-                        {[...assignments]
-                            .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
-                            .map((a, i) => {
-                                const dl = new Date(a.deadline);
-                                const isOverdue = dl < today;
-                                const daysLeft = Math.ceil((dl - today) / (1000 * 60 * 60 * 24));
-                                return (
-                                    <div key={i} className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${isOverdue ? 'bg-rose-50 text-rose-500' : 'bg-primary/5 text-primary'}`}>
-                                                <i className="fas fa-clipboard-list" />
+                    {/* Upcoming deadlines quick view */}
+                    {assignments.length > 0 && (
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+                                <h3 className="text-xs font-black text-gray-600 uppercase tracking-widest">Task Deadlines</h3>
+                                <button onClick={() => navigate('/supervisor/assignments')}
+                                    className="text-[10px] font-black text-primary hover:underline bg-transparent border-0 cursor-pointer uppercase tracking-wider">
+                                    Manage Tasks →
+                                </button>
+                            </div>
+                            <div className="divide-y divide-gray-50">
+                                {[...assignments]
+                                    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+                                    .map((a, i) => {
+                                        const dl = new Date(a.deadline);
+                                        const isOverdue = dl < today;
+                                        const daysLeft = Math.ceil((dl - today) / (1000 * 60 * 60 * 24));
+                                        return (
+                                            <div key={i} className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${isOverdue ? 'bg-rose-50 text-rose-500' : 'bg-primary/5 text-primary'}`}>
+                                                        <i className="fas fa-clipboard-list" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-800 leading-none">{a.title}</p>
+                                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                                            {a.targetStudents?.length > 0 ? `${a.targetStudents.length} intern(s)` : 'All interns'} · {a.totalMarks} marks
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                    <p className="text-xs font-black text-gray-700">{dl.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                                    <p className={`text-[9px] font-black uppercase tracking-wider mt-0.5 ${isOverdue ? 'text-rose-500' : daysLeft <= 3 ? 'text-amber-500' : 'text-gray-400'}`}>
+                                                        {isOverdue ? 'Closed' : daysLeft === 0 ? 'Due Today' : `${daysLeft}d left`}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-800 leading-none">{a.title}</p>
-                                                <p className="text-[10px] text-gray-400 mt-0.5">
-                                                    {a.targetStudents?.length > 0 ? `${a.targetStudents.length} intern(s)` : 'All interns'} · {a.totalMarks} marks
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right flex-shrink-0">
-                                            <p className="text-xs font-black text-gray-700">{dl.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                                            <p className={`text-[9px] font-black uppercase tracking-wider mt-0.5 ${isOverdue ? 'text-rose-500' : daysLeft <= 3 ? 'text-amber-500' : 'text-gray-400'}`}>
-                                                {isOverdue ? 'Closed' : daysLeft === 0 ? 'Due Today' : `${daysLeft}d left`}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                    </div>
-                </div>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

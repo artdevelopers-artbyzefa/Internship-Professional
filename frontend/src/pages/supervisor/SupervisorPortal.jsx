@@ -34,6 +34,9 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
     };
 
     const filteredNav = supervisorNav.filter(item => {
+        if (activePhase?.order <= 2) {
+            return ['dashboard', 'registered-students', 'profile'].includes(item.id);
+        }
         if (activePhase?.order >= 4) {
             return ['dashboard', 'grading', 'profile'].includes(item.id);
         }

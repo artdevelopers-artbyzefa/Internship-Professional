@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, setShowMobileSidebar, activePage, setActivePage, navItems, onLogout, disabled }) {
+export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, setShowMobileSidebar, activePage, setActivePage, navItems, onLogout, disabled, hideLogout = false }) {
   const [openMenus, setOpenMenus] = React.useState({});
 
   const toggleMenu = (id) => {
@@ -104,14 +104,16 @@ export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, 
         })}
       </nav>
 
-      <div className="p-2 border-t border-white/10">
-        <div
-          onClick={onLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-white/70 hover:bg-white/10 hover:text-white transition-all duration-200">
-          <i className="fas fa-right-from-bracket text-sm w-5 text-center flex-shrink-0"></i>
-          {(!collapsed || showMobileSidebar) && <span className="text-sm font-medium">Logout</span>}
+      {!hideLogout && (
+        <div className="p-2 border-t border-white/10">
+          <div
+            onClick={onLogout}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-white/70 hover:bg-white/10 hover:text-white transition-all duration-200">
+            <i className="fas fa-right-from-bracket text-sm w-5 text-center flex-shrink-0"></i>
+            {(!collapsed || showMobileSidebar) && <span className="text-sm font-medium">Logout</span>}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

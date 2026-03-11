@@ -6,6 +6,8 @@ import {
   PieChart, Pie, Cell, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis,
   LineChart, Line, ReferenceLine
 } from 'recharts';
+import jsPDF from 'jspdf';
+import { toPng } from 'html-to-image';
 
 // ── Palette ─────────────────────────────────────────────────────────────────
 const GRADE_COLORS = {
@@ -81,33 +83,81 @@ export default function HODReports() {
   const facultyData = Object.values(facultyMap).map(f => ({ ...f, avgPct: Math.round(f.totalPct / f.students) }));
 
   // PDF download
+  // PDF download via heavily structured backend generation
   const handlePDF = async () => {
     setLoadingPDF(true);
     try {
-      const tableData = filtered.map(r => [
-        r.student.reg, r.student.name, r.faculty, r.company,
-        `${r.averageMarks}/10`, `${r.percentage}%`, r.grade, r.gradePoints, r.status
-      ]);
-      const payload = {
-        supervisorName: 'Head of Department',
-        reportTitle: 'HOD Internship Grade Sheet',
-        tableHeader: ['Reg. #', 'Student', 'Faculty', 'Company', 'Avg', '%', 'Grade', 'GP', 'Status'],
-        tableData,
-        columnsLayout: [80, '*', '*', '*', 40, 35, 35, 55, 55]
+      // 1. Capture charts as base64 images
+      const grabChart = async (id) => {
+        const el = document.getElementById(id);
+        if (!el) return null;
+        return await toPng(el, {
+          cacheBust: true,
+          backgroundColor: '#ffffff',
+          pixelRatio: 2,
+          skipFonts: true, // Prevents html-to-image from crashing on external CORS CSS (FontAwesome/Google Fonts)
+          fontEmbedCSS: ''
+        });
       };
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/reports/generate-pdf`, {
+
+      const chartDist = await grabChart('chart-dist');
+      const chartPie = await grabChart('chart-pie');
+      const chartTop = await grabChart('chart-top');
+      const chartFaculty = await grabChart('chart-faculty');
+
+      // 2. Prepare Tables Structure
+      const studentData = filtered.map(r => [
+        r.student.reg, r.student.name, r.faculty, r.company || 'N/A',
+        `${r.averageMarks}/10`, `${r.percentage}%`, r.grade, r.status
+      ]);
+
+      const facultyTableData = facultyData.map(f => [
+        f.name, f.students.toString(), `${f.avgPct}%`, gradeFromPct(f.avgPct)
+      ]);
+
+      const companies = {};
+      results.forEach(r => {
+        const c = r.company || 'Unknown Company';
+        if (!companies[c]) companies[c] = { name: c, count: 0, pass: 0 };
+        companies[c].count++;
+        if (r.status === 'Pass') companies[c].pass++;
+      });
+      const companyTableData = Object.values(companies).map(c => [
+        c.name, c.count.toString(), `${Math.round((c.pass / c.count) * 100)}%`
+      ]);
+
+      const payload = {
+        stats: {
+          total, passed, failed, avgPct, avgGrade,
+          pending: total === 0 ? 0 : results.filter(r => r.assignmentsCount === 0).length,
+          totalFaculty: facultyData.length
+        },
+        charts: { chartDist, chartPie, chartTop, chartFaculty },
+        tables: {
+          students: studentData,
+          faculty: facultyTableData,
+          companies: companyTableData
+        }
+      };
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/reports/hod-full-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         credentials: 'include'
       });
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url;
-      a.download = `HOD_Internship_Grade_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `HOD_Full_Analysis_${new Date().toISOString().slice(0, 10)}.pdf`;
       document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (e) { console.error(e); } finally { setLoadingPDF(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingPDF(false);
+    }
   };
 
   if (loading) return (
@@ -117,7 +167,7 @@ export default function HODReports() {
   );
 
   return (
-    <div className="space-y-6">
+    <div id="hod-report-content" className="space-y-6 bg-slate-50 p-2 sm:p-0">
 
       {/* Header ─────────────────────────────────────────────────────────── */}
       <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -129,6 +179,7 @@ export default function HODReports() {
         </div>
         <button
           onClick={handlePDF}
+          data-html2canvas-ignore="true"
           disabled={loadingPDF || results.length === 0}
           className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-600/20 hover:bg-secondary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -150,7 +201,7 @@ export default function HODReports() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {/* Grade Distribution */}
-        <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div id="chart-dist" className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Grade Distribution (All Students)</h4>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -168,7 +219,7 @@ export default function HODReports() {
         </div>
 
         {/* Pass / Fail Pie */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+        <div id="chart-pie" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
           <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Pass / Fail Ratio</h4>
           <div className="flex-1 min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -193,7 +244,7 @@ export default function HODReports() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Top Performers */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div id="chart-top" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Top Performers</h4>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -212,7 +263,7 @@ export default function HODReports() {
         </div>
 
         {/* Faculty avg performance */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div id="chart-faculty" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Faculty Supervisor — Avg Student Score</h4>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -236,11 +287,13 @@ export default function HODReports() {
             <h3 className="font-black text-gray-800">Student Grade Records</h3>
             <span className="text-[10px] font-black bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full border border-gray-100 uppercase tracking-widest">{filtered.length} Records</span>
           </div>
-          <input
-            type="text" placeholder="Search by name or reg…" value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="px-4 py-2 border border-gray-100 rounded-xl text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-gray-50 w-64"
-          />
+          <div data-html2canvas-ignore="true">
+            <input
+              type="text" placeholder="Search by name or reg…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="px-4 py-2 border border-gray-100 rounded-xl text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-gray-50 w-64"
+            />
+          </div>
         </div>
         {filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
