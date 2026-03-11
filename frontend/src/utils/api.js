@@ -9,10 +9,12 @@ const API_BASE = VITE_API_URL && VITE_API_URL !== '/api'
 export const apiRequest = async (endpoint, options = {}) => {
     const { method = 'GET', body, headers = {}, silent = false } = options;
 
+    const token = localStorage.getItem('token');
     const config = {
         method,
         headers: {
             'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...headers,
         },
         credentials: 'include',

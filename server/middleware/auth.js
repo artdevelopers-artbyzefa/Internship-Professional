@@ -4,12 +4,17 @@ import User from '../models/User.js';
 export const protect = async (req, res, next) => {
     let token;
 
-    if (req.cookies.token) {
+    // 1. Try to get token from Authorization Header
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        token = req.headers.authorization.split(' ')[1];
+    }
+    // 2. Fallback to Cookies
+    else if (req.cookies.token) {
         token = req.cookies.token;
     }
 
     if (!token) {
-        console.log(`[PROTECT] [FAIL] No token found in cookies for ${req.originalUrl}`);
+        console.log(`[PROTECT] [FAIL] No token found in headers or cookies for ${req.originalUrl}`);
         return res.status(401).json({ message: 'Not authorized: Missing session token' });
     }
 

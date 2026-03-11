@@ -47,7 +47,7 @@ export default function LoginPage({ onLogin }) {
         showToast.info(data.message);
       } else {
         showToast.success(`Welcome back, ${data.user.name || 'User'}!`);
-        onLogin(data.user);
+        onLogin(data);
       }
     } catch (err) {
       setApiError(err.message);
@@ -65,7 +65,7 @@ export default function LoginPage({ onLogin }) {
         body: { email: form.email, code: otp }
       });
       showToast.success(`Verified! Welcome, ${data.user.name}`);
-      onLogin(data.user);
+      onLogin(data);
     } catch (err) {
       setApiError(err.message);
     } finally {
