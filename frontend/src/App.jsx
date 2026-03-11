@@ -40,7 +40,11 @@ export default function App() {
     initApp();
   }, []);
 
-  const handleLogin = (userData) => {
+  const handleLogin = (data) => {
+    const { user: userData, token } = data;
+    if (token) {
+      localStorage.setItem('token', token);
+    }
     setUser(userData);
 
     // Redirect based on role
@@ -60,6 +64,7 @@ export default function App() {
     } catch (err) {
       console.error('Logout error:', err);
     }
+    localStorage.removeItem('token');
     setUser(null);
     navigate('/login', { replace: true });
   };

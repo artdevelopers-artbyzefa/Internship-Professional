@@ -387,7 +387,8 @@ router.post('/login', async (req, res) => {
                 assignedFaculty: user.assignedFaculty,
                 assignedCompany: user.assignedCompany,
                 assignedCompanySupervisor: user.assignedCompanySupervisor
-            }
+            },
+            token
         });
 
     } catch (error) {
@@ -451,7 +452,8 @@ router.post('/verify-secondary', async (req, res) => {
                 assignedFaculty: populatedUser.assignedFaculty,
                 assignedCompany: populatedUser.assignedCompany,
                 assignedCompanySupervisor: populatedUser.assignedCompanySupervisor
-            }
+            },
+            token
         });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });

@@ -10,7 +10,7 @@ export default function NoticeModal() {
     useEffect(() => {
         const fetchInitialNotices = async () => {
             try {
-                const data = await apiRequest('/notices/my');
+                const data = await apiRequest('/notices/my', { silent: true });
                 if (data && data.length > 0) {
                     setNotices(data);
                     setIsOpen(true);
@@ -28,11 +28,11 @@ export default function NoticeModal() {
     if (loading || !isOpen || notices.length === 0) return null;
 
     return (
-        <div 
+        <div
             className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300"
             onClick={() => setIsOpen(false)}
         >
-            <div 
+            <div
                 className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl relative flex flex-col animate-in zoom-in-95 duration-300"
                 onClick={(e) => e.stopPropagation()}
                 style={{ backgroundImage: 'linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%)' }}
@@ -45,7 +45,7 @@ export default function NoticeModal() {
                         </div>
                         <h2 className="text-xl font-bold tracking-tight">Recent Announcements</h2>
                     </div>
-                    <button 
+                    <button
                         onClick={() => setIsOpen(false)}
                         className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
                     >
@@ -62,7 +62,7 @@ export default function NoticeModal() {
 
                 {/* Footer */}
                 <div className="p-4 border-t border-blue-50 bg-gray-50/50 flex justify-center">
-                    <button 
+                    <button
                         onClick={() => setIsOpen(false)}
                         className="px-8 py-2.5 bg-primary text-white rounded-xl font-bold hover:bg-blue-800 transition-all hover:shadow-lg active:scale-95"
                     >
