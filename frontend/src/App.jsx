@@ -117,8 +117,8 @@ export default function App() {
         <Route path="/supervisor/*" element={<SupervisorPortal user={user} onLogout={handleLogout} />} />
       </Route>
 
-      {/* Fallback 404 */}
-      <Route path="*" element={<NotFound />} />
+      {/* Fallback - Redirect to home which handles role-based routing */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
