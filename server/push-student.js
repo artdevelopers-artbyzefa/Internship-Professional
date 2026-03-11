@@ -20,12 +20,12 @@ const pushStudent = async () => {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('Connected to Database');
 
-        const rollPart = 'fa23-bcs-014'.toUpperCase();
+        const rollPart = 'fa23-bcs-013'.toUpperCase();
         const email = `${rollPart}@cuiatd.edu.pk`.toLowerCase();
         const hashedPassword = await bcrypt.hash('CUI@12345', 12);
 
         const studentData = {
-            name: 'Bilal Rathore',
+            name: 'Arslan Rathore',
             email: email,
             password: hashedPassword,
             role: 'student',
