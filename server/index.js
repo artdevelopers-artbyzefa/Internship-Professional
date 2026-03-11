@@ -106,12 +106,3 @@ app.get('/api/db-test', async (req, res) => {
 
 // Export app for Vercel
 export default app;
-
-// Only listen if not running on Vercel (for local development)
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-        console.log(`\n[${getPKTTime()}] DIMS Server effectively running on port ${PORT}`);
-        console.log(`[${getPKTTime()}] Database: Connected to MongoDB`);
-    });
-}
