@@ -21,6 +21,7 @@ import { getPKTTime } from './utils/time.js';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
