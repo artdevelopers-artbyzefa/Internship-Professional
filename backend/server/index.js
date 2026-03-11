@@ -28,11 +28,17 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({
     origin: (origin, callback) => {
-        callback(null, true);
+        // Allow all origins that are not blocked by other logic, 
+        // specifically ensuring the requester's origin is echoed back for credentials support.
+        if (!origin || origin.startsWith('http')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 app.use(cookieParser());
 app.use(morgan('dev')); // Log ALL requests to the terminal

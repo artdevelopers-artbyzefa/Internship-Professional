@@ -354,12 +354,13 @@ router.post('/login', async (req, res) => {
         // Update last login without triggering full middleware stack for speed
         await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
 
-        const isProduction = process.env.NODE_ENV === 'production';
+        // Cookie logic for cross-site (Vercel -> Custom Domain)
         res.cookie('token', token, {
             httpOnly: true,
-            secure: isProduction,
-            sameSite: isProduction ? 'none' : 'lax',
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            secure: true, // Always true for HTTPS, required by SameSite: none
+            sameSite: 'none', // Required for cross-site cookies between different domains
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days instead of 24h
+            path: '/'
         });
 
         console.log(`[SUCCESS] User authenticated as ${user.role}: ${emailLower}`);
@@ -420,12 +421,12 @@ router.post('/verify-secondary', async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        const isProduction = process.env.NODE_ENV === 'production';
         res.cookie('token', token, {
             httpOnly: true,
-            secure: isProduction,
-            sameSite: isProduction ? 'none' : 'lax',
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            secure: true,
+            sameSite: 'none',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/'
         });
 
         user.lastLogin = Date.now();
@@ -671,12 +672,12 @@ router.get('/download-proxy', protect, async (req, res) => {
 // @route   POST api/auth/logout
 // @desc    Logout user / Clear cookie
 router.post('/logout', (req, res) => {
-    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('token', 'none', {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? 'none' : 'lax'
+        secure: true,
+        sameSite: 'none',
+        path: '/'
     });
     res.status(200).json({ message: 'Logged out successfully' });
 });
