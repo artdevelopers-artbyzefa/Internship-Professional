@@ -22,35 +22,16 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
-
   useEffect(() => {
     const initApp = async () => {
-      const lastActivity = sessionStorage.getItem('lastActivity');
-      const sessionActive = sessionStorage.getItem('sessionActive');
-      const now = Date.now();
-
-      // Check if session has timed out in this tab
-      if (lastActivity && (now - parseInt(lastActivity) > INACTIVITY_LIMIT)) {
-        sessionStorage.clear();
-        setInitializing(false);
-        return;
-      }
-
-      // If no session marker in this tab, we force a fresh login (Close Tab requirement)
-      if (!sessionActive) {
-        setInitializing(false);
-        return;
-      }
-
       try {
+        // Check if there's a valid session on the server via cookie
         const data = await apiRequest('/auth/me');
-        setUser(data.user);
-
-        // Refresh marker
-        sessionStorage.setItem('lastActivity', Date.now().toString());
+        if (data && data.user) {
+          setUser(data.user);
+        }
       } catch (err) {
-        // Not logged in
+        // Not logged in or token expired - silent fail is fine
       } finally {
         setInitializing(false);
       }
@@ -59,39 +40,7 @@ export default function App() {
     initApp();
   }, []);
 
-  // Inactivity tracking for logical session management
-  useEffect(() => {
-    if (!user) return;
-
-    let timer;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      sessionStorage.setItem('lastActivity', Date.now().toString());
-
-      timer = setTimeout(() => {
-        handleLogout();
-      }, INACTIVITY_LIMIT);
-    };
-
-    const activityEvents = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'click'];
-    activityEvents.forEach(event => window.addEventListener(event, resetTimer));
-
-    resetTimer();
-
-    return () => {
-      activityEvents.forEach(event => window.removeEventListener(event, resetTimer));
-      clearTimeout(timer);
-    };
-  }, [user]);
-
-  // Global navigation helpers for backward compatibility if needed by legacy components
-  window._handleLogout = () => handleLogout();
-  window._goSignup = () => navigate('/signup');
-  window._goForgot = () => navigate('/forgot-password');
-
   const handleLogin = (userData) => {
-    sessionStorage.setItem('sessionActive', 'true');
-    sessionStorage.setItem('lastActivity', Date.now().toString());
     setUser(userData);
 
     // Redirect based on role
@@ -111,7 +60,6 @@ export default function App() {
     } catch (err) {
       console.error('Logout error:', err);
     }
-    sessionStorage.clear();
     setUser(null);
     navigate('/login', { replace: true });
   };

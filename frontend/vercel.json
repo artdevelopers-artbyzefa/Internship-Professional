@@ -1,12 +1,26 @@
 {
     "version": 2,
-    "name": "dims-frontend",
     "cleanUrls": true,
     "framework": "vite",
-    "rewrites": [
+    "routes": [
         {
-            "source": "/(.*)",
-            "destination": "/index.html"
+            "src": "/assets/(.*)",
+            "headers": {
+                "cache-control": "public, max-age=31536000, immutable"
+            },
+            "continue": true
+        },
+        {
+            "handle": "filesystem"
+        },
+        {
+            "src": "/api/(.*)",
+            "dest": "https://api.internshipcscuiatd.artdevelopers.site/api/$1",
+            "continue": true
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/index.html"
         }
     ],
     "headers": [

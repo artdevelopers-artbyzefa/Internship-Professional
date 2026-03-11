@@ -44,21 +44,30 @@ router.post('/:id/start', async (req, res) => {
 
         if (phase.order === 5) {
             // PHASE 5: Completion & Archive
-            const students = await User.find({ role: 'student' }).populate('assignedFaculty');
+            const students = await User.find({ role: 'student' })
+                .populate('assignedFaculty', 'name email')
+                .populate('assignedSiteSupervisor', 'name email');
+
             const archiveData = [];
 
             for (const s of students) {
                 // Calculate their final percentage and grade before reset
+                // Only consider marks that have been finalized by faculty
                 const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
                 let avg = 0, pct = 0, grade = 'F';
 
                 if (marks.length > 0) {
                     const isFreelance = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
-                    const taskScores = marks.map(m => isFreelance ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2);
+                    const taskScores = marks.map(m => {
+                        const f = m.facultyMarks || 0;
+                        const ss = m.siteSupervisorMarks || 0;
+                        return isFreelance ? f : (f + ss) / 2;
+                    });
+
                     avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
                     pct = Math.round((avg / 10) * 100);
 
-                    // Simple grade mapping
+                    // Grade mapping
                     if (pct >= 85) grade = 'A';
                     else if (pct >= 80) grade = 'A-';
                     else if (pct >= 75) grade = 'B+';
@@ -86,7 +95,7 @@ router.post('/:id/start', async (req, res) => {
                 });
             }
 
-            // Save to Archive
+            // Save to Archive before Purge
             const cycleName = `Internship Cycle - ${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
             const stats = {
                 totalStudents: archiveData.length,
@@ -95,26 +104,50 @@ router.post('/:id/start', async (req, res) => {
                 averagePercentage: archiveData.length > 0 ? (archiveData.reduce((s, a) => s + a.percentage, 0) / archiveData.length) : 0
             };
 
-            await new Archive({
+            const newArchive = new Archive({
                 cycleName,
                 year: new Date().getFullYear(),
                 students: archiveData,
                 statistics: stats,
                 archivedBy: officeId
-            }).save();
+            });
+            await newArchive.save();
 
-            // DATA PURGE & RESET (Clean Slate)
-            // 1. Delete all process records
+            // ── DATA PURGE & RESET (Clean Slate) ────────────────────────────────
+            // Required to remove all data from the current cycle for a fresh start.
+
+            // Dynamic import Company to avoid circular dependencies if any
+            const Company = await import('../models/Company.js').then(m => m.default);
+            const Notice = await import('../models/Notice.js').then(m => m.default);
+            const Assignment = await import('../models/Assignment.js').then(m => m.default);
+
             await Promise.all([
                 Submission.deleteMany({}),
                 Mark.deleteMany({}),
                 Evaluation.deleteMany({}),
-                // Delete all students and supervisors to force a clean slate for next cycle
-                User.deleteMany({ role: { $nin: ['hod', 'internship_office'] } })
+                Assignment.deleteMany({}),
+                Notice.deleteMany({}),
+                Company.deleteMany({}), // Clean slate for companies too
+                AuditLog.deleteMany({}), // Optional: Wipe logs for fresh start, or keep if history is needed. User explicitly asked for clean slate.
+
+                // Delete all students, faculty, and site supervisors. Keep IO and HOD.
+                User.deleteMany({ role: { $in: ['student', 'faculty_supervisor', 'site_supervisor'] } })
             ]);
 
             // 2. Reset all Phases to pending except Phase 1 stays active for the next cycle
-            await Phase.updateMany({}, { $set: { status: 'pending', startedAt: null, completedAt: null, startedBy: null, completedBy: null } });
+            await Phase.updateMany({}, {
+                $set: {
+                    status: 'pending',
+                    startedAt: null,
+                    completedAt: null,
+                    startedBy: null,
+                    completedBy: null,
+                    scheduledStartAt: null,
+                    scheduledEndAt: null,
+                    notes: ''
+                }
+            });
+
             const p1 = await Phase.findOne({ order: 1 });
             if (p1) {
                 p1.status = 'active';
@@ -123,10 +156,17 @@ router.post('/:id/start', async (req, res) => {
                 await p1.save();
             }
 
-            await new AuditLog({ action: 'SYSTEM_RESET_PHASE_5', performedBy: officeId, details: `Cycle "${cycleName}" archived and system reset.`, ipAddress: req.ip }).save();
-            console.log(`[${getPKTTime()}] [PHASE 5] System Reset & Archived: ${cycleName}`);
+            // Create a fresh log for the new cycle start
+            await new AuditLog({
+                action: 'SYSTEM_RESET_PHASE_5',
+                performedBy: officeId,
+                details: `Cycle "${cycleName}" archived and system purged for clean slate.`,
+                ipAddress: req.ip
+            }).save();
 
-            return res.json({ message: `Cycle archived and system reset. Starting Phase 1 again.` });
+            console.log(`[${getPKTTime()}] [PHASE 5] System Purged & Archived: ${cycleName}`);
+
+            return res.json({ message: `Cycle archived and system reset. Companies and records purged. Starting Phase 1 again.` });
         }
 
         await Phase.updateMany({ status: 'active' }, { $set: { status: 'completed', completedAt: new Date(), completedBy: officeId } });
