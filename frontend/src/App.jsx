@@ -26,7 +26,7 @@ export default function App() {
     const initApp = async () => {
       try {
         // Check if there's a valid session on the server via cookie
-        const data = await apiRequest('/auth/me');
+        const data = await apiRequest('/auth/me', { silent: true });
         if (data && data.user) {
           setUser(data.user);
         }
@@ -117,8 +117,8 @@ export default function App() {
         <Route path="/supervisor/*" element={<SupervisorPortal user={user} onLogout={handleLogout} />} />
       </Route>
 
-      {/* Fallback - Redirect to home which handles role-based routing */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Fallback - Force redirect to login for any unknown paths */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
