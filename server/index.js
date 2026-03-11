@@ -106,3 +106,11 @@ app.get('/api/db-test', async (req, res) => {
 
 // Export app for Vercel
 export default app;
+
+// Local Development
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = 5000;
+    app.listen(PORT, '127.0.0.1', () => {
+        console.log(`Backend running on 127.0.0.1:${PORT}`);
+    });
+}
