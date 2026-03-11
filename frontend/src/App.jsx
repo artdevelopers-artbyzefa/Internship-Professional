@@ -26,7 +26,7 @@ export default function App() {
     const initApp = async () => {
       try {
         // Check if there's a valid session on the server via cookie
-        const data = await apiRequest('/auth/me');
+        const data = await apiRequest('/auth/me', { silent: true });
         if (data && data.user) {
           setUser(data.user);
         }

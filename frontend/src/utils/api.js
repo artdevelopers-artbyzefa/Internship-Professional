@@ -40,7 +40,7 @@ export const apiRequest = async (endpoint, options = {}) => {
         }
 
         if (!response.ok) {
-            if (response.status === 401 && window._handleLogout) {
+            if (response.status === 401 && !silent && window._handleLogout) {
                 window._handleLogout();
                 showToast.error("Session expired. Please login again.");
                 return;
