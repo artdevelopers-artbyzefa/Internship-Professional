@@ -1,6 +1,10 @@
 import { showToast } from './notifications.jsx';
 
-const API_BASE = import.meta.env.VITE_API_URL;
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+
+const API_BASE = VITE_API_URL && VITE_API_URL !== '/api'
+    ? VITE_API_URL
+    : 'https://api.internshipcscuiatd.artdevelopers.site/api';
 
 export const apiRequest = async (endpoint, options = {}) => {
     const { method = 'GET', body, headers = {}, silent = false } = options;
