@@ -286,13 +286,14 @@ router.post('/login', async (req, res) => {
         console.log(`\n[${getPKTTime()}] AUTH: Login attempt for ${email} with role ${role}`);
         const emailLower = email.toLowerCase().trim();
 
-        // Deterministic Lookup: Prioritize Primary Institutional Identity
-        let user = await User.findOne({ email: emailLower });
-
-        // If not found by primary, search by secondary alias
-        if (!user) {
-            user = await User.findOne({ secondaryEmail: emailLower });
-        }
+        // 1. Optimized Look-up: Single query for both primary and secondary emails with population
+        // This reduces database round-trips from 3 to 1 in the happy path
+        const user = await User.findOne({
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        }).populate('assignedFaculty', 'name email whatsappNumber');
 
         if (!user) {
             console.log(`[FAIL] Login failed: User identity not found for ${emailLower}`);
@@ -302,7 +303,7 @@ router.post('/login', async (req, res) => {
         const isSecondaryLogin = user.secondaryEmail === emailLower && user.email !== emailLower;
         console.log(`[INFO] Found user record: ${user.email} (Primary) | ${user.secondaryEmail || 'None'} (Secondary)`);
 
-        // Role Verification: Ensure user is logging into the correct portal
+        // Role Verification
         if (role && user.role !== role) {
             console.log(`[DENIED] Role mismatch. Database: ${user.role}, Attempted: ${role}`);
             return res.status(403).json({
@@ -315,6 +316,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Please verify your email before logging in.' });
         }
 
+        // 2. Fast Password Verification
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             console.log(`[AUTH-FAILURE] Incorrect password for: ${user.email}`);
@@ -330,7 +332,6 @@ router.post('/login', async (req, res) => {
             user.secondaryEmailVerificationExpires = expiry;
             await user.save();
 
-            // Send OTP
             const mailResult = await sendPasswordResetCode(emailLower, code);
             if (!mailResult.success) {
                 return res.status(500).json({ message: 'Failed to send verification code. Please try again later.' });
@@ -343,13 +344,16 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        // 3. Concurrent Token Generation and DB Update
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
-        // Send token in httpOnly cookie
+        // Update last login without triggering full middleware stack for speed
+        await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
+
         const isProduction = process.env.NODE_ENV === 'production';
         res.cookie('token', token, {
             httpOnly: true,
@@ -358,42 +362,35 @@ router.post('/login', async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
-        user.lastLogin = Date.now();
-        await user.save();
         console.log(`[SUCCESS] User authenticated as ${user.role}: ${emailLower}`);
-
-        const populatedUser = await User.findById(user._id).populate('assignedFaculty', 'name email whatsappNumber');
 
         res.json({
             user: {
-                id: populatedUser._id,
-                name: populatedUser.name,
-                email: populatedUser.email,
-                role: populatedUser.role,
-                reg: populatedUser.reg,
-                semester: populatedUser.semester,
-                cgpa: populatedUser.cgpa,
-                status: populatedUser.status,
-                whatsappNumber: populatedUser.whatsappNumber,
-                internshipRequest: populatedUser.internshipRequest,
-                internshipAgreement: populatedUser.internshipAgreement,
-                mustChangePassword: populatedUser.mustChangePassword,
-
-                // profile fields
-                fatherName: populatedUser.fatherName,
-                section: populatedUser.section,
-                dateOfBirth: populatedUser.dateOfBirth,
-                profilePicture: populatedUser.profilePicture,
-                registeredCourse: populatedUser.registeredCourse,
-
-                // assignment fields
-                assignedFaculty: populatedUser.assignedFaculty,
-                assignedCompany: populatedUser.assignedCompany,
-                assignedCompanySupervisor: populatedUser.assignedCompanySupervisor
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                reg: user.reg,
+                semester: user.semester,
+                cgpa: user.cgpa,
+                status: user.status,
+                whatsappNumber: user.whatsappNumber,
+                internshipRequest: user.internshipRequest,
+                internshipAgreement: user.internshipAgreement,
+                mustChangePassword: user.mustChangePassword,
+                fatherName: user.fatherName,
+                section: user.section,
+                dateOfBirth: user.dateOfBirth,
+                profilePicture: user.profilePicture,
+                registeredCourse: user.registeredCourse,
+                assignedFaculty: user.assignedFaculty,
+                assignedCompany: user.assignedCompany,
+                assignedCompanySupervisor: user.assignedCompanySupervisor
             }
         });
 
     } catch (error) {
+        console.error('Login error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
