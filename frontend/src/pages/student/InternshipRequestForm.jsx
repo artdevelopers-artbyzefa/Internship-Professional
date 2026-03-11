@@ -102,7 +102,7 @@ export default function InternshipRequestForm({ user }) {
         {/* Header */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex items-center justify-between gap-6">
           <div>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Internship Assessment</p>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Internship Request</p>
             <h2 className="text-2xl font-black text-gray-800 tracking-tight">
               {user.status === 'Internship Approved' ? 'Approved Request Details' : 'Submitted Request Details'}
             </h2>

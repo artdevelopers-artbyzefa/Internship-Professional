@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
 
-export default function AppLayout({ user, onLogout, activePage, setActivePage, navItems, children, disableSidebar = false }) {
+export default function AppLayout({ user, onLogout, activePage, setActivePage, navItems, children, disableSidebar = false, hideLogout = false }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showDD, setShowDD] = useState(false);
@@ -21,6 +21,7 @@ export default function AppLayout({ user, onLogout, activePage, setActivePage, n
         navItems={navItems}
         onLogout={onLogout}
         disabled={disableSidebar}
+        hideLogout={hideLogout}
       />
 
       {/* Mobile Sidebar Overlay */}

@@ -30,6 +30,17 @@ export default function AssignStudents({ user }) {
       setStudents(stuData);
       setFaculty(facData);
 
+      // Pre-fill existing faculty supervisor assignments
+      const preAssignments = {};
+      stuData.forEach(s => {
+        if (s.assignedFaculty) {
+          preAssignments[s._id] = {
+            facultyId: typeof s.assignedFaculty === 'object' ? s.assignedFaculty._id : s.assignedFaculty
+          };
+        }
+      });
+      setAssignments(preAssignments);
+
       // Filter for MOU/Manual companies for assignment pool
       setMouCompanies(compData.filter(c => c.isMOUSigned && c.status === 'Active'));
     } catch (err) {

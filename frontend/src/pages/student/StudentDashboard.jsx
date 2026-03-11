@@ -125,7 +125,7 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
             <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Stage 1</span>
             <span className="text-sm font-bold text-primary">Pre-internship Verification</span>
           </div>
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-3">Welcome to University Internship Portal</h2>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-3">Welcome to COMSATS University Abbottabad Internship Portal</h2>
           <p className="text-gray-500 font-medium max-w-xl">
             Complete your institutional registration to proceed with the academic internship cycle.
           </p>

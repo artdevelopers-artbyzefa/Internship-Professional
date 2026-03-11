@@ -12,22 +12,17 @@ const STATUS_CFG = {
     completed: { label: 'Completed', bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
 };
 
-// ────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────────────────────
 function fmtDate(d) {
     if (!d) return '—';
-    return new Date(d).toLocaleString('en-PK', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(d).toLocaleString('en-PK', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function toInputValue(d) {
     if (!d) return '';
     const dt = new Date(d);
-    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
-    return dt.toISOString().slice(0, 16);
+    const pktMs = dt.getTime() + (5 * 60 * 60 * 1000);
+    return new Date(pktMs).toISOString().slice(0, 16);
 }
-
-// ── Countdown hook ─────────────────────────────────────────────────────────
 function useCountdown(targetDate) {
     const calc = useCallback(() => {
         if (!targetDate) return null;
@@ -146,8 +141,9 @@ export default function PhaseManagement({ user }) {
             await apiRequest(`/phases/${phaseId}/schedule`, {
                 method: 'PATCH',
                 body: {
-                    scheduledStartAt: s.scheduledStartAt || null,
-                    scheduledEndAt: s.scheduledEndAt || null,
+                    // Append +05:00 so the backend explicitly parses it as Pakistan Standard Time
+                    scheduledStartAt: s.scheduledStartAt ? `${s.scheduledStartAt}:00+05:00` : null,
+                    scheduledEndAt: s.scheduledEndAt ? `${s.scheduledEndAt}:00+05:00` : null,
                     durationDays: s.durationDays || null,
                     officeId: user.id || user._id
                 }
@@ -378,7 +374,7 @@ export default function PhaseManagement({ user }) {
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                                 <div>
                                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">
-                                                        Scheduled Start Date &amp; Time
+                                                        Scheduled Start Date &amp; Time (PKT)
                                                     </label>
                                                     <input
                                                         type="datetime-local"
@@ -390,7 +386,7 @@ export default function PhaseManagement({ user }) {
                                                 </div>
                                                 <div>
                                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">
-                                                        Scheduled End Date &amp; Time
+                                                        Scheduled End Date &amp; Time (PKT)
                                                     </label>
                                                     <input
                                                         type="datetime-local"

@@ -19,19 +19,29 @@ const facultyStatusConfig = {
 // ───────────────────────────────────────────────
 // Column 1: Company Assignment
 // ───────────────────────────────────────────────
-function CompanyColumn({ student, officeId, onRefresh }) {
+function CompanyColumn({ student, officeId, onRefresh, mouCompanies }) {
     const req = student.internshipRequest;
+    const isUniversityAssigned = req?.type === 'University Assigned';
     const [name, setName] = useState(student.assignedCompany || req?.companyName || '');
+    const [selectedMOUId, setSelectedMOUId] = useState('');
     const [saving, setSaving] = useState(false);
     const isAssigned = !!student.assignedCompany;
 
-    const handleAssign = async () => {
-        if (!name.trim()) return showToast.error('Company name is required');
+    useEffect(() => {
+        if (isAssigned && isUniversityAssigned) {
+            const match = mouCompanies.find(c => c.name === student.assignedCompany);
+            if (match) setSelectedMOUId(match._id);
+        }
+    }, [student.assignedCompany, isUniversityAssigned, mouCompanies, isAssigned]);
+
+    const handleAssign = async (compName) => {
+        const finalName = compName || name.trim();
+        if (!finalName) return showToast.error('Company name is required');
         try {
             setSaving(true);
             await apiRequest('/office/assign-company', {
                 method: 'POST',
-                body: { studentId: student._id, companyName: name.trim(), officeId }
+                body: { studentId: student._id, companyName: finalName, officeId }
             });
             showToast.success('Company assigned and added to registry.');
             onRefresh();
@@ -47,36 +57,62 @@ function CompanyColumn({ student, officeId, onRefresh }) {
                 )}
             </div>
 
-            {req?.companyName && (
+            {req?.companyName && !isUniversityAssigned && (
                 <div className="text-xs text-gray-400 font-medium bg-gray-50 rounded-xl p-3 border border-gray-100">
                     <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest block mb-1">Submitted by Student</span>
                     {req.companyName}
                 </div>
             )}
 
-            <div>
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">Assign Company</label>
-                <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="Company name..."
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 placeholder-gray-300"
-                />
-            </div>
+            {isUniversityAssigned ? (
+                <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">Select MOU Company</label>
+                    <div className="relative">
+                        <select
+                            value={selectedMOUId}
+                            onChange={e => {
+                                const id = e.target.value;
+                                setSelectedMOUId(id);
+                                const comp = mouCompanies.find(c => c._id === id);
+                                if (comp) handleAssign(comp.name);
+                            }}
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 bg-white appearance-none h-10"
+                        >
+                            <option value="">Select Company...</option>
+                            {mouCompanies.map(c => (
+                                <option key={c._id} value={c._id}>{c.name}</option>
+                            ))}
+                        </select>
+                        <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none"></i>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div>
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">Assign Company</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            placeholder="Company name..."
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 placeholder-gray-300 h-10"
+                        />
+                    </div>
 
-            <button
-                disabled={saving || !name.trim()}
-                onClick={handleAssign}
-                className="w-full py-2.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm shadow-primary/20"
-            >
-                {saving ? <i className="fas fa-circle-notch fa-spin"></i> : isAssigned ? 'Update Company' : 'Assign Company'}
-            </button>
+                    <button
+                        disabled={saving || !name.trim()}
+                        onClick={() => handleAssign()}
+                        className="w-full py-2.5 h-10 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm shadow-primary/20"
+                    >
+                        {saving ? <i className="fas fa-circle-notch fa-spin"></i> : isAssigned ? 'Update Company' : 'Assign Company'}
+                    </button>
+                </>
+            )}
 
             {isAssigned && (
-                <p className="text-[9px] text-emerald-600 font-semibold text-center">
-                    <i className="fas fa-circle-check mr-1"></i>
-                    Will be listed under <strong>Student Self-Assigned</strong> in Company Registry
+                <p className="text-[9px] text-emerald-600 font-semibold text-center mt-2">
+                    <i className="fas fa-circle-check mr-1 text-[8px]"></i>
+                    {isUniversityAssigned ? 'MOU Verified Placement' : 'Student Self-Assigned Placement'}
                 </p>
             )}
         </div>
@@ -86,16 +122,21 @@ function CompanyColumn({ student, officeId, onRefresh }) {
 // ───────────────────────────────────────────────
 // Column 2: Site Supervisor Assignment
 // ───────────────────────────────────────────────
-function SiteSupervisorColumn({ student, officeId, onRefresh }) {
+function SiteSupervisorColumn({ student, officeId, onRefresh, mouCompanies }) {
     const req = student.internshipRequest;
+    const isUniversityAssigned = req?.type === 'University Assigned';
     const [sName, setSName] = useState(student.assignedCompanySupervisor || req?.siteSupervisorName || '');
-    const [sEmail, setSEmail] = useState(req?.siteSupervisorEmail || '');
+    const [sEmail, setSEmail] = useState(student.assignedCompanySupervisorEmail || req?.siteSupervisorEmail || '');
     const [sPhone, setSPhone] = useState(req?.siteSupervisorPhone || '');
 
     const [checkResult, setCheckResult] = useState(null);
     const [checking, setChecking] = useState(false);
     const [saving, setSaving] = useState(false);
     const isAssigned = !!student.assignedCompanySupervisor;
+
+    // Derived: if assigned to an MOU company, get its supervisors
+    const currentCompany = mouCompanies.find(c => c.name === student.assignedCompany);
+    const availableSupervisors = currentCompany?.siteSupervisors || [];
 
     useEffect(() => {
         if (sEmail && !isAssigned) {
@@ -111,13 +152,27 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
         } catch { setCheckResult({ found: false }); } finally { setChecking(false); }
     };
 
-    const handleAssign = async () => {
-        if (!sName.trim()) return showToast.error('Supervisor name is required');
+    const handleAssign = async (manualSup) => {
+        const payload = manualSup ? {
+            studentId: student._id,
+            siteSupervisorName: manualSup.name,
+            siteSupervisorEmail: manualSup.email,
+            siteSupervisorPhone: manualSup.whatsappNumber || manualSup.phone || '',
+            officeId
+        } : {
+            studentId: student._id,
+            siteSupervisorName: sName.trim(),
+            siteSupervisorEmail: sEmail.trim(),
+            siteSupervisorPhone: sPhone,
+            officeId
+        };
+
+        if (!payload.siteSupervisorName) return showToast.error('Supervisor name is required');
         try {
             setSaving(true);
             await apiRequest('/office/assign-site-supervisor', {
                 method: 'POST',
-                body: { studentId: student._id, siteSupervisorName: sName.trim(), siteSupervisorEmail: sEmail, siteSupervisorPhone: sPhone, officeId }
+                body: payload
             });
             showToast.success('Site supervisor assigned.');
             onRefresh();
@@ -148,7 +203,30 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
                 )}
             </div>
 
-            {req?.siteSupervisorName && (
+            {/* If assigned to MOU company, show registered supervisors first */}
+            {currentCompany && availableSupervisors.length > 0 && (
+                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                    <label className="text-[9px] font-black text-blue-600 uppercase tracking-widest block mb-2">Registered Supervisors at {currentCompany.name}</label>
+                    <div className="relative">
+                        <select
+                            onChange={e => {
+                                const idx = e.target.value;
+                                if (idx !== "") handleAssign(availableSupervisors[idx]);
+                            }}
+                            className="w-full px-3 py-2 text-sm border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium text-blue-800 bg-white/50 appearance-none h-10"
+                        >
+                            <option value="">Select registered...</option>
+                            {availableSupervisors.map((s, idx) => (
+                                <option key={idx} value={idx}>{s.name} ({s.email})</option>
+                            ))}
+                        </select>
+                        <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 text-[10px] pointer-events-none"></i>
+                    </div>
+                    <p className="text-[8px] text-blue-400 font-medium mt-1.5 px-1 uppercase tracking-tighter">Choose from existing or add new below</p>
+                </div>
+            )}
+
+            {req?.siteSupervisorName && !isAssigned && (
                 <div className="text-[10px] text-gray-400 font-medium bg-gray-50 rounded-xl p-3 border border-gray-100">
                     <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest block mb-1 text-center">Student Proposed Details</span>
                     <div className="grid grid-cols-1 gap-1">
@@ -173,7 +251,7 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
                                 value={val}
                                 onChange={e => set(e.target.value)}
                                 placeholder={ph}
-                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 placeholder-gray-300"
+                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 placeholder-gray-300 h-10"
                             />
                         </div>
                     </div>
@@ -198,8 +276,8 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
                                 </div>
                                 <button
                                     disabled={saving || !sName.trim()}
-                                    onClick={handleAssign}
-                                    className="w-full py-2.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm shadow-primary/20"
+                                    onClick={() => handleAssign()}
+                                    className="w-full py-2.5 h-10 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm shadow-primary/20"
                                 >
                                     {saving ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-link mr-1.5"></i>Assign Existing Supervisor</>}
                                 </button>
@@ -215,7 +293,7 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
                                 <button
                                     disabled={saving || !sName.trim() || !sEmail.trim() || !(student.assignedCompany || req?.companyName)}
                                     onClick={handleOnboardAndAssign}
-                                    className="w-full py-2.5 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 disabled:opacity-40 transition-colors shadow-sm shadow-amber-200"
+                                    className="w-full py-2.5 h-10 rounded-xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 disabled:opacity-40 transition-colors shadow-sm shadow-amber-200"
                                 >
                                     {saving ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-envelope mr-1.5"></i>Register &amp; Assign</>}
                                 </button>
@@ -224,7 +302,7 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
                     ) : (
                         <button
                             onClick={() => checkSupervisor(sEmail)}
-                            className="w-full py-2 rounded-xl border border-gray-200 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
+                            className="w-full py-2 rounded-xl border border-gray-200 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors h-10"
                         >
                             <i className="fas fa-magnifying-glass mr-1.5"></i>Check Database
                         </button>
@@ -235,8 +313,8 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
             {isAssigned && (
                 <button
                     disabled={saving || !sName.trim()}
-                    onClick={handleAssign}
-                    className="w-full py-2.5 rounded-xl bg-gray-100 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-40 transition-colors"
+                    onClick={() => handleAssign()}
+                    className="w-full py-2.5 h-10 rounded-xl bg-gray-100 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-40 transition-colors"
                 >
                     {saving ? <i className="fas fa-circle-notch fa-spin"></i> : 'Update Details'}
                 </button>
@@ -244,6 +322,7 @@ function SiteSupervisorColumn({ student, officeId, onRefresh }) {
         </div>
     );
 }
+
 
 // ───────────────────────────────────────────────
 // Column 3: Faculty Supervisor Assignment
@@ -399,32 +478,39 @@ function FacultyColumn({ student, officeId, faculties, onRefresh }) {
                 </div>
             )}
 
-            {/* Manual Assignment / Update Dropdown */}
+            {/* Manual Assignment / Update Dropdown — Only if not assigned or if they want to override */}
             <div className="pt-2 border-t border-gray-100 mt-2">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-2">Reassign / Manual Assign</label>
-                <div className="flex flex-col gap-2">
-                    <div className="relative">
-                        <i className="fas fa-chalkboard-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs"></i>
-                        <select
-                            value={manualFacultyId}
-                            onChange={e => setManualFacultyId(e.target.value)}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 appearance-none bg-white"
+                <details className="group">
+                    <summary className="cursor-pointer list-none flex items-center justify-between">
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block py-1">
+                            {isAssigned ? 'Override / Reassign' : 'Manual Assign'}
+                        </label>
+                        <i className="fas fa-chevron-down text-[8px] text-gray-300 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div className="flex flex-col gap-2 mt-2">
+                        <div className="relative">
+                            <i className="fas fa-chalkboard-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs"></i>
+                            <select
+                                value={manualFacultyId}
+                                onChange={e => setManualFacultyId(e.target.value)}
+                                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 appearance-none bg-white"
+                            >
+                                <option value="">Select Faculty...</option>
+                                {faculties?.map(f => (
+                                    <option key={f._id} value={f._id}>{f.name} ({f.email})</option>
+                                ))}
+                            </select>
+                            <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none"></i>
+                        </div>
+                        <button
+                            disabled={assigning || !manualFacultyId}
+                            onClick={() => handleAssign(manualFacultyId)}
+                            className="w-full py-2.5 rounded-xl bg-gray-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-gray-900 disabled:opacity-40 transition-colors shadow-sm"
                         >
-                            <option value="">Select Faculty...</option>
-                            {faculties?.map(f => (
-                                <option key={f._id} value={f._id}>{f.name} ({f.email})</option>
-                            ))}
-                        </select>
-                        <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none"></i>
+                            {assigning ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-user-check mr-1.5"></i>Map Faculty</>}
+                        </button>
                     </div>
-                    <button
-                        disabled={assigning || !manualFacultyId}
-                        onClick={() => handleAssign(manualFacultyId)}
-                        className="w-full py-2.5 rounded-xl bg-gray-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-gray-900 disabled:opacity-40 transition-colors shadow-sm"
-                    >
-                        {assigning ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-user-check mr-1.5"></i>Map Faculty</>}
-                    </button>
-                </div>
+                </details>
             </div>
         </div>
     );
@@ -433,7 +519,7 @@ function FacultyColumn({ student, officeId, faculties, onRefresh }) {
 // ───────────────────────────────────────────────
 // Expanded Row
 // ───────────────────────────────────────────────
-function ExpandedRow({ student, officeId, onDecide, deciding, onRefresh, faculties }) {
+function ExpandedRow({ student, officeId, onDecide, deciding, onRefresh, faculties, mouCompanies }) {
     const [rejectReason, setRejectReason] = useState('');
     const [showRejectBox, setShowRejectBox] = useState(false);
     const isPending = student.status === 'Internship Request Submitted';
@@ -458,8 +544,8 @@ function ExpandedRow({ student, officeId, onDecide, deciding, onRefresh, faculti
 
                     {/* 3 independent assignment columns */}
                     <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                        <CompanyColumn student={student} officeId={officeId} onRefresh={onRefresh} />
-                        <SiteSupervisorColumn student={student} officeId={officeId} onRefresh={onRefresh} />
+                        <CompanyColumn student={student} officeId={officeId} onRefresh={onRefresh} mouCompanies={mouCompanies} />
+                        <SiteSupervisorColumn student={student} officeId={officeId} onRefresh={onRefresh} mouCompanies={mouCompanies} />
                         <FacultyColumn student={student} officeId={officeId} faculties={faculties} onRefresh={onRefresh} />
                     </div>
 
@@ -534,6 +620,7 @@ function ExpandedRow({ student, officeId, onDecide, deciding, onRefresh, faculti
 export default function InternshipRequestsManager({ user }) {
     const [students, setStudents] = useState([]);
     const [faculties, setFaculties] = useState([]);
+    const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
@@ -543,15 +630,23 @@ export default function InternshipRequestsManager({ user }) {
 
     const officeId = user?.id || user?._id;
 
+    const mouCompanies = useMemo(() =>
+        companies.filter(c => c.isMOUSigned && c.status === 'Active'),
+        [companies]);
+
     useEffect(() => { fetchRequests(); }, []);
 
     const fetchRequests = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await apiRequest('/office/internship-request-students');
-            setStudents(data || []);
-            const fData = await apiRequest('/auth/faculty-list');
+            const [stuData, fData, cData] = await Promise.all([
+                apiRequest('/office/internship-request-students'),
+                apiRequest('/auth/faculty-list'),
+                apiRequest('/office/companies')
+            ]);
+            setStudents(stuData || []);
             setFaculties(Array.isArray(fData) ? fData : []);
+            setCompanies(Array.isArray(cData) ? cData : []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -697,7 +792,14 @@ export default function InternshipRequestsManager({ user }) {
                                                 <td className="py-4 pr-4 text-gray-600 font-medium max-w-[130px] truncate">{req?.companyName || <span className="text-gray-300 italic">N/A</span>}</td>
                                                 <td className="py-4 pr-4 text-gray-500 font-medium text-xs whitespace-nowrap">{req?.type === 'Self' ? 'Self' : req?.type || '—'}</td>
                                                 <td className="py-4 pr-4">
-                                                    <span className={`text-[9px] font-black px-2 py-1 rounded-full ${fCfg.bg} ${fCfg.text}`}>{req?.facultyStatus || 'N/A'}</span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={`text-[9px] font-black px-2 py-1 rounded-full w-fit ${fCfg.bg} ${fCfg.text}`}>{req?.facultyStatus || 'N/A'}</span>
+                                                        {s.assignedFaculty && (
+                                                            <span className="text-[10px] font-bold text-gray-700 truncate max-w-[120px]">
+                                                                {typeof s.assignedFaculty === 'object' ? s.assignedFaculty.name : 'Assigned'}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="py-4 pr-4">
                                                     <span className={`text-[9px] font-black px-2.5 py-1 rounded-full border ${sCfg.bg} ${sCfg.text} ${sCfg.border}`}>{sCfg.label}</span>
@@ -715,6 +817,7 @@ export default function InternshipRequestsManager({ user }) {
                                                     deciding={deciding}
                                                     onRefresh={fetchRequests}
                                                     faculties={faculties}
+                                                    mouCompanies={mouCompanies}
                                                 />
                                             )}
                                         </React.Fragment>
