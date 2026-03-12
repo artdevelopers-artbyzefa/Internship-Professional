@@ -8,6 +8,8 @@ import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
 import { cloudinary } from '../utils/cloudinary.js';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const router = express.Router();
 
 // @route   GET api/auth/me
@@ -674,11 +676,11 @@ router.get('/download-proxy', protect, async (req, res) => {
 // @route   POST api/auth/logout
 // @desc    Logout user / Clear cookie
 router.post('/logout', (req, res) => {
-    res.cookie('token', 'none', {
-        expires: new Date(Date.now() + 10 * 1000),
+    res.clearCookie('token', {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? 'none' : 'lax'
+        secure: true, // Match settings from login to ensure cookie is cleared
+        sameSite: 'none',
+        path: '/'
     });
     res.status(200).json({ message: 'Logged out successfully' });
 });
