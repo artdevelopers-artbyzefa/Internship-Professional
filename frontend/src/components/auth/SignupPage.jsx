@@ -94,7 +94,7 @@ export default function SignupPage({ onBack }) {
         <h2 className="text-xl font-bold text-primary mb-2">Check Your Email!</h2>
         <p className="text-sm text-gray-400 mb-6">
           We've sent a verification link to <strong>{form.email}</strong>.
-          Please verify your account within 10 minutes.
+          Please verify your account within <strong>24 hours</strong>.
         </p>
         <Button variant="primary" onClick={onBack}><i className="fas fa-right-to-bracket"></i> Back to Login</Button>
       </div>

@@ -69,7 +69,7 @@ export const sendVerificationEmail = async (email, token) => {
           Hello,<br/><br/>
           Thank you for registering on the DIMS Portal. To activate your student account, please confirm your email address by clicking the button below. 
           <br/><br/>
-          <strong>Note:</strong> This link will expire in <strong>10 minutes</strong>.
+          <strong>Note:</strong> This link will expire in <strong>24 hours</strong>.
         </p>
         <div style="text-align: center; margin: 35px 0;">
           <a href="${verificationUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
@@ -110,7 +110,7 @@ export const sendFacultyNominationEmail = async (email, token, name) => {
           <br/><br/>
           To accept this nomination and access the supervision portal, please set up your secure account password using the link below.
           <br/><br/>
-          <strong style="color: #991b1b;">Security Notice:</strong> This activation link is valid for <strong>30 minutes</strong> only and can be used only once.
+          <strong style="color: #991b1b;">Security Notice:</strong> This activation link is valid for <strong>24 hours</strong> and can be used only once.
         </p>
         <div style="text-align: center; margin: 35px 0;">
           <a href="${activationUrl}" style="background-color: #16a34a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
@@ -205,6 +205,7 @@ export const sendStudentActivationEmail = async (email, token, name) => {
       <div style="padding: 40px; background-color: #ffffff; text-align: center;">
         <h2>Hello, ${name}!</h2>
         <p>Your student account has been pre-registered. Activate it by clicking below:</p>
+        <p style="color: #6b7280; font-size: 12px;"><strong>Note:</strong> This link is valid for <strong>24 hours</strong>.</p>
         <a href="${activationLink}" style="background-color: #1e3a8a; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block; margin: 20px 0;">Activate Account</a>
       </div>
     </div>

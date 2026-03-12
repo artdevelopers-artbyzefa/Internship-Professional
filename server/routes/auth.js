@@ -130,9 +130,9 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// @route   GET api/auth/verify-email/:token
+// @route   POST api/auth/verify-email/:token
 // @desc    Verify email address
-router.get('/verify-email/:token', async (req, res) => {
+router.post('/verify-email/:token', async (req, res) => {
     try {
         const token = req.params.token.trim();
         console.log(`[${getPKTTime()}] AUTH: Verification attempt. Received token length: ${token.length}`);
@@ -151,10 +151,10 @@ router.get('/verify-email/:token', async (req, res) => {
             return res.json({ message: 'Email already verified! Please log in.' });
         }
 
-        if (user.emailVerificationExpires < Date.now()) {
+        if (user.emailVerificationExpires && new Date(user.emailVerificationExpires).getTime() < Date.now()) {
             console.log(`[${getPKTTime()}] [FAIL] Verification failed: Token expired for ${user.email}.`);
             return res.status(400).json({
-                message: 'Verification link expired. Please request a new verification email.'
+                message: 'Verification link expired. Please request a new one.'
             });
         }
 
