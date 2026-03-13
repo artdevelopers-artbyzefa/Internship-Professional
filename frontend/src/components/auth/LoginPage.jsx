@@ -171,30 +171,58 @@ export default function LoginPage({ onLogin }) {
 
         {/* ── Quick Access Testing Suite ── */}
         <div className="pt-6 border-t border-gray-100">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-4 bg-orange-400 rounded-full"></div>
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Quick Access Testing</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-4 bg-orange-400 rounded-full animate-pulse"></div>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Quick Access Testing</span>
+            </div>
+            <span className="text-[9px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-bold">Auto-Login Active</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {[
-              { label: 'Student', role: 'student', email: 'fa23-bcs-013@cuiatd.edu.pk', icon: 'fa-user-graduate', color: 'bg-emerald-50 text-emerald-600' },
-              { label: 'HOD', role: 'hod', email: 'hod@cuiatd.edu.pk', icon: 'fa-user-tie', color: 'bg-blue-50 text-blue-600' },
-              { label: 'IO Office', role: 'internship_office', email: 'io@cuiatd.edu.pk', icon: 'fa-building-shield', color: 'bg-indigo-50 text-indigo-600' },
-              { label: 'Faculty', role: 'faculty_supervisor', email: 'eathorgaming@gmail.com', icon: 'fa-chalkboard-user', color: 'bg-amber-50 text-amber-600' },
-              { label: 'Site Sup', role: 'site_supervisor', email: 'ininsico@gmail.com', icon: 'fa-user-gear', color: 'bg-rose-50 text-rose-600' }
+              { label: 'Student', role: 'student', email: 'fa23-bcs-013@cuiatd.edu.pk', icon: 'fa-user-graduate', color: 'bg-emerald-50 text-emerald-600', hover: 'hover:bg-emerald-600 hover:text-white' },
+              { label: 'HOD', role: 'hod', email: 'hod@cuiatd.edu.pk', icon: 'fa-user-tie', color: 'bg-blue-50 text-blue-600', hover: 'hover:bg-blue-600 hover:text-white' },
+              { label: 'IO Office', role: 'internship_office', email: 'io@cuiatd.edu.pk', icon: 'fa-building-shield', color: 'bg-indigo-50 text-indigo-600', hover: 'hover:bg-indigo-600 hover:text-white' },
+              { label: 'Faculty', role: 'faculty_supervisor', email: 'eathorgaming@gmail.com', icon: 'fa-chalkboard-user', color: 'bg-amber-50 text-amber-600', hover: 'hover:bg-amber-600 hover:text-white' },
+              { label: 'Site Sup', role: 'site_supervisor', email: 'ininsico@gmail.com', icon: 'fa-user-gear', color: 'bg-rose-50 text-rose-600', hover: 'hover:bg-rose-600 hover:text-white' }
             ].map((testUser) => (
               <button
                 key={testUser.role}
-                onClick={() => {
+                onClick={async () => {
                   setForm({ email: testUser.email, password: 'Megamix@123', role: testUser.role });
                   setErrors({});
                   setApiError('');
-                  showToast.info(`${testUser.label} credentials loaded.`);
+                  showToast.info(`Logging in as ${testUser.label}...`);
+                  
+                  // Wrap in a timeout to ensure state update is processed if needed, 
+                  // though handleLogin uses the current 'form' state. 
+                  // Actually, let's pass the data directly to a login function to be safe.
+                  const autoLoginForm = { email: testUser.email, password: 'Megamix@123', role: testUser.role };
+                  setLoading(true);
+                  try {
+                    const data = await apiRequest('/auth/login', {
+                      method: 'POST',
+                      body: autoLoginForm
+                    });
+                    if (data.status === 'otp_required') {
+                      setForm(autoLoginForm);
+                      setOtpMode(true);
+                      showToast.info(data.message);
+                    } else {
+                      showToast.success(`Welcome back, ${data.user.name || 'User'}!`);
+                      onLogin(data);
+                    }
+                  } catch (err) {
+                    setApiError(err.message);
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border border-transparent transition-all active:scale-95 text-center cursor-pointer hover:shadow-md hover:border-gray-100 ${testUser.color}`}
+                disabled={loading}
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border border-transparent transition-all active:scale-95 text-center cursor-pointer hover:shadow-lg group ${testUser.color} ${testUser.hover}`}
               >
-                <i className={`fas ${testUser.icon} text-sm mb-1`}></i>
-                <span className="text-[9px] font-black uppercase tracking-tight">{testUser.label}</span>
+                <i className={`fas ${testUser.icon} text-base mb-1.5 transition-transform group-hover:scale-110`}></i>
+                <span className="text-[10px] font-black uppercase tracking-tight">{testUser.label}</span>
               </button>
             ))}
           </div>
