@@ -132,7 +132,7 @@ router.post('/:id/start', async (req, res) => {
 
             const Company = await import('../models/Company.js').then(m => m.default);
             const Notice = await import('../models/Notice.js').then(m => m.default);
-            const Assignment = await import('../models/Assignment.js').then(m => m.default);
+            // Assignment already imported above at line 51
 
             await Promise.all([
                 Submission.deleteMany({}),
