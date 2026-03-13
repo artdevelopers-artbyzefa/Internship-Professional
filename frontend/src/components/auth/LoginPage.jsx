@@ -77,7 +77,7 @@ export default function LoginPage({ onLogin }) {
 
   if (otpMode) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary via-blue-700 to-blue-400 flex items-center justify-center p-5">
+      <div className="min-h-screen bg-primary flex items-center justify-center p-5">
         <div className="bg-white rounded-3xl p-10 w-full max-w-md shadow-2xl shadow-black/20 text-center">
           <div className="mb-7">
             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-sm text-2xl">
@@ -118,7 +118,7 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-blue-700 to-blue-400 flex items-center justify-center p-5">
+    <div className="min-h-screen bg-primary flex items-center justify-center p-5">
       <div className="bg-white rounded-2xl p-10 w-full max-w-md shadow-2xl shadow-black/20">
         <div className="text-center mb-7">
           <img src="/cuilogo.png" alt="CUI Logo" className="h-20 mx-auto mb-3"

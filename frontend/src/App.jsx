@@ -14,7 +14,7 @@ import HODPortal from './pages/hod/HODPortal.jsx';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange.jsx';
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
 import NotFound from './pages/error/NotFound.jsx';
-import LandingPage from './pages/LandingPage.jsx';
+import HomePage from './pages/HomePage.jsx';
 import { apiRequest } from './utils/api.js';
 
 export default function App() {
@@ -95,7 +95,7 @@ export default function App() {
               user.role === 'faculty_supervisor' ? '/faculty' :
                 user.role === 'site_supervisor' ? '/supervisor' : '/hod'
         } replace />
-      ) : <LandingPage />} />
+      ) : <HomePage />} />
 
       {/* Auth Screen Routes */}
       <Route path="/login" element={!user ? <LoginPage onLogin={handleLogin} /> : <Navigate to="/" replace />} />
