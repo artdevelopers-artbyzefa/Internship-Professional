@@ -180,4 +180,19 @@ router.get('/students/:supervisorId', protect, authorize('internship_office'), a
     }
 });
 
+// @route   GET api/notices/public
+// @desc    Get all public notices (for students and supervisors)
+router.get('/public', async (req, res) => {
+    try {
+        const notices = await Notice.find({
+            targetType: { $in: ['all_students', 'all_supervisors'] }
+        })
+        .sort({ createdAt: -1 })
+        .limit(10);
+        res.json(notices);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 export default router;
