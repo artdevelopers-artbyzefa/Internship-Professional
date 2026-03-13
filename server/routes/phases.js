@@ -6,6 +6,9 @@ import Mark from '../models/Mark.js';
 import Submission from '../models/Submission.js';
 import Evaluation from '../models/Evaluation.js';
 import Archive from '../models/Archive.js';
+import Assignment from '../models/Assignment.js';
+import Company from '../models/Company.js';
+import Notice from '../models/Notice.js';
 import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
 import { createBulkNotifications, createNotification } from '../utils/notifications.js';
@@ -42,37 +45,53 @@ router.post('/:id/start', async (req, res) => {
         }
 
         if (phase.order === 5) {
-            // PHASE 5: Completion & Archive
+            // ═══════════════════════════════════════════════════════════════
+            // PHASE 5: COMPLETION & ARCHIVE
+            // Capture a complete snapshot of every student and all related
+            // documents BEFORE deleting anything from the database.
+            // ═══════════════════════════════════════════════════════════════
+
             const students = await User.find({ role: 'student' })
-                .populate('assignedFaculty', 'name email')
-                .populate('assignedSiteSupervisor', 'name email');
+                .populate('assignedFaculty',        'name email whatsappNumber')
+                .populate('assignedSiteSupervisor', 'name email whatsappNumber')
+                .lean();
 
             const archiveData = [];
-            const Assignment = await import('../models/Assignment.js').then(m => m.default);
 
             for (const s of students) {
-                // Fetch marks and evaluations for this student
-                const studentMarksEntries = await Mark.find({ student: s._id }).populate('assignment', 'title totalMarks');
-                const studentEvaluations = await Evaluation.find({ student: s._id }).populate('evaluator', 'name');
-                
-                let avg = 0, pct = 0, grade = 'F';
 
-                // Only consider graded marks for the final percentage calc
-                const gradedMarks = studentMarksEntries.filter(m => m.isFacultyGraded);
+                // ── Fetch all related documents ───────────────────────────
+                const marksEntries = await Mark.find({ student: s._id })
+                    .populate('assignment', 'title totalMarks weekNumber description')
+                    .lean();
+
+                const submissions = await Submission.find({ student: s._id })
+                    .populate('assignment', 'title weekNumber')
+                    .lean();
+
+                const evaluations = await Evaluation.find({ student: s._id })
+                    .populate('evaluator', 'name role')
+                    .lean();
+
+                // ── Calculate final grade ─────────────────────────────────
+                let avg = 0, pct = 0, grade = 'F';
+                const gradedMarks = marksEntries.filter(m => m.isFacultyGraded);
 
                 if (gradedMarks.length > 0) {
-                    const isFreelance = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+                    const isFreelance =
+                        s.internshipRequest?.mode === 'Freelance' ||
+                        (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+
                     const taskScores = gradedMarks.map(m => {
-                        const f = m.facultyMarks || 0;
+                        const f  = m.facultyMarks        || 0;
                         const ss = m.siteSupervisorMarks || 0;
                         return isFreelance ? f : (f + ss) / 2;
                     });
 
-                    avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
+                    avg = taskScores.reduce((sum, v) => sum + v, 0) / taskScores.length;
                     pct = Math.round((avg / 10) * 100);
 
-                    // Mapping percentage to grade
-                    if (pct >= 85) grade = 'A';
+                    if      (pct >= 85) grade = 'A';
                     else if (pct >= 80) grade = 'A-';
                     else if (pct >= 75) grade = 'B+';
                     else if (pct >= 71) grade = 'B';
@@ -84,100 +103,182 @@ router.post('/:id/start', async (req, res) => {
                     else if (pct >= 50) grade = 'D';
                 }
 
+                // ── Determine final outcome ───────────────────────────────
+                const didParticipate = gradedMarks.length > 0 || submissions.length > 0;
+                const isIneligible   = !didParticipate &&
+                    !['Assigned', 'Internship Approved', 'Agreement Approved'].includes(s.status);
+
+                let finalStatus;
+                if      (isIneligible)        finalStatus = 'Ineligible';
+                else if (!didParticipate)     finalStatus = 'No Submissions';
+                else if (gradedMarks.length === 0) finalStatus = 'Pending Grading';
+                else if (pct >= 50)           finalStatus = 'Pass';
+                else                          finalStatus = 'Fail';
+
+                // ── Site supervisor details ───────────────────────────────
+                // Priority: populated assignedSiteSupervisor > internshipRequest fields
+                const siteSup = s.assignedSiteSupervisor
+                    ? {
+                        name:  s.assignedSiteSupervisor.name  || 'N/A',
+                        email: s.assignedSiteSupervisor.email || 'N/A',
+                        phone: s.assignedSiteSupervisor.whatsappNumber || 'N/A'
+                    }
+                    : {
+                        name:  s.internshipRequest?.siteSupervisorName  || s.assignedCompanySupervisor       || 'N/A',
+                        email: s.internshipRequest?.siteSupervisorEmail || s.assignedCompanySupervisorEmail  || 'N/A',
+                        phone: s.internshipRequest?.siteSupervisorPhone || 'N/A'
+                    };
+
+                // ── Build the archived student record ─────────────────────
                 archiveData.push({
-                    name: s.name,
-                    reg: s.reg,
+                    // Identity
+                    name:  s.name,
+                    reg:   s.reg,
                     email: s.email,
+                    phone: s.whatsappNumber || s.internshipAgreement?.whatsappNumber || 'N/A',
+
+                    // Internship
                     grade,
-                    percentage: pct,
-                    status: s.status,
-                    company: s.assignedCompany || 'N/A',
-                    mode: s.internshipRequest?.mode || 'N/A',
-                    faculty: s.assignedFaculty?.name || 'N/A',
-                    evaluations: studentEvaluations.map(e => ({
-                        title: e.title || 'General Evaluation',
-                        feedback: e.feedback,
-                        score: e.score,
-                        submittedAt: e.submittedAt,
-                        evaluatorName: e.evaluator?.name || 'Supervisor'
+                    percentage:     pct,
+                    avgMarks:       Math.round(avg * 100) / 100,
+                    status:         s.status,
+                    finalStatus,
+                    company:        s.assignedCompany || s.internshipRequest?.companyName || s.internshipAgreement?.companyName || 'N/A',
+                    companyAddress: s.internshipAgreement?.companyAddress || 'N/A',
+                    mode:           s.internshipRequest?.mode || 'N/A',
+
+                    // Academic supervisor
+                    faculty: {
+                        name:  s.assignedFaculty?.name  || 'N/A',
+                        email: s.assignedFaculty?.email || 'N/A',
+                        phone: s.assignedFaculty?.whatsappNumber || 'N/A'
+                    },
+
+                    // Site supervisor
+                    siteSupervisor: siteSup,
+
+                    // All submissions
+                    submissions: submissions.map(sub => ({
+                        weekNumber:  sub.assignment?.weekNumber || null,
+                        taskTitle:   sub.assignment?.title      || 'Unknown Task',
+                        submittedAt: sub.submissionDate         || sub.createdAt,
+                        fileUrl:     sub.fileUrl                || null,
+                        status:      sub.status
                     })),
-                    marks: studentMarksEntries.map(m => ({
-                        title: m.assignment?.title || 'Unknown Assignment',
-                        marks: m.marks,
-                        totalMarks: m.assignment?.totalMarks || 10,
-                        facultyMarks: m.facultyMarks,
-                        siteSupervisorMarks: m.siteSupervisorMarks,
-                        facultyRemarks: m.facultyRemarks,
-                        siteSupervisorRemarks: m.siteSupervisorRemarks
+
+                    // All marks with full detail
+                    marks: marksEntries.map(m => ({
+                        title:                 m.assignment?.title      || 'Unknown Assignment',
+                        totalMarks:            m.assignment?.totalMarks || 10,
+                        marks:                 m.marks,
+                        facultyMarks:          m.facultyMarks,
+                        siteSupervisorMarks:   m.siteSupervisorMarks,
+                        facultyRemarks:        m.facultyRemarks,
+                        siteSupervisorRemarks: m.siteSupervisorRemarks,
+                        isFacultyGraded:       m.isFacultyGraded,
+                        gradedAt:              m.updatedAt
+                    })),
+
+                    // All evaluations
+                    evaluations: evaluations.map(e => ({
+                        title:         e.title       || 'General Evaluation',
+                        feedback:      e.feedback,
+                        score:         e.score,
+                        submittedAt:   e.submittedAt || e.createdAt,
+                        evaluatorName: e.evaluator?.name || 'Supervisor',
+                        evaluatorRole: e.evaluator?.role || 'Unknown'
                     }))
                 });
             }
 
-            const cycleName = `Internship Cycle - ${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
-            const stats = {
-                totalStudents: archiveData.length,
-                totalPassed: archiveData.filter(a => a.percentage >= 50).length,
-                totalFailed: archiveData.filter(a => a.percentage < 50).length,
-                averagePercentage: archiveData.length > 0 ? (archiveData.reduce((s, a) => s + a.percentage, 0) / archiveData.length) : 0
-            };
+            // ── Build cycle-level statistics ──────────────────────────────
+            const participated  = archiveData.filter(a => a.finalStatus !== 'Ineligible' && a.finalStatus !== 'No Submissions');
+            const passed        = archiveData.filter(a => a.finalStatus === 'Pass');
+            const failed        = archiveData.filter(a => a.finalStatus === 'Fail');
+            const ineligible    = archiveData.filter(a => a.finalStatus === 'Ineligible' || a.finalStatus === 'No Submissions');
+            const physical      = archiveData.filter(a => a.mode && a.mode !== 'Freelance');
+            const freelance     = archiveData.filter(a => a.mode === 'Freelance');
 
+            const gradeDistribution = { A: 0, 'A-': 0, 'B+': 0, B: 0, 'B-': 0, 'C+': 0, C: 0, 'C-': 0, 'D+': 0, D: 0, F: 0 };
+            archiveData.forEach(a => {
+                if (gradeDistribution.hasOwnProperty(a.grade)) {
+                    gradeDistribution[a.grade]++;
+                }
+            });
+
+            const pcts = participated.map(a => a.percentage);
+            const avgPct = pcts.length > 0
+                ? Math.round(pcts.reduce((sum, v) => sum + v, 0) / pcts.length * 10) / 10
+                : 0;
+
+            const cycleName = `Internship Cycle — ${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
+
+            // ── Save full archive BEFORE deleting anything ────────────────
             const newArchive = new Archive({
                 cycleName,
                 year: new Date().getFullYear(),
                 students: archiveData,
-                statistics: stats,
+                statistics: {
+                    totalStudents:     archiveData.length,
+                    totalParticipated: participated.length,
+                    totalPassed:       passed.length,
+                    totalFailed:       failed.length,
+                    totalIneligible:   ineligible.length,
+                    totalPhysical:     physical.length,
+                    totalFreelance:    freelance.length,
+                    averagePercentage: avgPct,
+                    gradeDistribution
+                },
                 archivedBy: officeId
             });
             await newArchive.save();
 
-            const Company = await import('../models/Company.js').then(m => m.default);
-            const Notice = await import('../models/Notice.js').then(m => m.default);
-            // Assignment already imported above at line 51
+            console.log(`[${getPKTTime()}] [PHASE 5] Archive saved: ${cycleName} — ${archiveData.length} students captured.`);
 
+            // ── NOW delete all operational data ───────────────────────────
             await Promise.all([
                 Submission.deleteMany({}),
                 Mark.deleteMany({}),
                 Evaluation.deleteMany({}),
                 Assignment.deleteMany({}),
                 Notice.deleteMany({}),
-                Company.deleteMany({}), 
-                AuditLog.deleteMany({}), 
+                Company.deleteMany({}),
+                AuditLog.deleteMany({}),
                 User.deleteMany({ role: { $in: ['student', 'faculty_supervisor', 'site_supervisor'] } })
             ]);
 
+            // ── Reset all phases to pending, then auto-activate Phase 1 ──
             await Phase.updateMany({}, {
                 $set: {
                     status: 'pending',
-                    startedAt: null,
-                    completedAt: null,
-                    startedBy: null,
-                    completedBy: null,
-                    scheduledStartAt: null,
-                    scheduledEndAt: null,
+                    startedAt: null, completedAt: null,
+                    startedBy: null, completedBy: null,
+                    scheduledStartAt: null, scheduledEndAt: null,
                     notes: ''
                 }
             });
 
             const p1 = await Phase.findOne({ order: 1 });
             if (p1) {
-                p1.status = 'active';
+                p1.status    = 'active';
                 p1.startedAt = new Date();
                 p1.startedBy = officeId;
                 await p1.save();
             }
 
             await new AuditLog({
-                action: 'SYSTEM_RESET_PHASE_5',
+                action:      'SYSTEM_RESET_PHASE_5',
                 performedBy: officeId,
-                details: `Cycle "${cycleName}" archived and system purged for clean slate.`,
-                ipAddress: req.ip
+                details:     `Cycle "${cycleName}" fully archived (${archiveData.length} students) and system purged for clean slate.`,
+                ipAddress:   req.ip
             }).save();
 
-            console.log(`[${getPKTTime()}] [PHASE 5] System Purged & Archived: ${cycleName}`);
-            return res.json({ message: `Cycle archived and system reset. Starting Phase 1 again.` });
+            console.log(`[${getPKTTime()}] [PHASE 5] System purged & Phase 1 reactivated.`);
+            return res.json({ message: `All ${archiveData.length} student records archived. System reset and Phase 1 is now active.` });
         }
 
         await Phase.updateMany({ status: 'active' }, { $set: { status: 'completed', completedAt: new Date(), completedBy: officeId } });
+
 
         phase.status = 'active';
         phase.startedAt = new Date();

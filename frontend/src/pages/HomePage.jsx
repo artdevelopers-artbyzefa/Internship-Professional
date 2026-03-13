@@ -371,7 +371,7 @@ const HomePage = () => {
             </div>
             
             <div className="text-sm font-bold text-gray-300">
-              © 2024 CUI Abbottabad. All rights reserved.
+              © 2026 CUI Abbottabad. All rights reserved.
             </div>
           </div>
         </div>

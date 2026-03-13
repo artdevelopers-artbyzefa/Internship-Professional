@@ -1608,22 +1608,25 @@ function calcGrade(pct) {
 router.get('/aggregated-marks', protect, async (req, res) => {
     try {
         const { program, semester } = req.query;
-        let studentMatch = { role: 'student', status: { $in: ['Assigned', 'Agreement Approved', 'Internship Approved', 'Pass', 'Fail'] } };
+        // Include ALL students in the cohort for reporting, not just graded ones
+        let studentMatch = { role: 'student' };
 
         if (program === 'BCS' || program === 'CS') studentMatch.reg = { $regex: /-BCS-/i };
         else if (program === 'BSE' || program === 'SE') studentMatch.reg = { $regex: /-BSE-/i };
         if (semester && semester !== 'All') studentMatch.semester = parseInt(semester);
 
         const students = await User.find(studentMatch)
-            .select('name reg semester assignedCompany assignedFaculty')
-            .populate('assignedFaculty', 'name');
+            .select('name reg semester assignedCompany assignedFaculty assignedSiteSupervisor internshipRequest status email phone')
+            .populate('assignedFaculty', 'name email phone')
+            .populate('assignedSiteSupervisor', 'name email phone');
 
         const results = [];
         for (const s of students) {
             const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
-            if (marks.length === 0 && s.status !== 'Fail') continue;
-
+            
+            // Determine participation category
             const isFreelance = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+            const placementMode = isFreelance ? 'Freelance' : 'Standard (Physical)';
 
             const taskScores = marks.map(m => {
                 const fScore = m.facultyMarks || 0;
@@ -1633,18 +1636,44 @@ router.get('/aggregated-marks', protect, async (req, res) => {
 
             const avgScore = marks.length > 0 ? (taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length) : 0;
             const pct = Math.round((avgScore / 10) * 100);
-            const { grade, gp, status } = calcGrade(pct);
+            
+            // If they have no marks, they might be 'Ineligible' or 'Pending'
+            let { grade, gp, status } = calcGrade(pct);
+            
+            // Override status/grade for those who haven't participated
+            if (marks.length === 0) {
+                grade = 'N/A';
+                gp = 0;
+                status = s.status === 'Fail' ? 'Fail' : (s.status === 'Registered' ? 'Ineligible' : 'Pending');
+            }
 
             results.push({
-                student: { name: s.name, reg: s.reg, _id: s._id },
-                faculty: s.assignedFaculty?.name || 'N/A',
+                student: { 
+                    name: s.name, 
+                    reg: s.reg, 
+                    _id: s._id, 
+                    email: s.email, 
+                    phone: s.phone || 'N/A' 
+                },
+                faculty: {
+                    name: s.assignedFaculty?.name || 'Unassigned',
+                    email: s.assignedFaculty?.email || 'N/A',
+                    phone: s.assignedFaculty?.phone || 'N/A'
+                },
+                siteSupervisor: {
+                    name: s.assignedSiteSupervisor?.name || 'N/A',
+                    email: s.assignedSiteSupervisor?.email || 'N/A',
+                    phone: s.assignedSiteSupervisor?.phone || 'N/A'
+                },
+                mode: placementMode,
                 company: s.assignedCompany || 'N/A',
                 assignmentsCount: marks.length,
-                averageMarks: avgScore.toFixed(2),  // X.XX / 10
-                percentage: pct,                   // 0-100
+                averageMarks: avgScore.toFixed(2),
+                percentage: pct,
                 grade,
                 gradePoints: gp,
-                status
+                currentStatus: s.status, // Database status
+                reportStatus: status     // Calculated academic status
             });
         }
         res.json(results);

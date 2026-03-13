@@ -113,13 +113,24 @@ export default function PhaseManagement({ user }) {
         let scheduledEndAt = null;
 
         if (action === 'start') {
-            const date = await showAlert.datePrompt(
-                `Activate ${phase.label}`,
-                `Set an expected deadline for this phase (optional). Leave blank if not sure, but it's recommended for student timers.`
-            );
-            // If they cancelled the prompt, don't proceed
-            if (date === undefined) return; 
-            scheduledEndAt = date ? `${date}:00+05:00` : null;
+            if (phase.order === 5) {
+                // Phase 5 (Archive & Close) starts immediately — no deadline needed
+                const confirmed = await showAlert.confirm(
+                    'Activate Phase 5 — Archive & Close',
+                    `⚠️ This is the final phase. It will immediately archive all student data, generate the permanent record, and reset the internship cycle.\n\nThis action cannot be undone. Proceed?`,
+                    'Yes, Archive & Close'
+                );
+                if (!confirmed) return;
+                // No scheduledEndAt — runs immediately
+            } else {
+                const date = await showAlert.datePrompt(
+                    `Activate ${phase.label}`,
+                    `Set an expected deadline for this phase (optional). Leave blank if not sure, but it's recommended for student timers.`
+                );
+                // If they cancelled the prompt, don't proceed
+                if (date === undefined) return;
+                scheduledEndAt = date ? `${date}:00+05:00` : null;
+            }
         } else {
             const confirmed = await showAlert.confirm(
                 'Complete Phase',

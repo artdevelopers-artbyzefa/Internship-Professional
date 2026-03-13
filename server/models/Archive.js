@@ -1,53 +1,99 @@
 import mongoose from 'mongoose';
 
 const archiveSchema = new mongoose.Schema({
-    cycleName: {
-        type: String,
-        required: true
-    },
-    year: {
-        type: Number,
-        required: true
-    },
+    cycleName: { type: String, required: true },
+    year:      { type: Number, required: true },
+
     students: [{
-        name: String,
-        reg: String,
+        // ── Identity ──────────────────────────────────────────────────────
+        name:  String,
+        reg:   String,
         email: String,
-        grade: String,
+        phone: String,
+
+        // ── Internship Details ────────────────────────────────────────────
+        grade:      String,
         percentage: Number,
-        status: String,
-        company: String,
-        mode: String,
-        faculty: String,
-        evaluations: [{
-            title: String,
-            feedback: String,
-            score: Number,
+        avgMarks:   Number,
+        status:     String,       // DB status at time of archive
+        finalStatus: String,      // Pass / Fail / Ineligible / Pending
+        company:    String,
+        companyAddress: String,
+        mode:       String,       // Standard (Physical) | Freelance
+
+        // ── Academic Supervisor ───────────────────────────────────────────
+        faculty: {
+            name:  String,
+            email: String,
+            phone: String
+        },
+
+        // ── Site Supervisor ───────────────────────────────────────────────
+        siteSupervisor: {
+            name:  String,
+            email: String,
+            phone: String
+        },
+
+        // ── Submissions (weekly task submissions) ─────────────────────────
+        submissions: [{
+            weekNumber:  Number,
+            taskTitle:   String,
+            description: String,
             submittedAt: Date,
-            evaluatorName: String
+            fileUrl:     String
         }],
+
+        // ── Task Marks ────────────────────────────────────────────────────
         marks: [{
-            title: String,
-            marks: Number,
-            totalMarks: Number,
-            facultyMarks: Number,
-            siteSupervisorMarks: Number,
-            facultyRemarks: String,
-            siteSupervisorRemarks: String
+            title:                String,
+            marks:                Number,
+            totalMarks:           Number,
+            facultyMarks:         Number,
+            siteSupervisorMarks:  Number,
+            facultyRemarks:       String,
+            siteSupervisorRemarks: String,
+            isFacultyGraded:      Boolean,
+            gradedAt:             Date
+        }],
+
+        // ── Evaluations ───────────────────────────────────────────────────
+        evaluations: [{
+            title:         String,
+            feedback:      String,
+            score:         Number,
+            submittedAt:   Date,
+            evaluatorName: String,
+            evaluatorRole: String
         }]
     }],
+
+    // ── Cycle-Level Statistics ────────────────────────────────────────────
     statistics: {
-        totalStudents: Number,
-        totalPassed: Number,
-        totalFailed: Number,
-        averagePercentage: Number
+        totalStudents:      Number,
+        totalParticipated:  Number,
+        totalPassed:        Number,
+        totalFailed:        Number,
+        totalIneligible:    Number,
+        totalPhysical:      Number,
+        totalFreelance:     Number,
+        averagePercentage:  Number,
+        gradeDistribution: {
+            A:   Number,
+            'A-': Number,
+            'B+': Number,
+            B:   Number,
+            'B-': Number,
+            'C+': Number,
+            C:   Number,
+            'C-': Number,
+            'D+': Number,
+            D:   Number,
+            F:   Number
+        }
     },
-    archivedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }
-}, {
-    timestamps: true
-});
+
+    archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { timestamps: true });
 
 export default mongoose.model('Archive', archiveSchema);

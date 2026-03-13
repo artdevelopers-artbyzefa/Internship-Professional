@@ -50,13 +50,20 @@ export default function HODReports() {
     r.student.name.toLowerCase().includes(search.toLowerCase()) ||
     r.student.reg.toLowerCase().includes(search.toLowerCase())
   );
+  
   const total = results.length;
-  const passed = results.filter(r => r.status === 'Pass').length;
-  const failed = results.filter(r => r.status === 'Fail').length;
-  const avgPct = total ? Math.round(results.reduce((s, r) => s + r.percentage, 0) / total) : 0;
+  // Participation Stats
+  const physicalCount = results.filter(r => r.mode === 'Standard (Physical)').length;
+  const freelanceCount = results.filter(r => r.mode === 'Freelance').length;
+  const ineligibleCount = results.filter(r => r.reportStatus === 'Ineligible').length;
+  const participatingCount = total - ineligibleCount;
+
+  const passed = results.filter(r => r.reportStatus === 'Pass').length;
+  const failed = results.filter(r => r.reportStatus === 'Fail').length;
+  const avgPct = participatingCount ? Math.round(results.filter(r => r.reportStatus !== 'Ineligible').reduce((s, r) => s + r.percentage, 0) / participatingCount) : 0;
   const avgGrade = gradeFromPct(avgPct);
 
-  // Grade distribution for bar chart
+  // Grade distribution
   const gradeLabels = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'F'];
   const gradeDist = gradeLabels.map(g => ({
     grade: g, count: results.filter(r => r.grade === g).length
@@ -68,71 +75,89 @@ export default function HODReports() {
     { name: 'Fail', value: failed }
   ];
 
-  // Performance timeline (sorted by percentage desc)
-  const sortedByPct = [...results].sort((a, b) => b.percentage - a.percentage);
-  const topPerformers = sortedByPct.slice(0, 8);
-
-  // Faculty load
+  // Faculty load calculation based on new object structure
   const facultyMap = {};
   results.forEach(r => {
-    const f = r.faculty || 'Unknown';
-    if (!facultyMap[f]) facultyMap[f] = { name: f, students: 0, avgPct: 0, totalPct: 0 };
+    const f = r.faculty?.name || 'Unassigned';
+    if (!facultyMap[f]) facultyMap[f] = { name: f, students: 0, avgPct: 0, totalPct: 0, phone: r.faculty?.phone };
     facultyMap[f].students++;
-    facultyMap[f].totalPct += r.percentage;
+    if (r.reportStatus !== 'Ineligible') {
+        facultyMap[f].totalPct += r.percentage;
+    }
   });
-  const facultyData = Object.values(facultyMap).map(f => ({ ...f, avgPct: Math.round(f.totalPct / f.students) }));
+  const facultyData = Object.values(facultyMap).map(f => ({ 
+    ...f, 
+    avgPct: f.students > 0 ? Math.round(f.totalPct / f.students) : 0 
+  }));
+
+  // Sorted list for charts
+  const topPerformers = [...results]
+    .filter(r => r.reportStatus !== 'Ineligible')
+    .sort((a, b) => b.percentage - a.percentage)
+    .slice(0, 8);
 
   const prepareExportData = async () => {
-    // 1. Capture charts as base64 images
     const grabChart = async (id) => {
       const el = document.getElementById(id);
       if (!el) return null;
-      return await toPng(el, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        pixelRatio: 3, // Higher quality
-        skipFonts: true,
-        fontEmbedCSS: ''
-      });
+      try {
+        return await toPng(el, {
+          cacheBust: true,
+          backgroundColor: '#ffffff',
+          pixelRatio: 3,
+          skipFonts: true,           // skip remote web-font embedding (avoids CORS crash)
+          fontEmbedCSS: '',          // don't try to inline any CSS fonts
+          includeQueryParams: false
+        });
+      } catch (err) {
+        console.warn(`Chart capture failed for #${id}:`, err.message);
+        return null;
+      }
     };
 
-    const chartDist = await grabChart('chart-dist');
-    const chartPie = await grabChart('chart-pie');
-    const chartTop = await grabChart('chart-top');
-    const chartFaculty = await grabChart('chart-faculty');
+    const charts = {
+      chartDist: await grabChart('chart-dist'),
+      chartPie: await grabChart('chart-pie'),
+      chartTop: await grabChart('chart-top'),
+      chartFaculty: await grabChart('chart-faculty')
+    };
 
-    // 2. Prepare Tables Structure
+    // 2. Prepare Detailed Tables Structure
     const studentData = results.map(r => [
-      r.student.reg, r.student.name, r.faculty, r.company || 'N/A',
-      `${r.averageMarks}/10`, `${r.percentage}%`, r.grade, r.status
+      r.student.reg,
+      r.student.name,
+      `${r.faculty?.name || 'N/A'}\n(${r.faculty?.phone || 'N/A'})`,
+      `${r.siteSupervisor?.name || 'N/A'}\n(${r.siteSupervisor?.phone || 'N/A'})`,
+      r.company,
+      r.mode,
+      `${r.averageMarks}/10`,
+      `${r.percentage}%`,
+      r.grade,
+      r.reportStatus
     ]);
 
     const facultyTableData = facultyData.map(f => [
-      f.name, f.students.toString(), `${f.avgPct}%`, gradeFromPct(f.avgPct)
-    ]);
-
-    const companies = {};
-    results.forEach(r => {
-      const c = r.company || 'Unknown Company';
-      if (!companies[c]) companies[c] = { name: c, count: 0, pass: 0 };
-      companies[c].count++;
-      if (r.status === 'Pass') companies[c].pass++;
-    });
-    const companyTableData = Object.values(companies).map(c => [
-      c.name, c.count.toString(), `${Math.round((c.pass / c.count) * 100)}%`
+      f.name,
+      f.students.toString(),
+      `${f.avgPct}%`,
+      gradeFromPct(f.avgPct)
     ]);
 
     return {
       stats: {
         total, passed, failed, avgPct, avgGrade,
-        pending: total === 0 ? 0 : results.filter(r => r.assignmentsCount === 0).length,
+        physical: physicalCount,
+        freelance: freelanceCount,
+        ineligible: ineligibleCount,
+        participating: participatingCount,
+        pending: results.filter(r => r.assignmentsCount === 0 && r.reportStatus !== 'Ineligible').length,
         totalFaculty: facultyData.length
       },
-      charts: { chartDist, chartPie, chartTop, chartFaculty },
+      charts,
       tables: {
         students: studentData,
         faculty: facultyTableData,
-        companies: companyTableData
+        companies: [] // Handled by backend aggregation if needed
       }
     };
   };
@@ -327,8 +352,8 @@ export default function HODReports() {
         <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center"><i className="fas fa-book-open text-sm" /></div>
-            <h3 className="font-black text-gray-800">Student Grade Records</h3>
-            <span className="text-[10px] font-black bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full border border-gray-100 uppercase tracking-widest">{filtered.length} Records</span>
+            <h3 className="font-black text-gray-800">Departmental Performance Ledger</h3>
+            <span className="text-[10px] font-black bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full border border-gray-100 uppercase tracking-widest">{filtered.length} Students tracked</span>
           </div>
           <div data-html2canvas-ignore="true">
             <input
@@ -341,47 +366,70 @@ export default function HODReports() {
         {filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
             <i className="fas fa-inbox text-3xl opacity-40 block mb-3" />
-            <p className="text-sm font-bold">No Results yet{search ? ' matching your search' : ''}.</p>
+            <p className="text-sm font-bold">No results matching your current filters.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50/60">
-                  {['Reg. #', 'Student', 'Faculty', 'Company', 'Weeks', 'Average / 10', 'Percentage', 'Grade', 'Grade Points', 'Status'].map(h => (
+                  {['Reg. #', 'Student', 'Academic Supervisor', 'Site Supervisor', 'Company', 'Mode', 'Tasks', 'Avg / 10', '%', 'GRD', 'Status'].map(h => (
                     <th key={h} className="px-5 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((r, i) => {
-                  const c = gradeColor(r.grade);
                   return (
-                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-5 py-4 text-[10px] font-bold text-gray-400 font-mono whitespace-nowrap">{r.student.reg}</td>
-                      <td className="px-5 py-4 font-bold text-gray-800 text-sm whitespace-nowrap">{r.student.name}</td>
-                      <td className="px-5 py-4 text-xs text-indigo-500 font-bold">{r.faculty}</td>
-                      <td className="px-5 py-4 text-xs text-gray-500 font-medium">{r.company}</td>
+                    <tr key={i} className={`hover:bg-gray-50/50 transition-colors ${r.reportStatus === 'Ineligible' ? 'opacity-60 bg-gray-50/20' : ''}`}>
+                      <td className="px-5 py-4 text-[10px] font-bold text-gray-400 font-mono whitespace-nowrap uppercase">{r.student.reg}</td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-800 text-sm">{r.student.name}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">{r.student.email}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-indigo-600 text-[11px]">{r.faculty?.name}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">{r.faculty?.phone}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-700 text-[11px]">{r.siteSupervisor?.name}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">{r.siteSupervisor?.phone}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-xs text-gray-500 font-medium uppercase font-mono">{r.company}</td>
+                      <td className="px-5 py-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black tracking-tight border ${r.mode === 'Freelance' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                            {r.mode}
+                        </span>
+                      </td>
                       <td className="px-5 py-4 text-center">
-                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black border border-indigo-100">{r.assignmentsCount}</span>
+                        <span className="px-2.5 py-1 bg-gray-50 text-gray-600 rounded-full text-[10px] font-black border border-gray-100">{r.assignmentsCount}</span>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="w-12 h-1 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${r.percentage}%`, backgroundColor: GRADE_COLORS[r.grade] || '#94a3b8' }} />
                           </div>
-                          <span className="text-xs font-black text-gray-800">{r.averageMarks}</span>
+                          <span className="text-[11px] font-black text-gray-800">{r.averageMarks}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <span className={`text-sm font-black ${r.percentage >= 75 ? 'text-emerald-600' : r.percentage >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{r.percentage}%</span>
                       </td>
                       <td className="px-5 py-4"><GradeBadge grade={r.grade} /></td>
-                      <td className="px-5 py-4 text-[10px] font-bold text-gray-400">{r.gradePoints}</td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${r.status === 'Pass' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
-                          <i className={`fas text-[8px] ${r.status === 'Pass' ? 'fa-check' : 'fa-times'}`} />
-                          {r.status}
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
+                            r.reportStatus === 'Pass' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                            r.reportStatus === 'Fail' ? 'bg-red-50 text-red-700 border-red-100' : 
+                            'bg-gray-100 text-gray-500 border-gray-200'
+                        }`}>
+                          <i className={`fas text-[8px] ${r.reportStatus === 'Pass' ? 'fa-check' : r.reportStatus === 'Fail' ? 'fa-times' : 'fa-clock'}`} />
+                          {r.reportStatus}
                         </span>
                       </td>
                     </tr>
