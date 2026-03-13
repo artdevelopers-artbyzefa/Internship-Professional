@@ -18,7 +18,23 @@ const archiveSchema = new mongoose.Schema({
         status: String,
         company: String,
         mode: String,
-        faculty: String
+        faculty: String,
+        evaluations: [{
+            title: String,
+            feedback: String,
+            score: Number,
+            submittedAt: Date,
+            evaluatorName: String
+        }],
+        marks: [{
+            title: String,
+            marks: Number,
+            totalMarks: Number,
+            facultyMarks: Number,
+            siteSupervisorMarks: Number,
+            facultyRemarks: String,
+            siteSupervisorRemarks: String
+        }]
     }],
     statistics: {
         totalStudents: Number,

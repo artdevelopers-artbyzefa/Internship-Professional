@@ -4,6 +4,38 @@ import { apiRequest } from '../../utils/api.js';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
 import RegisteredStudents from '../office/RegisteredStudents.jsx';
 
+function CountdownDisplay({ targetDate }) {
+    const [timeLeft, setTimeLeft] = useState('');
+
+    useEffect(() => {
+        const update = () => {
+            const now = new Date();
+            const end = new Date(targetDate);
+            const diff = end - now;
+
+            if (diff <= 0) {
+                setTimeLeft('Time reached');
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            let str = '';
+            if (days > 0) str += `${days}d `;
+            str += `${hours}h ${mins}m`;
+            setTimeLeft(str);
+        };
+
+        update();
+        const timer = setInterval(update, 60000);
+        return () => clearInterval(timer);
+    }, [targetDate]);
+
+    return <span className="text-xs font-black text-gray-800 tabular-nums">{timeLeft}</span>;
+}
+
 export default function SupervisorDashboard({ user, activePhase }) {
     const [profile, setProfile] = useState(null);
     const [assignments, setAssignments] = useState([]);
@@ -112,12 +144,33 @@ export default function SupervisorDashboard({ user, activePhase }) {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Portal Access</p>
-                        <p className="text-xs font-bold text-gray-700">Industrial Site Supervisor</p>
-                    </div>
-                    <div className="w-px h-8 bg-gray-100 mx-2" />
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                    {activePhase?.scheduledEndAt && activePhase?.order < 4 && (
+                        <div className="hidden sm:flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+                            <div className="flex flex-col">
+                                <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Next Phase In</span>
+                                <CountdownDisplay targetDate={activePhase.scheduledEndAt} />
+                            </div>
+                            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center text-xs">
+                                <i className="fas fa-hourglass-half animate-pulse" />
+                            </div>
+                        </div>
+                    )}
+
+                    {activePhase && (
+                        <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+                            </span>
+                            <div>
+                                <p className="text-[9px] font-black text-blue-400 tracking-widest">ACTIVE PHASE</p>
+                                <p className="text-xs font-black text-blue-800">{activePhase.label}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="w-px h-8 bg-gray-100 mx-2 hidden md:block" />
                     <button onClick={() => navigate('/supervisor/profile')}
                         className="p-3 rounded-xl border border-gray-200 text-gray-500 hover:text-primary hover:border-primary/30 transition-all bg-white cursor-pointer">
                         <i className="fas fa-cog" />
@@ -158,6 +211,14 @@ export default function SupervisorDashboard({ user, activePhase }) {
             {isPhase2OrLower ? (
                 <div className="space-y-6">
                     <RegisteredStudents user={user} />
+                </div>
+            ) : activePhase?.order >= 4 ? (
+                <div className="bg-white p-12 rounded-2xl border border-gray-100 shadow-sm text-center">
+                    <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i className="fas fa-check-double text-2xl" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-800">Internship Cycle Finalized</h3>
+                    <p className="text-sm text-gray-400 mt-2 max-w-sm mx-auto font-medium">All academic deadlines and monitoring tasks have been concluded for this cycle.</p>
                 </div>
             ) : (
                 <>

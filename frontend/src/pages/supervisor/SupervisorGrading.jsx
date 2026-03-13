@@ -243,7 +243,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                         <td className="px-8 py-5">
                                                             <button
                                                                 onClick={() => handleDownload(sub.fileUrl, `${sub.user?.name}_${selectedAssignment.title}`)}
-                                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-white text-gray-600 hover:text-primary rounded-lg border border-gray-100 transition-all text-xs font-bold shadow-sm cursor-pointer"
+                                                                className="inline-flex items-center gap-3 px-6 py-3 bg-primary hover:bg-black text-white rounded-xl border-0 transition-all text-sm font-black shadow-lg shadow-primary/20 cursor-pointer hover:scale-105"
                                                             >
                                                                 <i className="fas fa-file-pdf"></i> View File
                                                             </button>

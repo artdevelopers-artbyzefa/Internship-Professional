@@ -33,7 +33,9 @@ router.post('/submit-request', async (req, res) => {
             startDate,
             endDate,
             mode,
-            description
+            description,
+            freelancePlatform,
+            freelanceProfileLink
         } = req.body;
 
         const user = await User.findById(userId);
@@ -56,6 +58,8 @@ router.post('/submit-request', async (req, res) => {
             endDate,
             mode,
             description,
+            freelancePlatform,
+            freelanceProfileLink,
             submittedAt: Date.now()
         };
         user.status = 'Internship Request Submitted';
@@ -219,13 +223,14 @@ router.get('/my-evaluations', protect, async (req, res) => {
 // @desc    Update student profile information
 router.put('/update-profile', protect, async (req, res) => {
     try {
-        const { fatherName, section, dateOfBirth, profilePicture, secondaryEmail, newPassword } = req.body;
+        const { fatherName, section, dateOfBirth, profilePicture, secondaryEmail, whatsappNumber, newPassword } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         if (fatherName) user.fatherName = fatherName;
         if (section) user.section = section;
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
+        if (whatsappNumber !== undefined) user.whatsappNumber = whatsappNumber;
         if (secondaryEmail) {
             const lowerEmail = secondaryEmail.toLowerCase().trim();
 
@@ -294,6 +299,7 @@ router.put('/update-profile', protect, async (req, res) => {
                 dateOfBirth: populatedUser.dateOfBirth,
                 profilePicture: populatedUser.profilePicture,
                 registeredCourse: populatedUser.registeredCourse,
+                whatsappNumber: populatedUser.whatsappNumber,
 
                 // Keep these for dashboard
                 internshipRequest: populatedUser.internshipRequest,
@@ -394,7 +400,78 @@ router.get('/assignments', protect, async (req, res) => {
 
         // 4. From Student mapping (Freelance uploads)
         if (user.internshipRequest?.mode === 'Freelance') {
-            orFilters.push({ createdBy: user._id, courseTitle: 'Freelance Weekly Report' });
+            try {
+                const currentPhase = await Phase.findOne({ status: 'active' }).lean();
+                if (currentPhase && currentPhase.order === 3) {
+                    // Calculate current week boundaries in PKT (UTC+5)
+                    const now = new Date();
+                    const pktOffset = 5 * 60 * 60 * 1000;
+                    const pktNow = new Date(now.getTime() + pktOffset);
+                    
+                    const day = pktNow.getUTCDay(); // 0-Sunday, 1-Monday...
+                    const diffToMonday = (day === 0 ? 6 : day - 1);
+                    
+                    const mondayPKT = new Date(pktNow);
+                    mondayPKT.setUTCDate(pktNow.getUTCDate() - diffToMonday);
+                    mondayPKT.setUTCHours(0, 0, 0, 0);
+                    
+                    const sundayPKT = new Date(mondayPKT);
+                    sundayPKT.setUTCDate(mondayPKT.getUTCDate() + 6);
+                    sundayPKT.setUTCHours(18, 30, 0, 0);
+                    
+                    const startUTC = new Date(mondayPKT.getTime() - pktOffset);
+                    let deadlineUTC = new Date(sundayPKT.getTime() - pktOffset);
+                    
+                    // Cap deadline if Phase 3 ends during this week
+                    if (currentPhase.scheduledEndAt) {
+                        const phaseEnd = new Date(currentPhase.scheduledEndAt);
+                        if (phaseEnd > startUTC && phaseEnd < deadlineUTC) {
+                            deadlineUTC = phaseEnd;
+                        }
+                    }
+
+                    // Check if assignment exists for this student and this specific week
+                    const existing = await Assignment.findOne({
+                        targetStudents: user._id,
+                        courseTitle: 'Freelance Weekly Report',
+                        startDate: startUTC
+                    });
+
+                    if (!existing) {
+                        const prevCount = await Assignment.countDocuments({
+                            targetStudents: user._id,
+                            courseTitle: 'Freelance Weekly Report'
+                        });
+
+                        const newAssignment = new Assignment({
+                            title: `Weekly Report - Week ${prevCount + 1}`,
+                            courseTitle: 'Freelance Weekly Report',
+                            description: 'Weekly progress summary for freelance track. Subject to automatic Monday-Sunday 18:30 (PKT) deadline.',
+                            startDate: startUTC,
+                            deadline: deadlineUTC,
+                            totalMarks: 10,
+                            targetStudents: [user._id],
+                            createdBy: user.assignedFaculty || user._id
+                        });
+                        await newAssignment.save();
+
+                        // Auto-create mark record for faculty grading
+                        await new Mark({
+                            assignment: newAssignment._id,
+                            student: user._id,
+                            isSiteSupervisorGraded: true,
+                            siteSupervisorMarks: null,
+                            siteSupervisorRemarks: 'Freelance Track - Auto bypassed site supervisor',
+                            facultyId: user.assignedFaculty
+                        }).save();
+                        
+                        console.log(`[FREELANCE] Auto-generated assignment for ${user.email} (Week ${prevCount + 1})`);
+                    }
+                }
+            } catch (err) {
+                console.error('Freelance auto-gen error:', err);
+            }
+            orFilters.push({ targetStudents: user._id, courseTitle: 'Freelance Weekly Report' });
         }
 
         console.log('[ASSIGNMENT DEBUG] orFilters count:', orFilters.length, JSON.stringify(orFilters, null, 2));
@@ -505,44 +582,42 @@ router.post('/submit-freelance-report', protect, uploadCloudinary.single('file')
         if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
         const user = await User.findById(req.user.id);
-
-        const existingAssignments = await Assignment.find({
+        
+        // Find the currently active/open freelance assignment
+        const now = new Date();
+        const assignment = await Assignment.findOne({
             targetStudents: user._id,
-            courseTitle: 'Freelance Weekly Report'
-        });
-
-        const weekNumber = existingAssignments.length + 1;
-
-        const assignment = new Assignment({
-            title: `Weekly Report - Week ${weekNumber}`,
             courseTitle: 'Freelance Weekly Report',
-            description: 'Autogenerated assignment for freelance weekly reporting',
-            startDate: new Date(),
-            deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            totalMarks: 10,
-            targetStudents: [user._id],
-            createdBy: user.assignedFaculty || user._id
+            startDate: { $lte: now },
+            deadline: { $gte: now }
         });
-        await assignment.save();
 
-        const submission = new Submission({
-            assignment: assignment._id,
-            student: user._id,
-            fileUrl: req.file.path,
-            fileName: req.file.originalname,
-            status: 'Submitted'
-        });
+        if (!assignment) {
+            return res.status(400).json({ 
+                message: 'No active freelance assignment found for this week. Please ensure you are within the Monday-Sunday 18:30 window.' 
+            });
+        }
+
+        // Check if submission already exists
+        let submission = await Submission.findOne({ assignment: assignment._id, student: user._id });
+
+        if (submission) {
+            submission.fileUrl = req.file.path;
+            submission.fileName = req.file.originalname;
+            submission.submissionDate = now;
+            submission.status = 'Submitted';
+        } else {
+            submission = new Submission({
+                assignment: assignment._id,
+                student: user._id,
+                fileUrl: req.file.path,
+                fileName: req.file.originalname,
+                status: 'Submitted',
+                submissionDate: now
+            });
+        }
+
         await submission.save();
-
-        const mark = new Mark({
-            assignment: assignment._id,
-            student: user._id,
-            isSiteSupervisorGraded: true,
-            siteSupervisorMarks: null,
-            siteSupervisorRemarks: 'Freelance Track - Auto bypassed site supervisor',
-            facultyId: user.assignedFaculty
-        });
-        await mark.save();
 
         res.json({ message: 'Freelance weekly report submitted successfully', submission });
     } catch (err) {

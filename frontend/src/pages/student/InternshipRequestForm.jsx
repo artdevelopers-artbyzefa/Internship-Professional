@@ -12,6 +12,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
   const [isEditing, setIsEditing] = useState(false);
 
   const isOfficiallyAssigned = user.status === 'Assigned' || (user.assignedCompany && user.assignedFaculty && user.assignedCompanySupervisor);
+  const isLocked = isOfficiallyAssigned || user.status === 'Internship Approved';
   const hasOfficialCompany = !!user.assignedCompany;
   const hasOfficialFaculty = !!user.assignedFaculty;
   const hasOfficialSupervisor = !!user.assignedCompanySupervisor;
@@ -150,7 +151,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
                 {isOfficiallyAssigned ? 'Final Placement Confirmed' : user.status === 'Internship Approved' ? 'Internship Approved' : 'Under Review'}
               </span>
             </div>
-            {!isOfficiallyAssigned && (
+            {!isLocked && (
               <button
                 onClick={() => setIsEditing(true)}
                 className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:border-primary transition-all shadow-sm flex items-center justify-center gap-2"
@@ -213,8 +214,8 @@ export default function InternshipRequestForm({ user, activePhase }) {
           )}
         </div>
 
-        {/* Site Supervisor (Self-arranged only) */}
-        {(req?.siteSupervisorName || req?.siteSupervisorEmail) && (
+        {/* Site Supervisor (Self-arranged only & Non-Freelance) */}
+        {(req?.siteSupervisorName || req?.siteSupervisorEmail) && req?.mode !== 'Freelance' && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 pb-3 border-b border-gray-50">Site Supervisor</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -309,7 +310,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
             <FormGroup label="Internship Category">
               <SelectInput
                 value={form.internshipType}
-                disabled={hasOfficialCompany}
+                disabled={isLocked || hasOfficialCompany}
                 onChange={e => {
                   const type = e.target.value;
                   const updates = { internshipType: type };
@@ -368,7 +369,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
                 <TextInput
                   placeholder={form.mode === 'Freelance' ? 'e.g. Upwork Project, Fiverr Client' : 'e.g. Google, Private Venture'}
                   value={form.companyName}
-                  disabled={hasOfficialCompany}
+                  disabled={isLocked || hasOfficialCompany}
                   onChange={e => setForm({ ...form, companyName: e.target.value })}
                   iconLeft={form.mode === 'Freelance' ? 'fa-laptop-code' : 'fa-building'}
                   required
@@ -382,7 +383,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
                     <TextInput
                       placeholder="Supervisor Name"
                       value={form.siteSupervisorName}
-                      disabled={hasOfficialSupervisor}
+                      disabled={isLocked || hasOfficialSupervisor}
                       onChange={e => setForm({ ...form, siteSupervisorName: e.target.value })}
                       iconLeft="fa-user-tie"
                       required
@@ -394,14 +395,14 @@ export default function InternshipRequestForm({ user, activePhase }) {
                         type="email"
                         placeholder="Email Address"
                         value={form.siteSupervisorEmail}
-                        disabled={hasOfficialSupervisor}
+                        disabled={isLocked || hasOfficialSupervisor}
                         onChange={e => setForm({ ...form, siteSupervisorEmail: e.target.value })}
                         required
                       />
                       <TextInput
                         placeholder="Phone/WhatsApp"
                         value={form.siteSupervisorPhone}
-                        disabled={hasOfficialSupervisor}
+                        disabled={isLocked || hasOfficialSupervisor}
                         onChange={e => setForm({ ...form, siteSupervisorPhone: e.target.value })}
                         required
                       />
@@ -472,7 +473,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
             </button>
             <button
               type="button"
-              disabled={hasOfficialFaculty}
+              disabled={isLocked || hasOfficialFaculty}
               onClick={() => setForm({ ...form, facultyType: 'Identify New' })}
               className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${hasOfficialFaculty ? 'opacity-50 cursor-not-allowed' : ''} ${form.facultyType === 'Identify New' ? 'bg-white text-emerald-600 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
             >
@@ -492,7 +493,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
               <FormGroup label="Choose Faculty Supervisor">
                 <SelectInput
                   value={form.selectedFacultyId}
-                  disabled={hasOfficialFaculty}
+                  disabled={isLocked || hasOfficialFaculty}
                   onChange={e => setForm({ ...form, selectedFacultyId: e.target.value })}
                   iconLeft="fa-chalkboard-user"
                   required

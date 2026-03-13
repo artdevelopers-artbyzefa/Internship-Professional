@@ -38,17 +38,22 @@ export default function SupervisionRequests({ user }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
-                <div>
-                    <h2 className="text-2xl font-black text-gray-800 tracking-tight">Supervision Requests</h2>
-                    <p className="text-sm text-gray-500 font-medium mt-1">Accept or reject internship supervision invitations from students.</p>
+            <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+                <div className="text-center md:text-left">
+                    <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Supervision Requests</h2>
+                    <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Accept or reject internship supervision invitations from students.</p>
                 </div>
             </div>
 
-            <Card title="Pending Supervision Requests" icon="fa-user-pen" className="border-l-4 border-l-emerald-500 bg-emerald-50/10">
-                <div className="p-1 px-2 border border-emerald-100 bg-emerald-50 rounded-lg inline-flex items-center gap-2 mb-6">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Action Required: First Come First Serve Queue</span>
+            <Card title="Pending Requests" icon="fa-user-pen" className="border-l-4 border-l-emerald-500 bg-emerald-50/10 !p-4 md:!p-6">
+                <div className="flex flex-wrap items-center gap-2 mb-6">
+                    <div className="p-1 px-3 border border-emerald-100 bg-emerald-50 rounded-full inline-flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest whitespace-nowrap">Action Required</span>
+                    </div>
+                    <div className="px-3 py-1 bg-white/50 border border-gray-100 rounded-full text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                        First Come First Serve Queue
+                    </div>
                 </div>
 
                 {loading ? (
@@ -58,7 +63,7 @@ export default function SupervisionRequests({ user }) {
                 ) : requests.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                         {requests.map(request => (
-                            <div key={request._id} className="bg-white p-6 rounded-2xl border-2 border-emerald-100 shadow-sm hover:shadow-md transition-all group">
+                            <div key={request._id} className="bg-white p-4 md:p-6 rounded-2xl border-2 border-emerald-100 shadow-sm hover:shadow-md transition-all group">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h4 className="text-sm font-black text-gray-800">{request.name}</h4>

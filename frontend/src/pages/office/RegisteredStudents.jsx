@@ -91,6 +91,12 @@ export default function RegisteredStudents({ user }) {
                 <div className="flex flex-col">
                     <span className="font-bold text-gray-800">{val}</span>
                     <span className="text-[10px] text-gray-400 font-medium">{row.email}</span>
+                    {row.secondaryEmail && (
+                        <span className="text-[10px] text-primary/70 font-semibold italic mt-0.5" title="Secondary Email">
+                            <i className="fas fa-envelope-open-text mr-1 text-[8px]"></i>
+                            {row.secondaryEmail}
+                        </span>
+                    )}
                 </div>
             )
         },
@@ -140,11 +146,9 @@ export default function RegisteredStudents({ user }) {
             key: 'status',
             label: 'Cycle Status',
             render: (val, row) => {
-                // Determine eligibility based on supervisor assignments
                 const isFreelance = row.internshipRequest?.mode === 'Freelance';
                 const hasFaculty = !!row.assignedFaculty;
                 const hasSiteSup = isFreelance || !!(row.assignedSiteSupervisor || row.assignedCompanySupervisor);
-
                 const isOverallEligible = hasFaculty && hasSiteSup;
 
                 if (!isOverallEligible) {
@@ -164,6 +168,33 @@ export default function RegisteredStudents({ user }) {
                     <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${cfg.bg}`}>
                         {cfg.label}
                     </span>
+                );
+            }
+        },
+        {
+            key: 'whatsappNumber',
+            label: 'Mobile Number',
+            render: (val, row) => {
+                const number = val || row.internshipAgreement?.whatsappNumber || row.internshipAgreement?.contactNumber;
+                return (
+                    <div className="flex flex-col min-w-[140px]">
+                        {number ? (
+                            <a 
+                                href={`https://wa.me/${number.replace(/[^0-9]/g, '')}`} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                title="Click to open WhatsApp"
+                                className="group flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 font-bold hover:bg-emerald-600 hover:text-white transition-all w-max shadow-sm"
+                            >
+                                <i className="fab fa-whatsapp text-base"></i>
+                                <span className="text-xs">{number}</span>
+                            </a>
+                        ) : (
+                            <span className="px-3 py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-100 text-[10px] font-black uppercase tracking-widest w-max opacity-80">
+                                <i className="fas fa-exclamation-triangle mr-1"></i> Missing
+                            </span>
+                        )}
+                    </div>
                 );
             }
         }

@@ -35,7 +35,7 @@ function StatCard({ label, value, sub, color = 'blue' }) {
 export default function HODReports() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingPDF, setLoadingPDF] = useState(false);
+  const [loadingExport, setLoadingExport] = useState(false);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -82,65 +82,68 @@ export default function HODReports() {
   });
   const facultyData = Object.values(facultyMap).map(f => ({ ...f, avgPct: Math.round(f.totalPct / f.students) }));
 
-  // PDF download
-  // PDF download via heavily structured backend generation
-  const handlePDF = async () => {
-    setLoadingPDF(true);
-    try {
-      // 1. Capture charts as base64 images
-      const grabChart = async (id) => {
-        const el = document.getElementById(id);
-        if (!el) return null;
-        return await toPng(el, {
-          cacheBust: true,
-          backgroundColor: '#ffffff',
-          pixelRatio: 2,
-          skipFonts: true, // Prevents html-to-image from crashing on external CORS CSS (FontAwesome/Google Fonts)
-          fontEmbedCSS: ''
-        });
-      };
-
-      const chartDist = await grabChart('chart-dist');
-      const chartPie = await grabChart('chart-pie');
-      const chartTop = await grabChart('chart-top');
-      const chartFaculty = await grabChart('chart-faculty');
-
-      // 2. Prepare Tables Structure
-      const studentData = filtered.map(r => [
-        r.student.reg, r.student.name, r.faculty, r.company || 'N/A',
-        `${r.averageMarks}/10`, `${r.percentage}%`, r.grade, r.status
-      ]);
-
-      const facultyTableData = facultyData.map(f => [
-        f.name, f.students.toString(), `${f.avgPct}%`, gradeFromPct(f.avgPct)
-      ]);
-
-      const companies = {};
-      results.forEach(r => {
-        const c = r.company || 'Unknown Company';
-        if (!companies[c]) companies[c] = { name: c, count: 0, pass: 0 };
-        companies[c].count++;
-        if (r.status === 'Pass') companies[c].pass++;
+  const prepareExportData = async () => {
+    // 1. Capture charts as base64 images
+    const grabChart = async (id) => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      return await toPng(el, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 3, // Higher quality
+        skipFonts: true,
+        fontEmbedCSS: ''
       });
-      const companyTableData = Object.values(companies).map(c => [
-        c.name, c.count.toString(), `${Math.round((c.pass / c.count) * 100)}%`
-      ]);
+    };
 
-      const payload = {
-        stats: {
-          total, passed, failed, avgPct, avgGrade,
-          pending: total === 0 ? 0 : results.filter(r => r.assignmentsCount === 0).length,
-          totalFaculty: facultyData.length
-        },
-        charts: { chartDist, chartPie, chartTop, chartFaculty },
-        tables: {
-          students: studentData,
-          faculty: facultyTableData,
-          companies: companyTableData
-        }
-      };
+    const chartDist = await grabChart('chart-dist');
+    const chartPie = await grabChart('chart-pie');
+    const chartTop = await grabChart('chart-top');
+    const chartFaculty = await grabChart('chart-faculty');
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/reports/hod-full-report`, {
+    // 2. Prepare Tables Structure
+    const studentData = results.map(r => [
+      r.student.reg, r.student.name, r.faculty, r.company || 'N/A',
+      `${r.averageMarks}/10`, `${r.percentage}%`, r.grade, r.status
+    ]);
+
+    const facultyTableData = facultyData.map(f => [
+      f.name, f.students.toString(), `${f.avgPct}%`, gradeFromPct(f.avgPct)
+    ]);
+
+    const companies = {};
+    results.forEach(r => {
+      const c = r.company || 'Unknown Company';
+      if (!companies[c]) companies[c] = { name: c, count: 0, pass: 0 };
+      companies[c].count++;
+      if (r.status === 'Pass') companies[c].pass++;
+    });
+    const companyTableData = Object.values(companies).map(c => [
+      c.name, c.count.toString(), `${Math.round((c.pass / c.count) * 100)}%`
+    ]);
+
+    return {
+      stats: {
+        total, passed, failed, avgPct, avgGrade,
+        pending: total === 0 ? 0 : results.filter(r => r.assignmentsCount === 0).length,
+        totalFaculty: facultyData.length
+      },
+      charts: { chartDist, chartPie, chartTop, chartFaculty },
+      tables: {
+        students: studentData,
+        faculty: facultyTableData,
+        companies: companyTableData
+      }
+    };
+  };
+
+  const handleExport = async (type) => {
+    setLoadingExport(true);
+    try {
+      const payload = await prepareExportData();
+      const endpoint = type === 'pdf' ? '/reports/hod-full-report' : '/reports/hod-excel-report';
+      
+      const res = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -149,14 +152,17 @@ export default function HODReports() {
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url;
-      a.download = `HOD_Full_Analysis_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `HOD_Full_Analysis_${new Date().toISOString().slice(0, 10)}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
     } finally {
-      setLoadingPDF(false);
+      setLoadingExport(false);
     }
   };
 
@@ -170,30 +176,45 @@ export default function HODReports() {
     <div id="hod-report-content" className="space-y-6 bg-slate-50 p-2 sm:p-0">
 
       {/* Header ─────────────────────────────────────────────────────────── */}
-      <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Internship Analysis</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">
-            Complete grade analytics across the entire active internship cohort.
+      <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-1 h-8 bg-primary rounded-full" />
+            <h2 className="text-3xl font-black text-gray-800 tracking-tight italic">Performance Analytics</h2>
+          </div>
+          <p className="text-sm text-gray-500 font-medium max-w-lg">
+            High-fidelity institutional reporting and cohort analysis. Export data for departmental review and archival.
           </p>
         </div>
-        <button
-          onClick={handlePDF}
-          data-html2canvas-ignore="true"
-          disabled={loadingPDF || results.length === 0}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-600/20 hover:bg-secondary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loadingPDF ? <><i className="fas fa-circle-notch fa-spin" /> Generating...</> : <><i className="fas fa-download" /> Export Full Report</>}
-        </button>
+
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
+          <button
+            onClick={() => handleExport('pdf')}
+            disabled={loadingExport || results.length === 0}
+            className="flex items-center gap-2.5 px-6 py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {loadingExport ? <i className="fas fa-circle-notch fa-spin" /> : <i className="fas fa-file-pdf" />}
+            Export PDF Report
+          </button>
+          <button
+            onClick={() => handleExport('excel')}
+            disabled={loadingExport || results.length === 0}
+            className="flex items-center gap-2.5 px-6 py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-600/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {loadingExport ? <i className="fas fa-circle-notch fa-spin" /> : <i className="fas fa-file-excel" />}
+            Download Data (XLSX)
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard label="Total Evaluated" value={total} color="blue" />
-        <StatCard label="Pass" value={passed} sub={`${total ? Math.round(passed / total * 100) : 0}% of cohort`} color="emerald" />
-        <StatCard label="Fail" value={failed} sub={`${total ? Math.round(failed / total * 100) : 0}% of cohort`} color="rose" />
-        <StatCard label="Cohort Avg %" value={`${avgPct}%`} sub={`Grade: ${avgGrade}`} color="indigo" />
-        <StatCard label="Pending" value={total === 0 ? '—' : results.filter(r => r.assignmentsCount === 0).length} color="amber" />
+        <StatCard label="Pass Ratio" value={passed} sub={`${total ? Math.round(passed / total * 100) : 0}% Success`} color="emerald" />
+        <StatCard label="Failures" value={failed} sub={`${total ? Math.round(failed / total * 100) : 0}% Cohort`} color="rose" />
+        <StatCard label="Academic Avg" value={`${avgPct}%`} sub={`Batch Grade: ${avgGrade}`} color="indigo" />
+        <StatCard label="Incomplete" value={total === 0 ? '—' : results.filter(r => r.assignmentsCount === 0).length} color="amber" />
         <StatCard label="Faculty" value={facultyData.length} color="purple" />
       </div>
 
@@ -201,16 +222,23 @@ export default function HODReports() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         {/* Grade Distribution */}
-        <div id="chart-dist" className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Grade Distribution (All Students)</h4>
-          <div className="h-[240px]">
+        <div id="chart-dist" className="md:col-span-2 bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
+          <div className="flex items-center justify-between mb-8">
+            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Cohort Grade Distribution</h4>
+            <div className="flex items-center gap-1">
+              {['A','B','C','D','F'].map(l => (
+                  <span key={l} className="w-2 h-2 rounded-full" style={{ backgroundColor: GRADE_COLORS[l] || '#eee'}} />
+              ))}
+            </div>
+          </div>
+          <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={gradeDist} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="grade" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="grade" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} />
                 <Tooltip {...TIP} formatter={v => [v, 'Students']} />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="count" radius={[12, 12, 0, 0]} barSize={32}>
                   {gradeDist.map((d, i) => <Cell key={i} fill={GRADE_COLORS[d.grade] || '#94a3b8'} />)}
                 </Bar>
               </BarChart>
@@ -219,23 +247,32 @@ export default function HODReports() {
         </div>
 
         {/* Pass / Fail Pie */}
-        <div id="chart-pie" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-          <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Pass / Fail Ratio</h4>
-          <div className="flex-1 min-h-[200px]">
+        <div id="chart-pie" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8 flex flex-col items-center justify-center">
+          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 w-full text-left">Quality Control</h4>
+          <div className="relative w-full aspect-square max-w-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={passFail} innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
+                <Pie data={passFail} innerRadius={60} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
                   <Cell fill="#10b981" />
                   <Cell fill="#ef4444" />
                 </Pie>
                 <Tooltip {...TIP} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 11, fontWeight: 900 }} />
               </PieChart>
             </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-3xl font-black text-gray-800">{total ? Math.round(passed / total * 100) : 0}%</span>
+              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Pass Rate</span>
+            </div>
           </div>
-          <div className="mt-2 text-center">
-            <p className="text-xs font-bold text-gray-400">Pass rate</p>
-            <p className="text-2xl font-black text-emerald-600">{total ? Math.round(passed / total * 100) : 0}%</p>
+          <div className="mt-6 flex flex-col gap-2 w-full">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                <span>Pass: {passed}</span>
+                <span>Fail: {failed}</span>
+            </div>
+            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden flex">
+                <div style={{ width: `${total ? (passed/total)*100 : 0}%` }} className="bg-emerald-500 h-full" />
+                <div style={{ width: `${total ? (failed/total)*100 : 0}%` }} className="bg-rose-500 h-full" />
+            </div>
           </div>
         </div>
       </div>
@@ -244,17 +281,20 @@ export default function HODReports() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Top Performers */}
-        <div id="chart-top" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Top Performers</h4>
-          <div className="h-[240px]">
+        <div id="chart-top" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
+          <div className="flex items-center justify-between mb-8">
+             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Academic Excellence (Top 8)</h4>
+             <i className="fas fa-crown text-amber-400" />
+          </div>
+          <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={topPerformers} margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`} />
-                <YAxis type="category" dataKey="student.name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} width={90} />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={v => `${v}%`} />
+                <YAxis type="category" dataKey="student.name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#1e293b' }} width={90} />
                 <Tooltip {...TIP} formatter={v => [`${v}%`, 'Score']} />
-                <ReferenceLine x={50} stroke="#f43f5e" strokeDasharray="4 2" />
-                <Bar dataKey="percentage" radius={[0, 6, 6, 0]}>
+                <ReferenceLine x={50} stroke="#f43f5e" strokeDasharray="4 2" label={{ position: 'top', value: 'Pass Line', fontSize: 8, fill: '#f43f5e', fontWeight: 900 }} />
+                <Bar dataKey="percentage" radius={[0, 12, 12, 0]} barSize={20}>
                   {topPerformers.map((d, i) => <Cell key={i} fill={GRADE_COLORS[d.grade] || '#94a3b8'} />)}
                 </Bar>
               </BarChart>
@@ -263,16 +303,19 @@ export default function HODReports() {
         </div>
 
         {/* Faculty avg performance */}
-        <div id="chart-faculty" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Faculty Supervisor — Avg Student Score</h4>
-          <div className="h-[240px]">
+        <div id="chart-faculty" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
+          <div className="flex items-center justify-between mb-8">
+            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Supervisor Efficacy Index</h4>
+            <span className="px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[9px] font-black tracking-widest uppercase">Target 70%+</span>
+          </div>
+          <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={facultyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
-                <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#1e293b' }} />
+                <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={v => `${v}%`} />
                 <Tooltip {...TIP} formatter={v => [`${v}%`, 'Avg Score']} />
-                <Bar dataKey="avgPct" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="avgPct" fill="#6366f1" radius={[12, 12, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>

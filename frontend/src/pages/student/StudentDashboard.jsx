@@ -81,6 +81,7 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
 
   // Build calendar events list (assignments + phase milestones)
   const buildCalendarEvents = (year, month) => {
+    if (phaseOrder >= 4) return []; // Clear calendar events in Phase 4
     const events = [];
     // Assignment deadlines
     assignments.forEach(a => {
@@ -365,7 +366,7 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
       </div>
 
       {/* Upcoming deadlines list */}
-      {assignments.length > 0 && (
+      {assignments.length > 0 && phaseOrder < 4 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-50">
             <h3 className="text-xs font-black text-gray-600 uppercase tracking-widest">Assignment Deadlines</h3>

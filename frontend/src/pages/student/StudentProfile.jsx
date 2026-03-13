@@ -17,6 +17,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
     secondaryEmail: user.secondaryEmail || '',
     dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
     profilePicture: user.profilePicture || '',
+    whatsappNumber: user.whatsappNumber || '',
     newPassword: '',
     confirmPassword: ''
   });
@@ -141,6 +142,17 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
               />
               <p className="text-[10px] text-gray-400 mt-1 italic">Read-only field derived from email</p>
             </FormGroup>
+            
+            <FormGroup label="WhatsApp/Mobile Number">
+              <TextInput
+                iconLeft="fa-phone"
+                placeholder="+92..."
+                value={form.whatsappNumber}
+                onChange={e => setForm({ ...form, whatsappNumber: e.target.value })}
+                disabled={isDisabled}
+              />
+              <p className="text-[10px] text-gray-400 mt-1 italic">Primary contact for supervisors</p>
+            </FormGroup>
           </div>
 
           <div className="pt-6 border-t mt-4">
@@ -157,7 +169,17 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
                 <p className="text-[10px] text-gray-400 mt-1 italic font-medium">Primary institutional account (Permanent)</p>
               </FormGroup>
 
-              <FormGroup label="Secondary Email (Alternative Login)">
+              <FormGroup>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                    Secondary Email
+                    {user.secondaryEmail && (
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded text-[8px] font-black uppercase tracking-tighter border border-emerald-200 shadow-sm">
+                        <i className="fas fa-lock mr-1"></i> Permanent
+                      </span>
+                    )}
+                  </label>
+                </div>
                 <TextInput
                   iconLeft="fa-envelope"
                   placeholder="personal.email@gmail.com"
@@ -165,12 +187,12 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
                   value={form.secondaryEmail}
                   onChange={e => setForm({ ...form, secondaryEmail: e.target.value })}
                   disabled={isDisabled || !!user.secondaryEmail}
-                  className={user.secondaryEmail ? 'bg-gray-100 cursor-not-allowed opacity-80 font-bold text-gray-600' : ''}
+                  className={user.secondaryEmail ? 'bg-slate-100/80 cursor-not-allowed opacity-90 font-bold text-gray-700 border-slate-200' : ''}
                 />
-                <p className="text-[10px] text-gray-400 mt-1 italic font-medium">
+                <p className="text-[10px] text-gray-400 mt-2 italic font-medium leading-relaxed">
                   {user.secondaryEmail
-                    ? 'Successfully registered and verified for alternative access.'
-                    : 'Add a personal email for OTP recovery only once.'}
+                    ? 'Successfully registered for dual-access and OTP recovery. Cannot be modified for security reasons.'
+                    : 'Add a personal backup email for OTP recovery. Note: This can only be set once and cannot be changed later.'}
                 </p>
               </FormGroup>
             </div>

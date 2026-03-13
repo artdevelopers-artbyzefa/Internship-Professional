@@ -11,6 +11,18 @@ export default function StudentAssignments({ user }) {
   const [uploadingId, setUploadingId] = useState(null);
 
   const isFreelance = user.internshipRequest?.mode === 'Freelance';
+  
+  const currentFreelanceAssignment = (assignments || []).find(a => 
+    a.courseTitle === 'Freelance Weekly Report' && (a.status === 'Open' || a.submissionStatus !== 'Submitted')
+  );
+  
+  const freelanceHistory = (assignments || [])
+    .filter(a => a.courseTitle === 'Freelance Weekly Report')
+    .sort((a, b) => {
+      const weekA = parseInt(a.title?.split('Week ')[1]) || 0;
+      const weekB = parseInt(b.title?.split('Week ')[1]) || 0;
+      return weekB - weekA;
+    });
 
   const pendingAssignments = assignments.filter(a => a.submissionStatus !== 'Submitted');
   const submittedAssignments = assignments.filter(a => a.submissionStatus === 'Submitted');
@@ -81,13 +93,29 @@ export default function StudentAssignments({ user }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      await apiRequest(`/student/submit-freelance-report`, {
+      const data = await apiRequest(`/student/submit-freelance-report`, {
         method: 'POST',
         body: formData
       });
 
       showToast.success('Weekly report submitted successfully.');
-      fetchAssignments();
+      
+      // Instant UI update
+      setAssignments(prev => prev.map(a => {
+        const isCurrent = (a.courseTitle === 'Freelance Weekly Report' && a.status === 'Open');
+        if (isCurrent) {
+          return {
+            ...a,
+            submissionStatus: 'Submitted',
+            studentSubmission: { 
+              fileUrl: data.submission.fileUrl, 
+              fileName: data.submission.fileName 
+            },
+            submissionDate: data.submission.submissionDate
+          };
+        }
+        return a;
+      }));
     } catch (err) {
       showToast.error(err.message || 'Failed to submit report');
     } finally { setUploadingWeekly(false); }
@@ -105,22 +133,98 @@ export default function StudentAssignments({ user }) {
           <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 border-4 border-indigo-100/50"></div>
         </div>
 
-        <div className="bg-indigo-50/30 p-8 rounded-3xl border-2 border-dashed border-indigo-200 flex flex-col items-center justify-center min-h-[250px] relative transition-all hover:bg-indigo-50/50">
-          <input
-            type="file"
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-            onChange={handleFreelanceUpload}
-            disabled={uploadingWeekly}
-          />
-          <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl mb-4 shadow-sm ${uploadingWeekly ? 'bg-indigo-100 text-indigo-400' : 'bg-white text-indigo-600 border-2 border-indigo-100'}`}>
-            <i className={`fas ${uploadingWeekly ? 'fa-spinner fa-spin' : 'fa-cloud-upload-alt'}`}></i>
+        {currentFreelanceAssignment && currentFreelanceAssignment.submissionStatus !== 'Submitted' && (
+          <div className="relative group overflow-hidden bg-white rounded-3xl border-2 border-dashed border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all duration-300 min-h-[300px] flex flex-col items-center justify-center p-8">
+            <input
+              type="file"
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-20"
+              onChange={handleFreelanceUpload}
+              disabled={uploadingWeekly}
+            />
+            
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/0 to-indigo-50/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            
+            <div className={`relative z-10 w-24 h-24 rounded-3xl flex items-center justify-center text-4xl mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${
+              uploadingWeekly ? 'bg-indigo-100 text-indigo-400 animate-pulse' : 'bg-primary text-white shadow-primary/20'
+            }`}>
+              <i className={`fas ${uploadingWeekly ? 'fa-spinner fa-spin' : 'fa-cloud-upload-alt'}`}></i>
+            </div>
+            
+            <div className="relative z-10 text-center max-w-sm">
+              <h3 className="text-2xl font-black text-gray-800 mb-2 tracking-tight">
+                {uploadingWeekly ? 'Transmitting Data...' : 'Upload Weekly Report'}
+              </h3>
+              <p className="text-sm font-bold text-gray-400 leading-relaxed">
+                {uploadingWeekly ? 'Please stay on this page while we process your submission.' : 'Drag your report here or tap to browse. Your weekly summary helps us track your progress.'}
+              </p>
+            </div>
+            
+            <div className="relative z-10 mt-8 flex flex-wrap justify-center gap-3">
+              <span className="px-4 py-2 bg-rose-50 text-rose-500 text-[10px] font-black rounded-xl border border-rose-100 uppercase tracking-widest flex items-center gap-2">
+                <i className="fas fa-stopwatch animate-pulse"></i>
+                Deadline: {formatDate(currentFreelanceAssignment.deadline, true)}
+              </span>
+              <span className="px-4 py-2 bg-gray-50 text-gray-400 text-[10px] font-black rounded-xl border border-gray-100 uppercase tracking-widest flex items-center gap-2">
+                <i className="fas fa-file-pdf"></i>
+                PDF / DOCX &lt; 20MB
+              </span>
+            </div>
           </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2 tracking-tight">
-            {uploadingWeekly ? 'Uploading Report...' : 'Upload Weekly Summary'}
-          </h3>
-          <p className="text-sm font-medium text-gray-500">Tap or drag and drop your updated summary document here</p>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-4 bg-white px-3 py-1 rounded-full border border-gray-100">Max size: 20MB (PDF/DOCX)</p>
-        </div>
+        )}
+
+        {!currentFreelanceAssignment && (
+          <div className="bg-gray-50 rounded-3xl p-12 border border-gray-100 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-gray-300 shadow-sm mb-4">
+              <i className="fas fa-lock text-xl"></i>
+            </div>
+            <h3 className="text-lg font-black text-gray-400 uppercase tracking-widest mb-2">Portal Dormant</h3>
+            <p className="text-sm text-gray-400 font-medium max-w-xs">The submission window is currently closed. New assignments generate every Monday at 00:00 (PKT).</p>
+          </div>
+        )}
+
+        {currentFreelanceAssignment && currentFreelanceAssignment.submissionStatus === 'Submitted' && (
+          <div className="bg-white rounded-3xl border border-emerald-100 p-1 md:p-2 shadow-xl shadow-emerald-500/5 relative overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-2 bg-emerald-500"></div>
+            <div className="flex flex-col md:flex-row items-center gap-6 p-6">
+              <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 animate-in zoom-in duration-500">
+                <i className="fas fa-check-circle"></i>
+              </div>
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-2xl font-black text-gray-800 tracking-tight">Week Fully Submitted!</h3>
+                <p className="text-sm font-bold text-gray-500 mt-1">
+                  Your report was received on <span className="text-emerald-600 font-black">{formatDate(currentFreelanceAssignment.submissionDate, true)}</span>.
+                </p>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4">
+                   <button
+                    onClick={() => handleDownload(currentFreelanceAssignment.studentSubmission?.fileUrl, currentFreelanceAssignment.title)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+                  >
+                    <i className="fas fa-eye"></i> View Current
+                  </button>
+                  
+                  <div className="relative group">
+                    <input
+                      type="file"
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full z-10"
+                      onChange={handleFreelanceUpload}
+                      disabled={uploadingWeekly}
+                    />
+                    <button className="flex items-center gap-2 px-5 py-2.5 bg-gray-50 text-gray-600 hover:text-primary rounded-xl border border-gray-200 font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer">
+                      <i className={`fas ${uploadingWeekly ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`}></i> 
+                      {uploadingWeekly ? 'Updating...' : 'Replace File'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="hidden lg:block">
+                 <div className="px-6 py-3 bg-indigo-50 rounded-2xl border border-indigo-100 text-center">
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 text-nowrap">Academic status</p>
+                    <span className="text-xs font-black text-indigo-600 uppercase">Under Review</span>
+                 </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-6">
           <div className="p-6 border-b border-gray-100 flex items-center gap-3">
@@ -144,7 +248,7 @@ export default function StudentAssignments({ user }) {
                       <div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin"></div>
                     </td>
                   </tr>
-                ) : assignments.filter(a => a.courseTitle === 'Freelance Weekly Report').length === 0 ? (
+                ) : freelanceHistory.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="px-8 py-20 text-center text-gray-400">
                       <i className="fas fa-inbox text-3xl mb-4 opacity-50 block"></i>
@@ -152,7 +256,7 @@ export default function StudentAssignments({ user }) {
                     </td>
                   </tr>
                 ) : (
-                  assignments.filter(a => a.courseTitle === 'Freelance Weekly Report').map(a => (
+                  freelanceHistory.map(a => (
                     <tr key={a._id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
@@ -179,17 +283,34 @@ export default function StudentAssignments({ user }) {
                         )}
                       </td>
                       <td className="px-8 py-5 text-right">
-                        {a.studentSubmission?.fileUrl ? (
-                          <button
-                            onClick={() => handleDownload(a.studentSubmission.fileUrl, a.title)}
-                            className="w-9 h-9 bg-white text-gray-400 hover:text-indigo-600 rounded-lg border border-gray-200 transition-all shadow-sm flex items-center justify-center cursor-pointer p-0 ml-auto"
-                            title="Download Report"
-                          >
-                            <i className="fas fa-arrow-down text-[10px]"></i>
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-gray-300 italic">No File</span>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {a.studentSubmission?.fileUrl ? (
+                            <>
+                              <button
+                                onClick={() => handleDownload(a.studentSubmission.fileUrl, a.title)}
+                                className="w-11 h-11 bg-primary text-white hover:bg-black rounded-xl border-0 transition-all shadow-lg shadow-primary/10 flex items-center justify-center cursor-pointer p-0 ml-auto hover:scale-105"
+                                title="Download Report"
+                              >
+                                <i className="fas fa-arrow-down text-sm"></i>
+                              </button>
+                               {a.status === 'Open' && (
+                                <div className="relative">
+                                  <input
+                                    type="file"
+                                    className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                                    onChange={handleFreelanceUpload}
+                                    disabled={uploadingWeekly}
+                                  />
+                                   <button className="w-11 h-11 bg-white text-gray-400 hover:text-indigo-600 rounded-xl border border-gray-200 flex items-center justify-center cursor-pointer p-0 hover:scale-105 transition-all" title="Replace File">
+                                      <i className={`fas ${uploadingWeekly ? 'fa-spinner fa-spin' : 'fa-sync-alt'} text-xs`}></i>
+                                   </button>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-gray-300 italic">No File</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -288,7 +409,7 @@ export default function StudentAssignments({ user }) {
 
                       <td className="px-8 py-6">
                         <p className="text-xs font-bold text-gray-700">{formatDate(a.deadline)}</p>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight mt-1">Expiry: {formatDate(a.deadline, true).split('at')[1] || '-'}</p>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight mt-1">Expiry: {formatDate(a.deadline, true).includes(',') ? formatDate(a.deadline, true).split(',')[1] : formatDate(a.deadline, true).split('at')[1] || '-'}</p>
                       </td>
                       <td className="px-8 py-6 text-center">
                         {a.submissionStatus === 'Submitted' ? (
@@ -306,10 +427,10 @@ export default function StudentAssignments({ user }) {
                           {a.fileUrl && (
                             <button
                               onClick={() => handleDownload(a.fileUrl, a.title)}
-                              className="w-10 h-10 bg-gray-50 text-gray-400 hover:text-primary rounded-xl border border-gray-100 transition-all hover:bg-white flex items-center justify-center cursor-pointer p-0"
+                              className="w-12 h-12 bg-primary/5 text-primary hover:bg-primary hover:text-white rounded-xl border border-primary/10 transition-all flex items-center justify-center cursor-pointer p-0 shadow-sm hover:scale-105"
                               title="Download Assignment Description"
                             >
-                              <i className="fas fa-file-download text-xs"></i>
+                              <i className="fas fa-file-download text-sm"></i>
                             </button>
                           )}
 

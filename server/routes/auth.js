@@ -305,24 +305,26 @@ router.post('/login', async (req, res) => {
         const isSecondaryLogin = user.secondaryEmail === emailLower && user.email !== emailLower;
         console.log(`[INFO] Found user record: ${user.email} (Primary) | ${user.secondaryEmail || 'None'} (Secondary)`);
 
-        // Role Verification
-        if (role && user.role !== role) {
-            console.log(`[DENIED] Role mismatch. Database: ${user.role}, Attempted: ${role}`);
-            return res.status(403).json({
-                message: `Unauthorized access. This account is registered as a ${user.role.replace('_', ' ')}. Please select the correct role.`
-            });
-        }
 
-        // Strict Login Policy
-        if (user.role === 'student' && user.status === 'unverified') {
-            return res.status(401).json({ message: 'Please verify your email before logging in.' });
-        }
 
         // 2. Fast Password Verification
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             console.log(`[AUTH-FAILURE] Incorrect password for: ${user.email}`);
             return res.status(400).json({ message: 'Invalid credentials.' });
+        }
+
+        // Role Verification
+        if (role && user.role !== role) {
+            console.log(`[DENIED] Role mismatch. Database: ${user.role}, Attempted: ${role}`);
+            return res.status(403).json({
+                message: 'Unauthorized access. Please ensure you have selected the correct role.'
+            });
+        }
+
+        // Strict Login Policy
+        if (user.role === 'student' && user.status === 'unverified') {
+            return res.status(401).json({ message: 'Please verify your email before logging in.' });
         }
 
         const isDefaultPassword = password === 'Megamix@123';

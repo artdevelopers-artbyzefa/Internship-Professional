@@ -9,6 +9,8 @@ import StudentProfileDetail from './StudentProfileDetail.jsx';
 import RegisteredStudents from '../office/RegisteredStudents.jsx';
 import SupervisionRequests from './SupervisionRequests.jsx';
 import SupervisorProfile from '../../components/supervisor/SupervisorProfile.jsx';
+import AddAssignment from './AddAssignment.jsx';
+import FacultyAssignments from './FacultyAssignments.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
@@ -40,9 +42,12 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
     filteredNav.push({ id: 'requests', label: 'Internship Requests', icon: 'fa-user-pen' });
   }
 
+  if (currentPhaseOrder >= 2) {
+    filteredNav.push({ id: 'students', label: 'Registered Students', icon: 'fa-users' });
+  }
+
   if (currentPhaseOrder >= 3) {
     if (!isPhase4) {
-      filteredNav.push({ id: 'registered-students', label: 'Registered Students', icon: 'fa-users' });
       filteredNav.push({ id: 'grading', label: 'Weekly Grading', icon: 'fa-star' });
     } else {
       filteredNav.push({ id: 'grading', label: 'Final Grading', icon: 'fa-star' });
@@ -56,8 +61,11 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
   useEffect(() => {
     if (activePhase === undefined) return;
 
-    const restrictedPaths = ['registered-students', 'grading', 'reports'];
-    if (activePhase?.order < 3 && restrictedPaths.includes(currentPath)) {
+    const restrictedPhase3Paths = ['registered-students', 'grading', 'reports'];
+    if (activePhase?.order < 2 && currentPath === 'students') {
+      navigate('/faculty/dashboard', { replace: true });
+    }
+    if (activePhase?.order < 3 && restrictedPhase3Paths.includes(currentPath)) {
       navigate('/faculty/dashboard', { replace: true });
     }
   }, [activePhase, currentPath, navigate]);
@@ -75,11 +83,14 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<FacultyDashboard user={user} activePhase={activePhase} />} />
           <Route path="requests" element={<SupervisionRequests user={user} />} />
+          <Route path="students" element={<FacultyStudents user={user} />} />
+          <Route path="students/:studentId" element={<StudentProfileDetail />} />
           <Route path="registered-students" element={<RegisteredStudents user={user} />} />
           <Route path="grading" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
+          <Route path="add-marks" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
+          <Route path="evaluation" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
           <Route path="reports" element={<FacultyReports user={user} />} />
           <Route path="profile" element={<SupervisorProfile user={user} onUpdate={onUpdateUser} />} />
-          <Route path="students/:studentId" element={<StudentProfileDetail />} />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

@@ -14,6 +14,13 @@ export default function StudentProfileDetail() {
 
   useEffect(() => {
     const fetchStudent = async () => {
+      // Safety check: if studentId is not a valid MongoDB ObjectId (24 chars hex) 
+      // or if it's a known non-ID route like "dashboard", redirect back.
+      if (!studentId || studentId === 'dashboard' || studentId.length !== 24) {
+        navigate('/faculty/dashboard');
+        return;
+      }
+
       try {
         const data = await apiRequest(`/faculty/student-profile/${studentId}`);
         setStudent(data);
@@ -90,7 +97,11 @@ export default function StudentProfileDetail() {
                     <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Student Contact</h3>
                     <div className="grid gap-4">
                         <InfoRow label="Institutional Email" value={student.email} icon="fa-envelope" />
-                        <InfoRow label="Mobile Number" value={student.whatsappNumber} icon="fa-phone" />
+                        <InfoRow 
+                          label="Student Mobile" 
+                          value={student.whatsappNumber || student.internshipAgreement?.contactNumber} 
+                          icon="fa-mobile-screen-button" 
+                        />
                         <InfoRow label="Registered Course" value={student.registeredCourse} icon="fa-scroll" />
                     </div>
                 </div>
@@ -109,9 +120,9 @@ export default function StudentProfileDetail() {
                 <div>
                     <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Site Supervisor Details</h3>
                     <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-4">
-                        <InfoRow label="Name" value={student.assignedCompanySupervisor || student.internshipAgreement?.companySupervisorName || 'N/A'} icon="fa-user-tie" />
-                        <InfoRow label="Email" value={student.internshipAgreement?.companySupervisorEmail || 'N/A'} icon="fa-envelope" />
-                        <InfoRow label="Mobile Number" value={student.internshipAgreement?.whatsappNumber || 'N/A'} icon="fa-phone" />
+                        <InfoRow label="Name" value={student.assignedCompanySupervisor || student.internshipAgreement?.companySupervisorName || student.internshipRequest?.siteSupervisorName || 'N/A'} icon="fa-user-tie" />
+                        <InfoRow label="Email" value={student.internshipAgreement?.companySupervisorEmail || student.internshipRequest?.siteSupervisorEmail || 'N/A'} icon="fa-envelope" />
+                        <InfoRow label="Mobile Number" value={student.internshipAgreement?.whatsappNumber || student.internshipRequest?.siteSupervisorPhone || 'N/A'} icon="fa-phone" />
                     </div>
                 </div>
             </div>

@@ -48,14 +48,21 @@ router.post('/:id/start', async (req, res) => {
                 .populate('assignedSiteSupervisor', 'name email');
 
             const archiveData = [];
+            const Assignment = await import('../models/Assignment.js').then(m => m.default);
 
             for (const s of students) {
-                const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+                // Fetch marks and evaluations for this student
+                const studentMarksEntries = await Mark.find({ student: s._id }).populate('assignment', 'title totalMarks');
+                const studentEvaluations = await Evaluation.find({ student: s._id }).populate('evaluator', 'name');
+                
                 let avg = 0, pct = 0, grade = 'F';
 
-                if (marks.length > 0) {
+                // Only consider graded marks for the final percentage calc
+                const gradedMarks = studentMarksEntries.filter(m => m.isFacultyGraded);
+
+                if (gradedMarks.length > 0) {
                     const isFreelance = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
-                    const taskScores = marks.map(m => {
+                    const taskScores = gradedMarks.map(m => {
                         const f = m.facultyMarks || 0;
                         const ss = m.siteSupervisorMarks || 0;
                         return isFreelance ? f : (f + ss) / 2;
@@ -64,6 +71,7 @@ router.post('/:id/start', async (req, res) => {
                     avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
                     pct = Math.round((avg / 10) * 100);
 
+                    // Mapping percentage to grade
                     if (pct >= 85) grade = 'A';
                     else if (pct >= 80) grade = 'A-';
                     else if (pct >= 75) grade = 'B+';
@@ -74,8 +82,6 @@ router.post('/:id/start', async (req, res) => {
                     else if (pct >= 58) grade = 'C-';
                     else if (pct >= 54) grade = 'D+';
                     else if (pct >= 50) grade = 'D';
-                } else if (s.status === 'Fail') {
-                    avg = 0; pct = 0; grade = 'F';
                 }
 
                 archiveData.push({
@@ -87,7 +93,23 @@ router.post('/:id/start', async (req, res) => {
                     status: s.status,
                     company: s.assignedCompany || 'N/A',
                     mode: s.internshipRequest?.mode || 'N/A',
-                    faculty: s.assignedFaculty?.name || 'N/A'
+                    faculty: s.assignedFaculty?.name || 'N/A',
+                    evaluations: studentEvaluations.map(e => ({
+                        title: e.title || 'General Evaluation',
+                        feedback: e.feedback,
+                        score: e.score,
+                        submittedAt: e.submittedAt,
+                        evaluatorName: e.evaluator?.name || 'Supervisor'
+                    })),
+                    marks: studentMarksEntries.map(m => ({
+                        title: m.assignment?.title || 'Unknown Assignment',
+                        marks: m.marks,
+                        totalMarks: m.assignment?.totalMarks || 10,
+                        facultyMarks: m.facultyMarks,
+                        siteSupervisorMarks: m.siteSupervisorMarks,
+                        facultyRemarks: m.facultyRemarks,
+                        siteSupervisorRemarks: m.siteSupervisorRemarks
+                    }))
                 });
             }
 

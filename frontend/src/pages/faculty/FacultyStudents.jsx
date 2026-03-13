@@ -49,18 +49,23 @@ export default function FacultyStudents({ user }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
-        <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Assigned Students</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">
+      <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+        <div className="text-center md:text-left">
+          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Assigned Students</h2>
+          <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">
             {user?.role === 'site_supervisor'
               ? 'Registry of interns under your industrial mentorship.'
               : 'Registry of interns under your academic supervision.'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <SearchBar value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." className="min-w-[280px]" />
-          <Button variant="outline" size="sm" onClick={fetchStudents} className="p-2.5" disabled={loading}>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <SearchBar 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            placeholder="Search students..." 
+            className="flex-1 md:min-w-[280px]" 
+          />
+          <Button variant="outline" size="sm" onClick={fetchStudents} className="p-3" disabled={loading}>
             <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
           </Button>
         </div>
@@ -76,42 +81,52 @@ export default function FacultyStudents({ user }) {
             <i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i>
           </div>
         ) : (
-          <DataTable columns={['Name', 'Reg. No.', 'Company', 'Grade', 'Status']}>
-            {filtered.length > 0 ? (
-              filtered.map(s => (
-                <TableRow key={s.id}>
-                  <TableCell><strong>{s.name}</strong></TableCell>
-                  <TableCell muted>{s.reg}</TableCell>
-                  <TableCell>
-                    {s.isFreelance
-                      ? <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full font-bold text-[10px] whitespace-nowrap"><i className="fas fa-laptop-code mr-1"></i>{s.company}</span>
-                      : s.company
-                    }
-                  </TableCell>
-                  <TableCell>
-                    {(() => {
-                      const g = gradeMap[s.reg];
-                      if (!g || g.grade === 'N/A') return <span className="text-gray-300 text-xs font-bold">—</span>;
-                      const gc = gradeColor(g.grade);
-                      return (
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-black tracking-widest border ${gc.bg} ${gc.text} ${gc.border}`}>{g.grade}</span>
-                          <span className={`text-xs font-black ${parseInt(g.pct) >= 75 ? 'text-emerald-600' : 'text-amber-600'}`}>{g.pct}</span>
-                        </div>
-                      );
-                    })()}
-                  </TableCell>
-                  <TableCell><StatusBadge status={s.status} /></TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-gray-400 font-medium">
-                  No students found.
-                </TableCell>
-              </TableRow>
-            )}
-          </DataTable>
+          <DataTable 
+            data={filtered}
+            columns={[
+              { label: 'Name', key: 'name', render: (val) => <strong>{val}</strong> },
+              { label: 'Reg. No.', key: 'reg' },
+              { 
+                label: 'Company', 
+                key: 'company', 
+                render: (val, row) => row.isFreelance ? (
+                  <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full font-bold text-[10px] whitespace-nowrap">
+                    <i className="fas fa-laptop-code mr-1"></i>{val}
+                  </span>
+                ) : val 
+              },
+              { 
+                label: 'Grade', 
+                key: 'reg', 
+                render: (reg) => {
+                  const g = gradeMap[reg];
+                  if (!g || g.grade === 'N/A') return <span className="text-gray-300 text-xs font-bold">—</span>;
+                  const gc = gradeColor(g.grade);
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-black tracking-widest border ${gc.bg} ${gc.text} ${gc.border}`}>{g.grade}</span>
+                      <span className={`text-xs font-black ${parseInt(g.pct) >= 75 ? 'text-emerald-600' : 'text-amber-600'}`}>{g.pct}</span>
+                    </div>
+                  );
+                }
+              },
+              { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} /> },
+              { 
+                label: 'Action', 
+                key: '_id', 
+                render: (id, row) => (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => navigate(`/faculty/students/${id || row.id}`)}
+                    className="rounded-xl font-bold uppercase tracking-widest text-[9px]"
+                  >
+                    <i className="fas fa-eye mr-1"></i> Profile
+                  </Button>
+                )
+              }
+            ]}
+          />
         )}
       </Card>
     </div>

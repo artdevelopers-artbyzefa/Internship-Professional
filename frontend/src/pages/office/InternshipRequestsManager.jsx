@@ -51,69 +51,101 @@ function CompanyColumn({ student, officeId, onRefresh, mouCompanies }) {
     return (
         <div className="p-6 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Company</p>
-                {isAssigned && (
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                    {req?.mode === 'Freelance' ? 'Freelance Platform / Client' : 'Company'}
+                </p>
+                {isAssigned && req?.mode !== 'Freelance' && (
                     <span className="text-[9px] font-black px-2 py-1 rounded-full bg-emerald-50 text-emerald-600">Assigned</span>
                 )}
             </div>
 
-            {req?.companyName && !isUniversityAssigned && (
-                <div className="text-xs text-gray-400 font-medium bg-gray-50 rounded-xl p-3 border border-gray-100">
-                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest block mb-1">Submitted by Student</span>
-                    {req.companyName}
-                </div>
-            )}
-
-            {isUniversityAssigned ? (
-                <div>
-                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">Select MOU Company</label>
-                    <div className="relative">
-                        <select
-                            value={selectedMOUId}
-                            onChange={e => {
-                                const id = e.target.value;
-                                setSelectedMOUId(id);
-                                const comp = mouCompanies.find(c => c._id === id);
-                                if (comp) handleAssign(comp.name);
-                            }}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 bg-white appearance-none h-10"
-                        >
-                            <option value="">Select Company...</option>
-                            {mouCompanies.map(c => (
-                                <option key={c._id} value={c._id}>{c.name}</option>
-                            ))}
-                        </select>
-                        <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none"></i>
+            {req?.mode === 'Freelance' ? (
+                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mt-2">
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1.5">Freelance details submitted by student</p>
+                    <div className="space-y-2">
+                        <div className="text-xs">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block font-medium">Project / Client</span>
+                            <span className="font-bold text-gray-800">{req.companyName || 'Freelance Project'}</span>
+                        </div>
+                        <div className="text-xs">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block font-medium">Platform</span>
+                            <span className="font-bold text-gray-800">{req.freelancePlatform || 'Internal / Direct Call'}</span>
+                        </div>
+                        <div className="text-xs">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block font-medium">Profile Link</span>
+                            {req.freelanceProfileLink ? (
+                                <a href={req.freelanceProfileLink} target="_blank" rel="noopener noreferrer" className="text-primary font-bold underline truncate block max-w-full">
+                                    {req.freelanceProfileLink}
+                                </a>
+                            ) : <span className="text-gray-400 italic text-[10px]">No profile link provided</span>}
+                        </div>
+                    </div>
+                    <div className="mt-4 p-3 bg-white/60 rounded-xl border border-blue-100/50 flex items-center gap-2">
+                        <i className="fas fa-info-circle text-blue-400 text-[10px]"></i>
+                        <p className="text-[9px] font-bold text-blue-500 italic">Freelance internships do not require manual company mapping by the office.</p>
                     </div>
                 </div>
             ) : (
                 <>
-                    <div>
-                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">Assign Company</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            placeholder="Company name..."
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 placeholder-gray-300 h-10"
-                        />
-                    </div>
+                    {req?.companyName && !isUniversityAssigned && (
+                        <div className="text-xs text-gray-400 font-medium bg-gray-50 rounded-xl p-3 border border-gray-100">
+                            <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest block mb-1">Submitted by Student</span>
+                            {req.companyName}
+                        </div>
+                    )}
 
-                    <button
-                        disabled={saving || !name.trim()}
-                        onClick={() => handleAssign()}
-                        className="w-full py-2.5 h-10 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm shadow-primary/20"
-                    >
-                        {saving ? <i className="fas fa-circle-notch fa-spin"></i> : isAssigned ? 'Update Company' : 'Assign Company'}
-                    </button>
+                    {isUniversityAssigned ? (
+                        <div>
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">Select MOU Company</label>
+                            <div className="relative">
+                                <select
+                                    value={selectedMOUId}
+                                    onChange={e => {
+                                        const id = e.target.value;
+                                        setSelectedMOUId(id);
+                                        const comp = mouCompanies.find(c => c._id === id);
+                                        if (comp) handleAssign(comp.name);
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 bg-white appearance-none h-10"
+                                >
+                                    <option value="">Select Company...</option>
+                                    {mouCompanies.map(c => (
+                                        <option key={c._id} value={c._id}>{c.name}</option>
+                                    ))}
+                                </select>
+                                <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none"></i>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">Assign Company</label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    placeholder="Company name..."
+                                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-gray-700 placeholder-gray-300 h-10"
+                                />
+                            </div>
+
+                            <button
+                                disabled={saving || !name.trim()}
+                                onClick={() => handleAssign()}
+                                className="w-full py-2.5 h-10 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm shadow-primary/20"
+                            >
+                                {saving ? <i className="fas fa-circle-notch fa-spin"></i> : isAssigned ? 'Update Company' : 'Assign Company'}
+                            </button>
+                        </div>
+                    )}
+
+                    {isAssigned && (
+                        <p className="text-[9px] text-emerald-600 font-semibold text-center mt-2">
+                            <i className="fas fa-circle-check mr-1 text-[8px]"></i>
+                            {isUniversityAssigned ? 'MOU Verified Placement' : 'Student Self-Assigned Placement'}
+                        </p>
+                    )}
                 </>
-            )}
-
-            {isAssigned && (
-                <p className="text-[9px] text-emerald-600 font-semibold text-center mt-2">
-                    <i className="fas fa-circle-check mr-1 text-[8px]"></i>
-                    {isUniversityAssigned ? 'MOU Verified Placement' : 'Student Self-Assigned Placement'}
-                </p>
             )}
         </div>
     );
@@ -543,9 +575,11 @@ function ExpandedRow({ student, officeId, onDecide, deciding, onRefresh, faculti
                     </div>
 
                     {/* 3 independent assignment columns */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                    <div className={`grid grid-cols-1 ${req?.mode === 'Freelance' ? 'md:grid-cols-2' : 'md:grid-cols-3'} divide-y md:divide-y-0 md:divide-x divide-gray-100`}>
                         <CompanyColumn student={student} officeId={officeId} onRefresh={onRefresh} mouCompanies={mouCompanies} />
-                        <SiteSupervisorColumn student={student} officeId={officeId} onRefresh={onRefresh} mouCompanies={mouCompanies} />
+                        {req?.mode !== 'Freelance' && (
+                            <SiteSupervisorColumn student={student} officeId={officeId} onRefresh={onRefresh} mouCompanies={mouCompanies} />
+                        )}
                         <FacultyColumn student={student} officeId={officeId} faculties={faculties} onRefresh={onRefresh} />
                     </div>
 
@@ -787,7 +821,17 @@ export default function InternshipRequestsManager({ user }) {
                                                         <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'} text-[9px]`}></i>
                                                     </div>
                                                 </td>
-                                                <td className="py-4 pr-4 font-bold text-gray-800 whitespace-nowrap">{s.name}</td>
+                                                <td className="py-4 pr-4 whitespace-nowrap">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-gray-800 leading-tight">{s.name}</span>
+                                                        {s.secondaryEmail && (
+                                                            <span className="text-[9px] text-primary/70 font-bold italic mt-0.5" title="Secondary Email: Alternative access enabled">
+                                                                <i className="fas fa-envelope-open-text mr-1 text-[8px]"></i>
+                                                                {s.secondaryEmail}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="py-4 pr-4 text-gray-400 font-mono text-xs whitespace-nowrap">{s.reg}</td>
                                                 <td className="py-4 pr-4 text-gray-600 font-medium max-w-[130px] truncate">{req?.companyName || <span className="text-gray-300 italic">N/A</span>}</td>
                                                 <td className="py-4 pr-4 text-gray-500 font-medium text-xs whitespace-nowrap">{req?.type === 'Self' ? 'Self' : req?.type || '—'}</td>

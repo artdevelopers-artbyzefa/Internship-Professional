@@ -6,6 +6,38 @@ import NoticeModal from '../../components/notice/NoticeModal.jsx';
 import WelcomeBanner from '../../components/ui/WelcomeBanner.jsx';
 import { apiRequest } from '../../utils/api.js';
 
+function CountdownDisplay({ targetDate }) {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const end = new Date(targetDate);
+      const diff = end - now;
+
+      if (diff <= 0) {
+        setTimeLeft('Time reached');
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      let str = '';
+      if (days > 0) str += `${days}d `;
+      str += `${hours}h ${mins}m`;
+      setTimeLeft(str);
+    };
+
+    update();
+    const timer = setInterval(update, 60000);
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  return <span className="text-xs font-black text-gray-800 tabular-nums">{timeLeft}</span>;
+}
+
 export default function FacultyDashboard({ user, activePhase: propPhase }) {
   const [activePhase, setActivePhase] = useState(propPhase || undefined); // use prop or fallback
   const [allPhases, setAllPhases] = useState([]);
@@ -87,18 +119,33 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
               : 'Academic oversight and evaluation management for assigned interns.'}
           </p>
         </div>
-        {activePhase !== undefined && activePhase && (
-          <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
-            </span>
-            <div>
-              <p className="text-[9px] font-black text-blue-400 tracking-widest">ACTIVE PHASE</p>
-              <p className="text-xs font-black text-blue-800">{activePhase.label}</p>
+        
+        <div className="flex items-center gap-4">
+          {activePhase?.scheduledEndAt && !isPhase4 && (
+            <div className="hidden sm:flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+                <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Next Phase In</span>
+                    <CountdownDisplay targetDate={activePhase.scheduledEndAt} />
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center text-xs">
+                    <i className="fas fa-hourglass-half animate-pulse" />
+                </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {activePhase !== undefined && activePhase && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+              </span>
+              <div>
+                <p className="text-[9px] font-black text-blue-400 tracking-widest">ACTIVE PHASE</p>
+                <p className="text-xs font-black text-blue-800">{activePhase.label}</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <NoticeModal />
@@ -210,47 +257,50 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
 
       {/* ── Waiting Banner ── */}
       {isLocked && (
-        <div className={`rounded-2xl border-2 overflow-hidden ${!noPhaseActive ? 'border-amber-200' : 'border-gray-200'}`}>
-          <div className={`p-6 flex items-start gap-4 ${!noPhaseActive ? 'bg-amber-50' : 'bg-gray-50'}`}>
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl ${!noPhaseActive ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>
-              <i className="fas fa-hourglass-half"></i>
+        <div className={`rounded-3xl border-2 overflow-hidden transition-all duration-500 ${!noPhaseActive ? 'border-amber-200 shadow-xl shadow-amber-900/5' : 'border-gray-200'}`}>
+          <div className={`p-6 md:p-8 flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 ${!noPhaseActive ? 'bg-amber-50/50' : 'bg-gray-50'}`}>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl shadow-inner ${!noPhaseActive ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>
+              <i className="fas fa-hourglass-half animate-pulse"></i>
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded-full border ${!noPhaseActive ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+              <div className="flex flex-col sm:flex-row items-center gap-3 mb-3">
+                <span className={`text-[10px] font-black tracking-[0.2em] px-3 py-1 rounded-full border ${!noPhaseActive ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
                   {activePhase?.label?.toUpperCase() || 'PHASE 1 — STUDENT REGISTRATION'}
                 </span>
                 {!noPhaseActive && (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-white border border-amber-200 px-2 py-0.5 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                    In Progress
+                  <span className="flex items-center gap-1.5 text-[10px] font-black text-amber-600 bg-white border border-amber-200 px-3 py-1 rounded-full shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    IN PROGRESS
                   </span>
                 )}
               </div>
-              <h3 className={`text-base font-black ${!noPhaseActive ? 'text-amber-900' : 'text-gray-600'}`}>
+              <h3 className={`text-xl md:text-2xl font-black tracking-tight ${!noPhaseActive ? 'text-amber-900' : 'text-gray-600'}`}>
                 {!noPhaseActive ? `${activePhase.label} Phase is Currently Underway` : 'Internship Cycle Has Not Started Yet'}
               </h3>
-              <p className={`text-sm mt-1 ${!noPhaseActive ? 'text-amber-700' : 'text-gray-400'}`}>
+              <p className={`text-sm mt-2 font-medium leading-relaxed max-w-2xl ${!noPhaseActive ? 'text-amber-700/80' : 'text-gray-400'}`}>
                 {!noPhaseActive
-                  ? 'The Internship Office is onboarding eligible students. Your supervisor dashboard will activate once students are successfully assigned to you.'
-                  : 'The Internship Office has not initiated any phase yet. You will be notified when a cycle begins.'}
+                  ? 'The Internship Office is currently onboarding eligible students. Your specialized supervisor dashboard, grading tools, and student registries will activate as soon as the placement process completes.'
+                  : 'The Internship Office has not initiated the current academic cycle. All faculty modules are disabled until the registration phase begins.'}
               </p>
             </div>
           </div>
 
           {/* Phase progression preview */}
           {!noPhaseActive && allPhases.length > 0 && (
-            <div className="bg-white border-t border-amber-100 p-4 px-6">
-              <p className="text-[10px] font-black text-gray-400 tracking-widest mb-3">UPCOMING PHASES</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="bg-white border-t border-amber-100 p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-[2px] w-6 bg-amber-200 rounded-full"></div>
+                <p className="text-[10px] font-black text-gray-400 tracking-[0.3em] uppercase">Upcoming Cycle Milestones</p>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-2 px-2">
                 {allPhases.map((p, idx) => (
-                  <div key={p._id} className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border text-center min-w-[90px] ${p.status === 'active' ? 'bg-amber-50 border-amber-200' :
-                    p.status === 'completed' ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100'}`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${p.status === 'active' ? 'bg-amber-400 text-white' :
+                  <div key={p._id} className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all min-w-[130px] ${p.status === 'active' ? 'bg-amber-50 border-amber-200 shadow-sm scale-105 ring-4 ring-amber-50' :
+                    p.status === 'completed' ? 'bg-blue-50 border-blue-200 opacity-60' : 'bg-gray-50 border-gray-100 opacity-40'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shadow-sm ${p.status === 'active' ? 'bg-amber-400 text-white' :
                       p.status === 'completed' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
                       {p.status === 'completed' ? <i className="fas fa-check text-[8px]"></i> : p.order}
                     </div>
-                    <span className={`text-[9px] font-bold leading-tight ${p.status === 'active' ? 'text-amber-700' : p.status === 'completed' ? 'text-blue-600' : 'text-gray-400'}`}>{p.label}</span>
+                    <span className={`text-[10px] font-black tracking-tight leading-tight text-center ${p.status === 'active' ? 'text-amber-800' : p.status === 'completed' ? 'text-blue-700' : 'text-gray-400'}`}>{p.label}</span>
                   </div>
                 ))}
               </div>
@@ -261,29 +311,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
 
       {/* ── Phase 3: Internship Commences ── */}
       {(!isLocked && activePhase?.order >= 3) && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Assignment Management Card - Only for Faculty */}
-          {!isSupervisorPortal && activePhase?.order < 4 && (
-            <div
-              onClick={() => navigate(`${basePath}/add-assignment`)}
-              className="p-8 rounded-[2.5rem] border-2 bg-white border-blue-50 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer group relative overflow-hidden"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-primary flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
-                  <i className="fas fa-file-circle-plus"></i>
-                </div>
-                <div>
-                  <h4 className="text-lg font-black text-gray-800 tracking-tight">Publish Tasks</h4>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Academic Assignments Centre</p>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">Upload weekly report templates, project tasks, and documentation rubrics.</p>
-              <div className="text-xs font-black text-primary flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                Open Assignments Centre <i className="fas fa-arrow-right text-[10px]"></i>
-              </div>
-            </div>
-          )}
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Grading Card - Only for Faculty */}
           {!isSupervisorPortal && (
             <div
@@ -346,4 +374,3 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     </div>
   );
 }
-

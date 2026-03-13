@@ -200,7 +200,9 @@ export default function StudentRequestVerification() {
                                     <div className="font-semibold text-primary">{selectedItem.internshipRequest?.type}</div>
                                 </div>
                                 <div className="p-3 bg-gray-50 rounded-xl">
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Target Company</div>
+                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">
+                                        {selectedItem.internshipRequest?.mode === 'Freelance' ? 'Project / Client' : 'Target Company'}
+                                    </div>
                                     <div className="font-semibold text-primary">{selectedItem.internshipRequest?.companyName}</div>
                                 </div>
                                 <div className="p-3 bg-gray-50 rounded-xl">
@@ -211,10 +213,36 @@ export default function StudentRequestVerification() {
                                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Mode / Schedule</div>
                                     <div className="font-semibold text-primary">{selectedItem.internshipRequest?.mode}</div>
                                 </div>
+                                <div className="p-3 bg-gray-50 rounded-xl">
+                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Affiliated Email</div>
+                                    <div className="font-semibold text-gray-700 truncate">{selectedItem.email}</div>
+                                </div>
+                                {selectedItem.secondaryEmail && (
+                                    <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                                        <div className="text-[10px] font-bold text-primary/60 uppercase tracking-tight">Secondary Email</div>
+                                        <div className="font-semibold text-primary truncate">{selectedItem.secondaryEmail}</div>
+                                    </div>
+                                )}
                                 <div className="col-span-2 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
                                     <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Functional Description</div>
                                     <div className="text-xs text-blue-700 leading-relaxed italic line-clamp-4">"{selectedItem.internshipRequest?.description}"</div>
                                 </div>
+                                {selectedItem.internshipRequest?.mode === 'Freelance' && (
+                                    <>
+                                        <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                                            <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight">Freelance Platform</div>
+                                            <div className="font-semibold text-indigo-700">{selectedItem.internshipRequest?.freelancePlatform}</div>
+                                        </div>
+                                        <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                                            <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight">Profile Link</div>
+                                            <div className="font-semibold text-indigo-700 truncate">
+                                                <a href={selectedItem.internshipRequest?.freelanceProfileLink} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                                    {selectedItem.internshipRequest?.freelanceProfileLink}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -225,6 +253,8 @@ export default function StudentRequestVerification() {
                                 {[
                                     { label: 'Degree & Program', value: selectedItem.internshipAgreement?.degreeProgram },
                                     { label: 'Academic Semester', value: selectedItem.internshipAgreement?.semester },
+                                    { label: 'Affiliated Email', value: selectedItem.email },
+                                    { label: 'Secondary Email', value: selectedItem.secondaryEmail },
                                     { label: 'Company Name', value: selectedItem.internshipAgreement?.companyName },
                                     { label: 'HR Email Address', value: selectedItem.internshipAgreement?.companyHREmail },
                                     { label: 'Supervisor Name', value: selectedItem.internshipAgreement?.companySupervisorName },

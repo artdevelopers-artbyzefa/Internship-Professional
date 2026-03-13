@@ -7,8 +7,8 @@ export function DataTable({ columns, children, data }) {
 
   return (
     <div className="w-full">
-      {/* Table view for md and up */}
-      <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100 shadow-sm bg-white">
+      {/* Table view: Visible on desktop; also visible on mobile if manual (with scroll) */}
+      <div className={`${isAutomated ? 'hidden md:block' : 'block'} overflow-x-auto rounded-2xl border border-gray-100 shadow-sm bg-white`}>
         <table className="w-full border-collapse">
           <thead className="bg-gray-50/50">
             <tr>
@@ -21,43 +21,53 @@ export function DataTable({ columns, children, data }) {
           </thead>
           <tbody className="bg-white">
             {isAutomated ? (
-              data.map((row, i) => (
-                <tr key={row._id || i} className="border-t border-gray-50 hover:bg-gray-50/40 transition-colors group">
-                  {columns.map((col, idx) => (
-                    <td key={idx} className="px-6 py-5 text-sm text-gray-700">
-                      {col.render ? col.render(row[col.key], row) : row[col.key]}
-                    </td>
-                  ))}
+              data.length > 0 ? (
+                data.map((row, i) => (
+                  <tr key={row._id || i} className="border-t border-gray-50 hover:bg-gray-50/40 transition-colors group">
+                    {columns.map((col, idx) => (
+                      <td key={idx} className="px-6 py-5 text-sm text-gray-700">
+                        {col.render ? col.render(row[col.key], row) : row[col.key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-400 font-medium italic">
+                    No results found
+                  </td>
                 </tr>
-              ))
+              )
             ) : children}
           </tbody>
         </table>
       </div>
 
-      {/* Card view for mobile */}
-      <div className="md:hidden space-y-4">
-        {isAutomated ? (
-          data.map((row, i) => (
-            <div key={row._id || i} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm active:scale-[0.98] transition-transform">
-              <div className="space-y-4">
-                {columns.map((col, idx) => (
-                  <div key={idx} className="flex flex-col gap-1">
-                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{typeof col === 'string' ? col : col.label}</span>
-                    <div className="text-sm font-medium text-gray-800">
-                      {col.render ? col.render(row[col.key], row) : row[col.key]}
+      {/* Premium Card view for mobile: Only for automated data */}
+      {isAutomated && (
+        <div className="md:hidden space-y-4">
+          {data.length > 0 ? (
+            data.map((row, i) => (
+              <div key={row._id || i} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm active:scale-[0.98] transition-transform text-left">
+                <div className="space-y-4">
+                  {columns.map((col, idx) => (
+                    <div key={idx} className="flex flex-col gap-1">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{typeof col === 'string' ? col : col.label}</span>
+                      <div className="text-sm font-medium text-gray-800">
+                        {col.render ? col.render(row[col.key], row) : row[col.key]}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+            ))
+          ) : (
+            <div className="bg-gray-50 rounded-2xl p-8 text-center text-gray-400 text-sm font-medium italic border border-dashed border-gray-200">
+              No results found
             </div>
-          ))
-        ) : (
-          <div className="p-4 bg-gray-50 rounded-xl text-center text-xs text-gray-400 font-bold uppercase tracking-widest">
-            Manual Table Content (Responsive View Not Available)
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

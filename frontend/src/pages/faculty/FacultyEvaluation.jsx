@@ -123,17 +123,17 @@ export default function FacultyEvaluation({ user, activePhase }) {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">{isPhase4 ? 'Internship Performance Ledger' : 'Grade Internship'}</h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">
+      <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="text-center md:text-left">
+          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">{isPhase4 ? 'Internship Performance Ledger' : 'Grade Internship'}</h2>
+          <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">
             {isPhase4
               ? 'Finalized results and evaluation scores for the current internship cycle.'
               : 'Assign a mark out of 10 per weekly assignment. The student\'s final grade is the average.'}
           </p>
         </div>
         {selected && (
-          <Button variant="outline" onClick={() => { setSelected(null); setWeeklyMarks([]); }} className="rounded-xl font-bold uppercase tracking-widest text-xs">
+          <Button variant="outline" onClick={() => { setSelected(null); setWeeklyMarks([]); }} className="w-full md:w-auto rounded-xl font-bold uppercase tracking-widest text-[10px] md:text-xs">
             <i className="fas fa-arrow-left mr-2" /> Back to Interns
           </Button>
         )}
@@ -142,34 +142,39 @@ export default function FacultyEvaluation({ user, activePhase }) {
       {!selected ? (
         /* Student List */
         <Card className="rounded-[2.5rem]">
-          <h3 className="text-lg font-bold text-gray-800 tracking-tight mb-5">Assigned Interns</h3>
-          <DataTable columns={['Student', 'Reg. No.', 'Company', 'Status', 'Action']}>
-            {students.length > 0 ? students.map(s => (
-              <TableRow key={s.id || s._id}>
-                <TableCell><strong>{s.name}</strong></TableCell>
-                <TableCell muted>{s.reg}</TableCell>
-                <TableCell>{s.company || 'Not Assigned'}</TableCell>
-                <TableCell>
-                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${s.status === 'Fail' ? 'bg-red-50 text-red-500' : 'bg-indigo-50 text-indigo-500'}`}>
-                    {s.status === 'Fail' ? 'Automated Fail' : 'Weekly Track'}
+          <h3 className="text-lg font-bold text-gray-800 tracking-tight mb-5 px-2">Assigned Interns</h3>
+          <DataTable 
+            columns={[
+              { 
+                key: 'name', 
+                label: 'Student', 
+                render: (val, s) => <div className="flex flex-col"><span className="font-bold">{val}</span><span className="text-[10px] text-gray-400 font-mono md:hidden mt-0.5">{s.reg}</span></div>
+              },
+              { key: 'reg', label: 'Reg. No.' },
+              { key: 'company', label: 'Company', render: (val) => val || 'Not Assigned' },
+              { 
+                key: 'status', 
+                label: 'Status', 
+                render: (val) => (
+                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${val === 'Fail' ? 'bg-red-50 text-red-500' : 'bg-indigo-50 text-indigo-500'}`}>
+                    {val === 'Fail' ? 'Automated Fail' : 'Weekly Track'}
                   </span>
-                </TableCell>
-                <TableCell>
-                  {s.status === 'Fail' ? (
-                    <span className="text-[10px] font-black text-red-400 uppercase tracking-widest bg-red-50 px-3 py-2 rounded-xl border border-red-100 italic">No Submissions</span>
-                  ) : (
-                    <Button size="sm" variant={isPhase4 ? 'outline' : 'primary'} onClick={() => handleSelect(s)} className="rounded-xl font-black uppercase tracking-widest text-[9px]">
-                      {isPhase4 ? 'View Result' : 'Grade Intern'}
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            )) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-gray-400 font-bold uppercase tracking-widest text-xs">No active interns found.</TableCell>
-              </TableRow>
-            )}
-          </DataTable>
+                )
+              },
+              { 
+                key: 'action', 
+                label: 'Action', 
+                render: (_, s) => s.status === 'Fail' ? (
+                  <span className="text-[10px] font-black text-red-400 uppercase tracking-widest bg-red-50 px-3 py-2 rounded-xl border border-red-100 italic">No Submissions</span>
+                ) : (
+                  <Button size="sm" variant={isPhase4 ? 'outline' : 'primary'} onClick={() => handleSelect(s)} className="rounded-xl font-black uppercase tracking-widest text-[9px] w-full md:w-auto">
+                    {isPhase4 ? 'View Result' : 'Grade Intern'}
+                  </Button>
+                )
+              }
+            ]}
+            data={students}
+          />
         </Card>
       ) : (
         /* Grading Panel */
@@ -178,20 +183,20 @@ export default function FacultyEvaluation({ user, activePhase }) {
           {/* Left: grade cards */}
           <div className="lg:col-span-2 space-y-4">
             <Card className="rounded-[2.5rem]">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
+              <div className="flex flex-col md:flex-row items-center justify-between mb-6 pb-4 border-b border-gray-50 gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl flex-shrink-0">
                     <i className="fas fa-user-edit" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-gray-800">{selected.name}</h3>
+                    <h3 className="text-lg font-black text-gray-800 tracking-tight">{selected.name}</h3>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{selected.reg}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
                   {weeklyMarks.length > 0 && weeklyMarks.some(m => !m.isFacultyGraded) && !isPhase4 && (
-                    <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting} className="rounded-xl font-bold tracking-widest uppercase text-[10px] px-6 h-9 shadow-lg shadow-primary/10">
+                    <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting} className="w-full sm:w-auto rounded-xl font-bold tracking-widest uppercase text-[9px] md:text-[10px] px-6 h-9 shadow-lg shadow-primary/10">
                       Save Grades
                     </Button>
                   )}
@@ -211,58 +216,80 @@ export default function FacultyEvaluation({ user, activePhase }) {
                     const gradeRow = pctRow !== null ? gradeFromPct(pctRow) : null;
                     const gc = gradeRow ? gradeColor(gradeRow) : null;
                     return (
-                      <div key={mark._id} className="group p-4 border border-gray-100 rounded-2xl hover:border-primary/20 hover:bg-primary/5 transition-all flex items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="w-5 h-5 bg-gray-100 text-gray-500 text-[9px] font-black rounded-md flex items-center justify-center">{idx + 1}</span>
-                            <p className="font-bold text-gray-800 text-sm">{mark.assignment?.title}</p>
+                      <div key={mark._id} className="group p-5 border border-gray-100 rounded-[1.5rem] hover:border-primary/20 hover:bg-primary/5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2 pr-2">
+                                <span className="w-6 h-6 bg-gray-100 text-gray-500 text-[9px] font-black rounded-lg flex items-center justify-center flex-shrink-0">{idx + 1}</span>
+                                <p className="font-bold text-gray-800 text-sm md:text-base truncate leading-tight">{mark.assignment?.title}</p>
+                            </div>
                             {mark.submission && (
                               <button
                                 onClick={() => handleDownload(mark)}
-                                className="w-6 h-6 rounded bg-primary/5 text-primary hover:bg-primary/10 border-0 flex items-center justify-center cursor-pointer ml-1"
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary text-white hover:bg-black border-0 flex items-center justify-center cursor-pointer flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105"
                                 title="Download Submission"
                               >
-                                <i className="fas fa-download text-[10px]" />
+                                <i className="fas fa-arrow-down text-sm" />
                               </button>
                             )}
                           </div>
-                          {mark.isSiteSupervisorGraded && mark.siteSupervisorRemarks !== 'Freelance Track - Auto bypassed site supervisor' ? (
-                            <p className="text-[10px] text-emerald-600 font-bold">Site Supervisor: {mark.siteSupervisorMarks} / 10</p>
-                          ) : mark.siteSupervisorRemarks?.includes('Freelance') ? (
-                            <p className="text-[10px] text-indigo-500 font-bold">Freelance Track — no site supervisor</p>
-                          ) : (
-                            <p className="text-[10px] text-gray-400">Site supervisor hasn't graded yet.</p>
-                          )}
-                          {!mark.submission && (
-                            <p className="text-[8px] text-rose-400 font-bold uppercase tracking-widest mt-1">Pending Submission</p>
-                          )}
+
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
+                            {mark.isSiteSupervisorGraded && mark.siteSupervisorRemarks !== 'Freelance Track - Auto bypassed site supervisor' ? (
+                                <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                                    <i className="fas fa-check-circle text-[8px]"></i>
+                                    Site Supervisor: {mark.siteSupervisorMarks} / 10
+                                </p>
+                            ) : mark.siteSupervisorRemarks?.includes('Freelance') ? (
+                                <p className="text-[10px] text-indigo-500 font-bold flex items-center gap-1">
+                                    <i className="fas fa-bolt text-[8px]"></i>
+                                    Freelance Track — no site supervisor
+                                </p>
+                            ) : (
+                                <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                                    <i className="fas fa-clock text-[8px]"></i>
+                                    Site supervisor hasn't graded yet.
+                                </p>
+                            )}
+                            {!mark.submission && (
+                                <p className="text-[8px] text-rose-500 font-black uppercase tracking-widest flex items-center gap-1">
+                                    <i className="fas fa-exclamation-triangle text-[7px]"></i>
+                                    Pending Submission
+                                </p>
+                            )}
+                          </div>
+
                           {/* per-row progress bar */}
                           {hasScore && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full transition-all" style={{ width: `${pctRow}%`, backgroundColor: GRADE_COLORS[gradeRow] || '#94a3b8' }} />
+                            <div className="mt-4 flex items-center gap-3">
+                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pctRow}%`, backgroundColor: GRADE_COLORS[gradeRow] || '#94a3b8' }} />
                               </div>
-                              <span className="text-[9px] font-black text-gray-400">{pctRow}%</span>
+                              <span className="text-[10px] font-black text-gray-400 min-w-[32px]">{pctRow}%</span>
                             </div>
                           )}
                         </div>
+
                         {/* input */}
-                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Grade</label>
-                          <div className="relative">
-                            <input
-                              type="number" min="0" max="10"
-                              className={`w-16 p-2 text-center border-2 rounded-xl outline-none font-black text-lg transition-colors ${mark.isFacultyGraded || isPhase4 ? 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed' : 'border-gray-200 focus:border-primary text-primary'}`}
-                              value={myScore}
-                              onChange={e => handleScoreChange(mark._id, e.target.value)}
-                              placeholder="—"
-                              disabled={mark.isFacultyGraded || isPhase4}
-                            />
-                            <span className="absolute -bottom-4 left-0 right-0 text-center text-[8px] font-bold text-gray-300">/ 10</span>
+                        <div className="flex flex-row md:flex-col items-center justify-between md:justify-center gap-4 bg-gray-50/50 md:bg-transparent p-3 md:p-0 rounded-2xl border border-gray-100 md:border-0 flex-shrink-0">
+                          <div className="flex flex-col items-center gap-1">
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Grade</label>
+                            <div className="relative">
+                                <input
+                                type="number" min="0" max="10"
+                                className={`w-16 h-12 text-center border-2 rounded-xl outline-none font-black text-lg transition-colors ${mark.isFacultyGraded || isPhase4 ? 'bg-white border-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 focus:border-primary text-primary shadow-sm'}`}
+                                value={myScore}
+                                onChange={e => handleScoreChange(mark._id, e.target.value)}
+                                placeholder="—"
+                                disabled={mark.isFacultyGraded || isPhase4}
+                                />
+                                <span className="absolute -bottom-4 left-0 right-0 text-center text-[8px] font-bold text-gray-300">/ 10</span>
+                            </div>
                           </div>
+                          
                           {gradeRow && (
-                            <div className="mt-5 flex flex-col items-center gap-1">
-                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${gc.bg} ${gc.text} ${gc.border}`}>{gradeRow}</span>
+                            <div className="flex flex-col items-center gap-1 min-w-[50px]">
+                              <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${gc.bg} ${gc.text} ${gc.border}`}>{gradeRow}</span>
                               {mark.isFacultyGraded && <span className="text-[7px] font-black text-gray-300 uppercase tracking-widest">Finalized</span>}
                             </div>
                           )}

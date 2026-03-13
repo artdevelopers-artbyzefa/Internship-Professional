@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../utils/api.js';
 import { showToast } from '../../utils/notifications.jsx';
+import { DataTable } from '../../components/ui/DataTable.jsx';
+import Card from '../../components/ui/Card.jsx';
 import { gradeFromPct, gradeColor, gradePointsFromPct } from '../../utils/helpers.js';
 
 // ── Grade badge helper ──────────────────────────────────────────────────────
@@ -94,30 +96,34 @@ export default function FacultyReports({ user }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-        <h2 className="text-2xl font-black text-gray-800 tracking-tight">Official Reports</h2>
-        <p className="text-sm text-gray-500 font-medium mt-1">
+      <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100 text-center md:text-left">
+        <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Official Reports</h2>
+        <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">
           Auto-generated university-standard documentation pulled from live evaluation data.
         </p>
       </div>
 
       {/* Live Grade Summary ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center">
-              <i className="fas fa-chart-bar text-sm" />
+      <Card
+        header={
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center">
+                <i className="fas fa-chart-bar text-sm" />
+              </div>
+              <h3 className="font-black text-gray-800 tracking-tight">Live Grade Preview</h3>
+              <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-widest">Live</span>
             </div>
-            <h3 className="font-black text-gray-800 tracking-tight">Live Grade Preview</h3>
-            <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-widest">Live</span>
+            {/* stat pills */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-black border border-emerald-100">{passCount} Qualified</span>
+              <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 text-[9px] font-black border border-rose-100">{failCount} Failed</span>
+              <span className="px-2.5 py-1 rounded-full bg-gray-50 text-gray-500 text-[9px] font-black border border-gray-100">{pendCount} Pending</span>
+            </div>
           </div>
-          {/* stat pills */}
-          <div className="hidden md:flex items-center gap-3">
-            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-100">{passCount} Qualified</span>
-            <span className="px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-[10px] font-black border border-rose-100">{failCount} Failed</span>
-            <span className="px-3 py-1 rounded-full bg-gray-50 text-gray-500 text-[10px] font-black border border-gray-100">{pendCount} Pending</span>
-          </div>
-        </div>
+        }
+        className="overflow-hidden"
+      >
 
         {loadingLive ? (
           <div className="py-16 flex items-center justify-center">
@@ -129,59 +135,50 @@ export default function FacultyReports({ user }) {
             <p className="text-sm font-bold">No evaluations recorded yet. Grade at least one student to see results.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50/60">
-                  {['Reg. #', 'Name', 'Weeks Graded', 'Average / 10', 'Percentage', 'Grade', 'Grade Points', 'Status'].map(h => (
-                    <th key={h} className="px-6 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {evalData.map((row, i) => {
-                  // row: [reg, name, weeks, avg, pct%, grade, status]
-                  const pctNum = parseInt(row[4]) || 0;
-                  const gc = gradeColor(row[5] || 'F');
+          <DataTable 
+            columns={[
+              { label: 'Reg. #', key: '0', render: (val) => <span className="text-[10px] font-bold text-gray-500 font-mono">{val}</span> },
+              { label: 'Name', key: '1', render: (val) => <span className="font-bold text-gray-800 text-sm">{val || '—'}</span> },
+              { label: 'Weeks', key: '2', render: (val) => <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black border border-indigo-100">{val}</span> },
+              { 
+                label: 'Avg', 
+                key: '3', 
+                render: (val, row) => {
+                  const pct = parseInt(row[4]) || 0;
                   return (
-                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 text-[10px] font-bold text-gray-500 font-mono">{row[0]}</td>
-                      <td className="px-6 py-4 font-bold text-gray-800 text-sm">{row[1]}</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black border border-indigo-100">{row[2]}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 max-w-[80px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${pctNum}%`, background: row[5] === 'F' ? '#ef4444' : row[5]?.startsWith('A') ? '#10b981' : row[5]?.startsWith('B') ? '#3b82f6' : '#f59e0b' }} />
-                          </div>
-                          <span className="text-xs font-black text-gray-800">{row[3]}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-sm font-black ${row[5] === 'F' ? 'text-red-600' : pctNum >= 75 ? 'text-emerald-700' : 'text-amber-700'}`}>{row[4]}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {row[5] && row[5] !== 'N/A' ? <GradeBadge grade={row[5]} /> : <span className="text-gray-300 font-bold text-xs">—</span>}
-                      </td>
-                      <td className="px-6 py-4 text-[10px] font-bold text-gray-400">{row[5] && row[5] !== 'N/A' ? gradePointsFromPct(pctNum) : '—'}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${row[6] === 'Qualified' ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                          : row[6] === 'Failed' ? 'bg-red-50 text-red-700 border-red-100'
-                            : 'bg-gray-50 text-gray-500 border-gray-100'
-                          }`}>
-                          <i className={`fas text-[8px] ${row[6] === 'Qualified' ? 'fa-check' : row[6] === 'Failed' ? 'fa-times' : 'fa-clock'}`} />
-                          {row[6] || 'Pending'}
-                        </span>
-                      </td>
-                    </tr>
+                    <div className="flex items-center gap-2">
+                       <div className="flex-1 min-w-[60px] h-1.5 bg-gray-100 rounded-full overflow-hidden hidden md:block">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: row[5] === 'F' ? '#ef4444' : row[5]?.startsWith('A') ? '#10b981' : row[5]?.startsWith('B') ? '#3b82f6' : '#f59e0b' }} />
+                      </div>
+                      <span className="text-xs font-black text-gray-800">{val}</span>
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                }
+              },
+              { label: 'Percentage', key: '4', render: (val, row) => <span className={`text-sm font-black ${row[5] === 'F' ? 'text-red-600' : (parseInt(val) >= 75 ? 'text-emerald-700' : 'text-amber-700')}`}>{val}</span> },
+              { label: 'Grade', key: '5', render: (val) => (val && val !== 'N/A' ? <GradeBadge grade={val} /> : <span className="text-gray-300 font-bold text-xs">—</span>) },
+              { label: 'Points', key: '5', render: (_, row) => {
+                  const pct = parseInt(row[4]) || 0;
+                  return <span className="text-[10px] font-bold text-gray-400">{row[5] && row[5] !== 'N/A' ? gradePointsFromPct(pct) : '—'}</span>
+              }},
+              { 
+                label: 'Status', 
+                key: '6', 
+                render: (val) => (
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${val === 'Qualified' ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                    : val === 'Failed' ? 'bg-red-50 text-red-700 border-red-100'
+                      : 'bg-gray-50 text-gray-500 border-gray-100'
+                    }`}>
+                    <i className={`fas text-[8px] ${val === 'Qualified' ? 'fa-check' : val === 'Failed' ? 'fa-times' : 'fa-clock'}`} />
+                    {val || 'Pending'}
+                  </span>
+                )
+              }
+            ]}
+            data={evalData}
+          />
         )}
-      </div>
+      </Card>
 
       {/* Download Buttons ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

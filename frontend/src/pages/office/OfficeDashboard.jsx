@@ -112,7 +112,7 @@ export default function OfficeDashboard({ user }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <div className="p-4 md:p-5 bg-blue-50 rounded-2xl border border-blue-100">
               <div className="text-2xl md:text-3xl font-black text-blue-600 mb-1">{reqStats.eligible}</div>
               <div className="text-[9px] md:text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-tight">Eligible Count</div>
@@ -129,10 +129,7 @@ export default function OfficeDashboard({ user }) {
               <div className="text-2xl md:text-3xl font-black text-emerald-600 mb-1">{reqStats.approved}</div>
               <div className="text-[9px] md:text-[10px] font-bold text-emerald-400 uppercase tracking-widest leading-tight">OFFICIALLY Approved</div>
             </div>
-            <div className="p-4 md:p-5 bg-gray-900 rounded-2xl border border-gray-800 text-white">
-              <div className="text-2xl md:text-3xl font-black mb-1">{reqStats.completionRate}%</div>
-              <div className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight">Onboarding Progress</div>
-            </div>
+
           </div>
         </div>
       )}

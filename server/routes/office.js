@@ -26,7 +26,7 @@ const router = express.Router();
 router.get('/all-students', async (req, res) => {
     try {
         const students = await User.find({ role: 'student' })
-            .select('name email reg semester status createdAt')
+            .select('name email secondaryEmail reg semester status createdAt')
             .sort({ createdAt: -1 });
         res.json(students);
     } catch (err) {
@@ -59,7 +59,7 @@ router.get('/registered-students', async (req, res) => {
         const students = await User.find(query)
             .populate('assignedFaculty', 'name email')
             .populate('assignedSiteSupervisor', 'name email')
-            .select('name email reg semester status assignedFaculty assignedSiteSupervisor assignedCompany assignedCompanySupervisor internshipRequest createdAt')
+            .select('name email secondaryEmail reg semester status whatsappNumber fatherName section assignedFaculty assignedSiteSupervisor assignedCompany assignedCompanySupervisor internshipRequest internshipAgreement createdAt')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -467,7 +467,7 @@ router.get('/pending-agreements', async (req, res) => {
         const students = await User.find({
             status: { $in: ['Agreement Submitted - Self', 'Agreement Submitted - University Assigned'] },
             role: 'student'
-        });
+        }).select('name email secondaryEmail reg status fatherName section internshipRequest internshipAgreement');
         res.json(students);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
