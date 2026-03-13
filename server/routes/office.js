@@ -393,7 +393,7 @@ router.post('/onboard-and-assign-faculty', async (req, res) => {
         if (!faculty) {
             const rawToken = crypto.randomBytes(32).toString('hex');
             const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-            const expiry = Date.now() + 30 * 60 * 1000;
+            const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 Hours
 
             faculty = new User({
                 name,
@@ -1073,7 +1073,7 @@ router.post('/onboard-faculty', async (req, res) => {
         // 2. Generate Secure Token
         const rawToken = crypto.randomBytes(32).toString('hex');
         const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-        const expiry = Date.now() + 30 * 60 * 1000; // 30 Minutes
+        const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 Hours
 
         // 3. Create Record
         const faculty = new User({
@@ -1194,7 +1194,7 @@ router.post('/resend-faculty-activation', async (req, res) => {
         // Generate NEW Token
         const rawToken = crypto.randomBytes(32).toString('hex');
         const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-        const expiry = Date.now() + 30 * 60 * 1000;
+        const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 Hours
 
         faculty.activationToken = tokenHash;
         faculty.activationExpires = expiry;

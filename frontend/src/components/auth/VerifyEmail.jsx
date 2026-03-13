@@ -24,7 +24,7 @@ export default function VerifyEmail({ onBack }) {
       }
 
       try {
-        const data = await apiRequest(`/auth/verify-email/${token}`);
+        const data = await apiRequest(`/auth/verify-email/${token}`, { method: 'POST' });
         setStatus('success');
         setMessage(data.message);
       } catch (err) {

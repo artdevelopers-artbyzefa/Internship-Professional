@@ -129,22 +129,22 @@ export default function InternshipRequestForm({ user, activePhase }) {
     );
 
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">
         {/* Header */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex items-center justify-between gap-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Internship Request</p>
-            <h2 className="text-2xl font-black text-gray-800 tracking-tight">
+            <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">
               {user.status === 'Internship Approved' ? 'Approved Request Details' : 'Submitted Request Details'}
             </h2>
-            <p className="text-sm text-gray-400 font-medium mt-1">
+            <p className="text-xs md:text-sm text-gray-400 font-medium mt-1">
               {user.status === 'Internship Approved'
                 ? 'Your AppEx-A form has been officially approved by the Internship Office.'
                 : 'Your AppEx-A form has been submitted and is currently under review.'}
             </p>
           </div>
-          <div className="flex-shrink-0 flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl">
+          <div className="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl w-full sm:w-auto justify-center sm:justify-start">
               <span className={`w-2 h-2 rounded-full ${isOfficiallyAssigned ? 'bg-primary' : user.status === 'Internship Approved' ? 'bg-emerald-500' : 'bg-blue-500'} animate-pulse`}></span>
               <span className={`text-[10px] font-black uppercase tracking-widest ${isOfficiallyAssigned ? 'text-primary' : user.status === 'Internship Approved' ? 'text-emerald-600' : 'text-blue-600'}`}>
                 {isOfficiallyAssigned ? 'Final Placement Confirmed' : user.status === 'Internship Approved' ? 'Internship Approved' : 'Under Review'}
@@ -153,7 +153,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
             {!isOfficiallyAssigned && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:border-primary transition-all shadow-sm flex items-center gap-2"
+                className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:border-primary transition-all shadow-sm flex items-center justify-center gap-2"
               >
                 <i className="fas fa-edit"></i> Edit Request
               </button>
@@ -173,9 +173,9 @@ export default function InternshipRequestForm({ user, activePhase }) {
         )}
 
         {/* Placement Details */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 pb-3 border-b border-gray-50">Placement Details</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
             <Field label="Internship Type" value={req?.type === 'Self' ? 'Self Arranged' : req?.type} />
             <Field label="Mode" value={req?.mode} />
             <Field label="Duration" value={req?.duration} />
@@ -215,9 +215,9 @@ export default function InternshipRequestForm({ user, activePhase }) {
 
         {/* Site Supervisor (Self-arranged only) */}
         {(req?.siteSupervisorName || req?.siteSupervisorEmail) && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 pb-3 border-b border-gray-50">Site Supervisor</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               <Field label="Name" value={user.assignedCompanySupervisor || req.siteSupervisorName} />
               <Field label="Email" value={req.siteSupervisorEmail} />
               <Field label="Phone" value={req.siteSupervisorPhone} />
@@ -226,14 +226,14 @@ export default function InternshipRequestForm({ user, activePhase }) {
         )}
 
         {/* Faculty Supervisor */}
-        <div className={`rounded-2xl border-2 shadow-sm p-8 ${fb.border} ${fb.bg}`}>
-          <div className="flex items-center justify-between mb-6">
+        <div className={`rounded-2xl border-2 shadow-sm p-6 md:p-8 ${fb.border} ${fb.bg}`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Faculty Supervisor</h3>
-            <span className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border ${fb.bg} ${fb.text} ${fb.border}`}>
+            <span className={`w-fit flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border ${fb.bg} ${fb.text} ${fb.border}`}>
               <i className={`fas ${fb.icon}`}></i> {fb.label}
             </span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {user.assignedFaculty ? (
               <>
                 <Field label="Assigned Faculty" value={user.assignedFaculty.name} />
@@ -266,8 +266,8 @@ export default function InternshipRequestForm({ user, activePhase }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-6 border-b border-gray-100">
+    <div className="max-w-4xl mx-auto bg-white p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] shadow-sm border border-gray-100">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 pb-6 border-b border-gray-100 text-center md:text-left">
         <div>
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Internship Approval Request</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Provide details about your planned internship for institutional approval (AppEx-A).</p>
@@ -331,7 +331,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
                   .filter(m => form.internshipType !== 'University Assigned' || m === 'Onsite')
                   .map(m => (
                     <label key={m} className={`
-                            flex-1 min-w-[100px] p-2.5 border-2 rounded-xl cursor-pointer text-center transition-all text-xs
+                            flex-grow basis-[calc(50%-0.5rem)] sm:basis-0 p-2.5 border-2 rounded-xl cursor-pointer text-center transition-all text-xs
                             ${form.mode === m ? 'border-primary bg-primary/5 text-primary font-black shadow-sm' : 'border-gray-100 text-gray-400 hover:border-gray-200'}
                         `}>
                       <input
@@ -566,7 +566,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
             <div className="h-[1px] bg-gray-100 flex-1 ml-2"></div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <FormGroup label="Total Duration">
               <SelectInput
                 value={form.duration}
@@ -592,7 +592,11 @@ export default function InternshipRequestForm({ user, activePhase }) {
               />
             </FormGroup>
 
-            <FormGroup label="End Date (Auto-calculated)">
+            <FormGroup 
+              label="End Date (Auto-calculated)" 
+              uppercase={false}
+              labelClassName="whitespace-nowrap"
+            >
               <TextInput
                 type="date"
                 value={form.endDate}
@@ -600,12 +604,6 @@ export default function InternshipRequestForm({ user, activePhase }) {
                 className="bg-gray-50 opacity-70 cursor-not-allowed font-black"
                 required
               />
-            </FormGroup>
-
-            <FormGroup label="Submission Policy">
-              <div className="h-full flex items-center px-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-100 text-[9px] font-bold text-gray-400 uppercase tracking-tighter text-center">
-                Dates must be consistent with the 6-week academic window.
-              </div>
             </FormGroup>
           </div>
 
@@ -621,8 +619,8 @@ export default function InternshipRequestForm({ user, activePhase }) {
           </div>
         </section>
 
-        <div className="flex justify-end pt-8 border-t border-gray-100">
-          <Button type="submit" variant="primary" loading={loading} className="px-12 py-5 rounded-2xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.2em] border-0 cursor-pointer">
+        <div className="flex justify-center md:justify-end pt-8 border-t border-gray-100">
+          <Button type="submit" variant="primary" loading={loading} className="w-full md:w-auto px-12 py-5 rounded-2xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.2em] border-0 cursor-pointer">
             Transmit Approval Form <i className="fas fa-paper-plane ml-2"></i>
           </Button>
         </div>

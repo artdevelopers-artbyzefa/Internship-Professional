@@ -8,6 +8,8 @@ import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
 import { cloudinary } from '../utils/cloudinary.js';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const router = express.Router();
 
 // @route   GET api/auth/me
@@ -128,9 +130,9 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// @route   GET api/auth/verify-email/:token
+// @route   POST api/auth/verify-email/:token
 // @desc    Verify email address
-router.get('/verify-email/:token', async (req, res) => {
+router.post('/verify-email/:token', async (req, res) => {
     try {
         const token = req.params.token.trim();
         console.log(`[${getPKTTime()}] AUTH: Verification attempt. Received token length: ${token.length}`);
@@ -149,10 +151,10 @@ router.get('/verify-email/:token', async (req, res) => {
             return res.json({ message: 'Email already verified! Please log in.' });
         }
 
-        if (user.emailVerificationExpires < Date.now()) {
+        if (user.emailVerificationExpires && new Date(user.emailVerificationExpires).getTime() < Date.now()) {
             console.log(`[${getPKTTime()}] [FAIL] Verification failed: Token expired for ${user.email}.`);
             return res.status(400).json({
-                message: 'Verification link expired. Please request a new verification email.'
+                message: 'Verification link expired. Please request a new one.'
             });
         }
 
@@ -677,10 +679,9 @@ router.get('/download-proxy', protect, async (req, res) => {
 // @route   POST api/auth/logout
 // @desc    Logout user / Clear cookie
 router.post('/logout', (req, res) => {
-    res.cookie('token', 'none', {
-        expires: new Date(Date.now() + 10 * 1000),
+    res.clearCookie('token', {
         httpOnly: true,
-        secure: true,
+        secure: true, // Match settings from login to ensure cookie is cleared
         sameSite: 'none',
         path: '/'
     });

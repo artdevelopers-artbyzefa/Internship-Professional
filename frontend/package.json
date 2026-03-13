@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "frontend": "vite",
-    "backend": "cd ../backend/server && npm run dev",
+    "backend": "cd ../server && npm run dev",
     "build": "vite build",
     "preview": "vite preview"
   },
