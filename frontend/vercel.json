@@ -1,8 +1,13 @@
 {
+    "version": 2,
     "rewrites": [
         {
             "source": "/api/(.*)",
             "destination": "https://api.internshipcscuiatd.artdevelopers.site/api/$1"
+        },
+        {
+            "source": "/login",
+            "destination": "/index.html"
         },
         {
             "source": "/(.*)",
