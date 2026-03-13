@@ -10,30 +10,10 @@ const CHECK_ICONS = {
     phase_eligibility: 'fa-calendar-check',
 };
 
-export default function Phase1EligibilityBanner({ user }) {
-    const [loading, setLoading] = useState(true);
-    const [eligibility, setEligibility] = useState(null);
-    const [activePhase, setActivePhase] = useState(null);
+export default function Phase1EligibilityBanner({ user, eligibility, activePhase }) {
     const [expanded, setExpanded] = useState(false);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
-        try {
-            const [phaseData, eligData] = await Promise.all([
-                apiRequest('/phases/current'),
-                apiRequest(`/student/eligibility/${user.id || user._id}`)
-            ]);
-            setActivePhase(phaseData);
-            setEligibility(eligData);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const loading = !eligibility || activePhase === undefined;
 
     // Only show during Phase 1
     if (loading) return (
@@ -95,12 +75,7 @@ export default function Phase1EligibilityBanner({ user }) {
                             }`}>
                             {isGlobalPhase1 ? 'PHASE 1 — STUDENT REGISTRATION' : 'VERIFICATION FAILED — SESSION LOCKED'}
                         </span>
-                        {isGlobalPhase1 ? (
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                                Currently Active
-                            </span>
-                        ) : (
+                        {!isGlobalPhase1 && (
                             <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
                                 <i className="fas fa-lock"></i>
                                 Enrollment Closed

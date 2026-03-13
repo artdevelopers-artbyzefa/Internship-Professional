@@ -109,5 +109,31 @@ export const showAlert = {
             }
         });
         return result.isConfirmed;
+    },
+    datePrompt: async (title, text) => {
+        const result = await MySwal.fire({
+            title: title,
+            html: `
+                <p class="text-sm text-gray-500 mb-4">${text}</p>
+                <input type="datetime-local" id="swal-date" class="swal2-input rounded-xl border-gray-200">
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Confirm & Start',
+            confirmButtonColor: '#1E3A8A',
+            preConfirm: () => {
+                const date = document.getElementById('swal-date').value;
+                if (!date) {
+                    Swal.showValidationMessage('Please select a deadline');
+                }
+                return date;
+            },
+            customClass: {
+                popup: 'rounded-3xl',
+                confirmButton: 'rounded-xl px-6 py-3',
+                cancelButton: 'rounded-xl px-6 py-3'
+            }
+        });
+        return result.isConfirmed ? result.value : null;
     }
 };

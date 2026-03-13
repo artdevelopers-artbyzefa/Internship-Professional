@@ -14,6 +14,7 @@ import HODPortal from './pages/hod/HODPortal.jsx';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange.jsx';
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
 import NotFound from './pages/error/NotFound.jsx';
+import LandingPage from './pages/LandingPage.jsx';
 import { apiRequest } from './utils/api.js';
 
 export default function App() {
@@ -87,12 +88,14 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={user ? (
-        user.role === 'student' ? '/student' :
-          user.role === 'internship_office' ? '/office' :
-            user.role === 'faculty_supervisor' ? '/faculty' :
-              user.role === 'site_supervisor' ? '/supervisor' : '/hod'
-      ) : '/login'} replace />} />
+      <Route path="/" element={user ? (
+        <Navigate to={
+          user.role === 'student' ? '/student' :
+            user.role === 'internship_office' ? '/office' :
+              user.role === 'faculty_supervisor' ? '/faculty' :
+                user.role === 'site_supervisor' ? '/supervisor' : '/hod'
+        } replace />
+      ) : <LandingPage />} />
 
       {/* Auth Screen Routes */}
       <Route path="/login" element={!user ? <LoginPage onLogin={handleLogin} /> : <Navigate to="/" replace />} />

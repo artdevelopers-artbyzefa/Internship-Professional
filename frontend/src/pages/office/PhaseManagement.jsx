@@ -110,18 +110,34 @@ export default function PhaseManagement({ user }) {
 
     const handleAction = async (phaseId, action) => {
         const phase = phases.find(p => p._id === phaseId);
-        const confirmMsg = action === 'start'
-            ? `Activate "${phase.label}"?\n\nAny currently active phase will be automatically completed.`
-            : `Mark "${phase.label}" as completed?`;
-        const confirmed = await showAlert.confirm(
-            action === 'start' ? 'Activate Phase' : 'Complete Phase',
-            confirmMsg,
-            action === 'start' ? 'Yes, Activate' : 'Yes, Complete'
-        );
-        if (!confirmed) return;
+        let scheduledEndAt = null;
+
+        if (action === 'start') {
+            const date = await showAlert.datePrompt(
+                `Activate ${phase.label}`,
+                `Set an expected deadline for this phase (optional). Leave blank if not sure, but it's recommended for student timers.`
+            );
+            // If they cancelled the prompt, don't proceed
+            if (date === undefined) return; 
+            scheduledEndAt = date ? `${date}:00+05:00` : null;
+        } else {
+            const confirmed = await showAlert.confirm(
+                'Complete Phase',
+                `Mark "${phase.label}" as completed?`,
+                'Yes, Complete'
+            );
+            if (!confirmed) return;
+        }
+
         setActionId(phaseId + action);
         try {
-            const res = await apiRequest(`/phases/${phaseId}/${action}`, { method: 'POST', body: { officeId: user.id || user._id } });
+            const res = await apiRequest(`/phases/${phaseId}/${action}`, { 
+                method: 'POST', 
+                body: { 
+                    officeId: user.id || user._id,
+                    scheduledEndAt
+                } 
+            });
             showToast.success(res.message);
             fetchPhases();
         } catch { } finally { setActionId(null); }
@@ -423,11 +439,14 @@ export default function PhaseManagement({ user }) {
                                                 </div>
                                             )}
 
-                                            <div className="mt-4 flex justify-end">
+                                            <div className="mt-4 flex justify-end items-center gap-4">
+                                                <p className="text-[10px] font-bold text-indigo-400 italic">
+                                                    <i className="fas fa-info-circle mr-1" /> This will override any existing auto-schedule.
+                                                </p>
                                                 <Button size="sm" variant="primary" className="font-bold text-xs"
                                                     loading={isActLoading(phase._id + 'sched')}
                                                     onClick={() => handleSaveSchedule(phase._id)}>
-                                                    <i className="fas fa-calendar-plus mr-2" />Save Schedule
+                                                    <i className="fas fa-calendar-plus mr-2" />Save &amp; Override Schedule
                                                 </Button>
                                             </div>
                                         </div>

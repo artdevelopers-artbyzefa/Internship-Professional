@@ -11,6 +11,7 @@ import Phase from '../models/Phase.js';
 import { protect } from '../middleware/auth.js';
 import { getPKTTime } from '../utils/time.js';
 import { uploadCloudinary, cloudinary } from '../utils/cloudinary.js';
+import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -60,6 +61,20 @@ router.post('/submit-request', async (req, res) => {
         user.status = 'Internship Request Submitted';
 
         await user.save();
+        
+        // Notify Internship Office
+        const officeUsers = await User.find({ role: 'internship_office' }, '_id');
+        for (const office of officeUsers) {
+            await createNotification({
+                recipient: office._id,
+                sender: userId,
+                type: 'internship_request',
+                title: 'New Internship Request',
+                message: `${user.name} (${user.reg}) has submitted a new internship approval request.`,
+                link: '/office/internship-requests'
+            });
+        }
+
         console.log(`[${getPKTTime()}] [STUDENT] Internship Request Submitted by ${user.email}`);
 
         res.json({ message: 'Internship request submitted successfully' });
@@ -123,6 +138,20 @@ router.post('/submit-agreement', async (req, res) => {
             : 'Agreement Submitted - University Assigned';
 
         await user.save();
+
+        // Notify Internship Office
+        const officeUsers = await User.find({ role: 'internship_office' }, '_id');
+        for (const office of officeUsers) {
+            await createNotification({
+                recipient: office._id,
+                sender: userId,
+                type: 'internship_request',
+                title: 'New Agreement Submitted',
+                message: `${user.name} (${user.reg}) has submitted their student agreement form.`,
+                link: '/office/agreement-verification'
+            });
+        }
+
         console.log(`[${getPKTTime()}] [STUDENT] Agreement Submitted by ${user.email}`);
 
         res.json({ message: 'Agreement submitted successfully' });
@@ -526,17 +555,22 @@ router.post('/submit-freelance-report', protect, uploadCloudinary.single('file')
 // @desc    Check if a student is eligible for the internship cycle
 router.get('/eligibility/:userId', async (req, res) => {
     try {
-        const user = await User.findById(req.params.userId);
+        // Use .lean() for faster read-only access
+        const user = await User.findById(req.params.userId).lean();
         if (!user || user.role !== 'student') {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
+        // Parallelize Phase lookup with other potential future lookups
+        const currentPhase = await Phase.findOne({ status: 'active' }).lean();
+        const phaseOrder = currentPhase ? currentPhase.order : 1;
+
         const checks = [];
         let eligible = true;
 
-        // 1. Eligible semester (4-8)
-        const eligibleSemesters = ['4', '5', '6', '7', '8'];
-        const semOk = eligibleSemesters.includes(user.semester);
+        // 1. Eligible semester (4-8) - Optimized with Set for O(1) lookups
+        const eligibleSemesters = new Set(['4', '5', '6', '7', '8']);
+        const semOk = eligibleSemesters.has(user.semester);
         checks.push({
             key: 'semester',
             label: 'Academic Semester',
@@ -560,17 +594,17 @@ router.get('/eligibility/:userId', async (req, res) => {
         if (!verified) eligible = false;
 
         // 3. CGPA (if present, must be >= 2.0)
-        const cgpa = parseFloat(user.cgpa);
+        const cgpaVal = parseFloat(user.cgpa);
         const cgpaProvided = !!user.cgpa;
-        const cgpaOk = !cgpaProvided || (cgpa >= 2.0 && cgpa <= 4.0);
+        const cgpaOk = !cgpaProvided || (cgpaVal >= 2.0 && cgpaVal <= 4.0);
         checks.push({
             key: 'cgpa',
             label: 'CGPA Requirement',
             detail: !cgpaProvided
-                ? 'CGPA not yet entered in your profile. Please update it in Profile Settings. (Minimum: 2.00)'
+                ? 'CGPA not yet entered in your profile. Minimum: 2.00 required.'
                 : cgpaOk
-                    ? `Your CGPA is ${user.cgpa} — meets the minimum requirement of 2.00.`
-                    : `Your CGPA is ${user.cgpa} — below the minimum required CGPA of 2.00.`,
+                    ? `Your CGPA is ${user.cgpa} — meets requirement.`
+                    : `Your CGPA is ${user.cgpa} — below the minimum required 2.00.`,
             passed: cgpaOk,
             warning: !cgpaProvided
         });
@@ -583,7 +617,7 @@ router.get('/eligibility/:userId', async (req, res) => {
             label: 'Registration Number',
             detail: regOk
                 ? `Registration number ${user.reg} is on record.`
-                : 'No registration number found. Please contact the Internship Office.',
+                : 'No registration number found.',
             passed: regOk
         });
         if (!regOk) eligible = false;
@@ -594,50 +628,45 @@ router.get('/eligibility/:userId', async (req, res) => {
             key: 'profile',
             label: 'Profile Completeness',
             detail: profileComplete
-                ? 'Your profile is complete with all required personal details.'
-                : "Mandatory Profile Action: Father's Name, Section, Date of Birth, or Profile Picture is missing. Complete your profile to unlock the internship workflow.",
+                ? 'Your profile is complete.'
+                : "Profile missing: Father's Name, Section, DOB, or Picture.",
             passed: profileComplete,
             warning: false
         });
 
-        // 6. Phase-based eligibility (LOCKED if Phase 3+ started and status != Assigned)
-        const currentPhase = await Phase.findOne({ status: 'active' });
-        const phaseOrder = currentPhase ? currentPhase.order : 1;
+        // 6. Phase-based eligibility
         let p3Eligible = true;
-        let p3Detail = "The internship cycle is in preliminary stages.";
+        let p3Detail = "Internship cycle is in early stages.";
 
         if (phaseOrder >= 3) {
-            const allowed = [
+            const allowedStatuses = new Set([
                 'Assigned',
                 'Internship Approved',
                 'Agreement Submitted - Self',
                 'Agreement Submitted - University Assigned',
                 'Agreement Approved'
-            ];
+            ]);
 
-            if (allowed.includes(user.status)) {
-                p3Detail = "Placement confirmed or pending final sign-off. You are eligible for internship tasks and evaluations.";
+            if (allowedStatuses.has(user.status)) {
+                p3Detail = "Placement confirmed. Eligible for Phase 3.";
                 p3Eligible = true;
             } else {
-                p3Detail = "Internship Commenced: Unfortunately, you did not secure an approved placement before the start of Phase 3. You are ineligible to proceed.";
+                p3Detail = "Ineligible: No approved placement secured before Phase 3.";
                 p3Eligible = false;
             }
         } else {
-            p3Detail = `Phase ${phaseOrder} is currently active. Please complete your placement steps to ensure eligibility for Phase 3.`;
-            p3Eligible = true; // Still eligible to finish phase 1/2
+            p3Detail = `Phase ${phaseOrder} is active. Complete placement steps for Phase 3.`;
+            p3Eligible = true;
         }
 
         checks.push({
             key: 'phase_eligibility',
-            label: 'Cycle Progression Eligibility',
+            label: 'Cycle Progression',
             detail: p3Detail,
             passed: p3Eligible
         });
 
-        // Hard criteria are those that the student CANNOT change (Semester, Verification, CGPA, Reg)
         const hardCriteriaMet = semOk && verified && cgpaOk && regOk && p3Eligible;
-
-        // Final eligibility is both hard criteria AND profile completion
         eligible = hardCriteriaMet && profileComplete;
 
         res.json({
@@ -650,7 +679,7 @@ router.get('/eligibility/:userId', async (req, res) => {
             checks
         });
     } catch (err) {
-        console.error(err);
+        console.error('Eligibility check error:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });

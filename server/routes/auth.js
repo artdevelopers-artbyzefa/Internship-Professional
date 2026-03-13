@@ -15,9 +15,8 @@ const router = express.Router();
 // @route   GET api/auth/me
 // @desc    Get current user profile
 router.get('/me', protect, async (req, res) => {
-    // Populate assigned faculty for full dashboard context
     const user = await User.findById(req.user.id).populate('assignedFaculty', 'name email whatsappNumber');
-
+    const isDefaultPassword = await bcrypt.compare('Megamix@123', user.password);
     res.json({
         user: {
             id: user._id,
@@ -39,7 +38,8 @@ router.get('/me', protect, async (req, res) => {
             registeredCourse: user.registeredCourse,
             assignedFaculty: user.assignedFaculty,
             assignedCompany: user.assignedCompany,
-            assignedCompanySupervisor: user.assignedCompanySupervisor
+            assignedCompanySupervisor: user.assignedCompanySupervisor,
+            isDefaultPassword
         }
     });
 });
@@ -325,6 +325,8 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Invalid credentials.' });
         }
 
+        const isDefaultPassword = password === 'Megamix@123';
+
         // Secondary Email Flow: Require OTP
         if (isSecondaryLogin) {
             const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -388,7 +390,8 @@ router.post('/login', async (req, res) => {
                 registeredCourse: user.registeredCourse,
                 assignedFaculty: user.assignedFaculty,
                 assignedCompany: user.assignedCompany,
-                assignedCompanySupervisor: user.assignedCompanySupervisor
+                assignedCompanySupervisor: user.assignedCompanySupervisor,
+                isDefaultPassword
             },
             token
         });

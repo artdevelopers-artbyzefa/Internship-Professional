@@ -15,9 +15,26 @@ import reportsRoutes from './routes/reports.js';
 import analyticsRoutes from './routes/analytics.js';
 import phasesRoutes from './routes/phases.js';
 import supervisorRoutes from './routes/supervisor.js';
+import evaluationRoutes from './routes/evaluation.js';
+import notificationRoutes from './routes/notifications.js';
 import { getPKTTime } from './utils/time.js';
+import { seedPhases } from './routes/phases.js';
 
 dotenv.config();
+
+// Connect and Seed
+const initDB = async () => {
+    try {
+        console.log('[DB] Attempting connection...');
+        await mongoose.connect(process.env.MONGODB_URI);
+        console.log('[DB] Connected successfully at startup.');
+        await seedPhases();
+    } catch (err) {
+        console.error('[DB] Startup Connection Error:', err);
+    }
+};
+
+initDB();
 
 const app = express();
 app.set('trust proxy', 1);
@@ -32,8 +49,6 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow all origins that are not blocked by other logic, 
-        // specifically ensuring the requester's origin is echoed back for credentials support.
         if (!origin || origin.startsWith('http')) {
             callback(null, true);
         } else {
@@ -81,6 +96,8 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/phases', phasesRoutes);
 app.use('/api/supervisor', supervisorRoutes);
+app.use('/api/evaluation', evaluationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Simple Health Check
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
@@ -117,7 +134,7 @@ export default app;
 // Local Development
 if (process.env.NODE_ENV !== 'production') {
     const PORT = 5000;
-    app.listen(PORT, '127.0.0.1', () => {
-        console.log(`Backend running on 127.0.0.1:${PORT}`);
+    app.listen(PORT, () => {
+        console.log(`Backend running on port ${PORT}`);
     });
 }

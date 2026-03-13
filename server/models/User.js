@@ -177,6 +177,11 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Performance Indexes for high-traffic student queries
+userSchema.index({ role: 1, status: 1 });
+userSchema.index({ assignedFaculty: 1 });
+userSchema.index({ assignedSiteSupervisor: 1 });
+
 // Auto-extract and Enforce Roll Number from Email for Students
 userSchema.pre('save', async function () {
     if (this.role === 'student' && this.email) {

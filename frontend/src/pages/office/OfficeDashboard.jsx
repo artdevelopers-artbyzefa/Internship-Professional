@@ -99,7 +99,7 @@ export default function OfficeDashboard({ user }) {
         <div className="bg-white rounded-2xl shadow-sm border-2 border-secondary/20 p-4 md:p-8 overflow-hidden relative mb-6">
           <div className="absolute top-0 right-0 p-3">
             <span className="px-3 py-1 bg-secondary/10 text-secondary text-[10px] font-black rounded-full tracking-widest uppercase">
-              Phase 2 Activity
+              Placement Activity
             </span>
           </div>
           <div className="flex items-center gap-4 mb-6 md:mb-8 mt-4 md:mt-0">

@@ -5,6 +5,7 @@ import Assignment from '../models/Assignment.js';
 import Mark from '../models/Mark.js';
 import { protect } from '../middleware/auth.js';
 import { uploadCloudinary } from '../utils/cloudinary.js';
+import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -208,6 +209,20 @@ router.post('/assignments', protect, uploadCloudinary.single('file'), async (req
         });
 
         await assignment.save();
+
+        // Notify target students
+        if (students && students.length > 0) {
+            for (const studentId of students) {
+                await createNotification({
+                    recipient: studentId,
+                    sender: req.user.id,
+                    type: 'assignment_submission',
+                    title: 'New Industrial Task',
+                    message: `${req.user.name} posted a new task: "${title}".`,
+                    link: '/student/assignments'
+                });
+            }
+        }
         res.status(201).json(assignment);
     } catch (err) {
         console.error('Assignment error:', err);
@@ -280,6 +295,17 @@ router.post('/grade', protect, async (req, res) => {
         });
 
         await mark.save();
+
+        // Notify Student
+        const assignment = await Assignment.findById(assignmentId);
+        await createNotification({
+            recipient: studentId,
+            sender: req.user.id,
+            type: 'assignment_submission',
+            title: 'Task Graded (Industrial)',
+            message: `Your site supervisor has graded your submission for "${assignment?.title || 'task'}".`,
+            link: '/student/marks'
+        });
         res.json(mark);
     } catch (err) {
         console.error(err);

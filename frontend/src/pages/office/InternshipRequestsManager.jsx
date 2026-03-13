@@ -699,7 +699,7 @@ export default function InternshipRequestsManager({ user }) {
             {/* Header */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Phase 2 — Internship Office</p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">PROGRAMME PROGRESSION</p>
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">Internship Requests</h2>
                     <p className="text-sm text-gray-400 font-medium mt-1">Review, assign, and action all student AppEx-A submissions.</p>
                 </div>
