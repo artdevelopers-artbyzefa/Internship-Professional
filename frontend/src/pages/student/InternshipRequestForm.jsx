@@ -4,7 +4,7 @@ import { FormGroup, TextInput, SelectInput, TextareaInput } from '../../componen
 import Alert from '../../components/ui/Alert.jsx';
 import { apiRequest } from '../../utils/api.js';
 
-export default function InternshipRequestForm({ user }) {
+export default function InternshipRequestForm({ user, activePhase }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -53,12 +53,43 @@ export default function InternshipRequestForm({ user }) {
     fetchFaculty();
   }, []);
 
+  // ── Auto-calculate End Date ──────────────────────────────────────────────
+  useEffect(() => {
+    if (form.startDate && form.duration) {
+      const weeksMatch = form.duration.match(/\d+/);
+      if (weeksMatch) {
+        const weeks = parseInt(weeksMatch[0]);
+        const start = new Date(form.startDate);
+        const end = new Date(start);
+        end.setDate(start.getDate() + (weeks * 7));
+        
+        const newEndDate = end.toISOString().split('T')[0];
+        if (newEndDate !== form.endDate) {
+          setForm(prev => ({ ...prev, endDate: newEndDate }));
+        }
+      }
+    }
+  }, [form.startDate, form.duration]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (form.facultyType === 'Registered' && !form.selectedFacultyId) {
       setError('Please select a Faculty Supervisor from the list or invite a new one.');
       return;
+    }
+
+    // Start Date Validation: Maximum 1 week after Phase 2 (activePhase) ends
+    if (activePhase?.scheduledEndAt) {
+        const phaseEnd = new Date(activePhase.scheduledEndAt);
+        const maxStart = new Date(phaseEnd);
+        maxStart.setDate(maxStart.getDate() + 7);
+        const selectedStart = new Date(form.startDate);
+
+        if (selectedStart > maxStart) {
+            setError(`Start date is too late. It must be within 1 week of the Phase end (${maxStart.toLocaleDateString()}).`);
+            return;
+        }
     }
 
     setLoading(true);
@@ -241,10 +272,6 @@ export default function InternshipRequestForm({ user }) {
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Internship Approval Request</h2>
           <p className="text-sm text-gray-500 font-medium mt-1">Provide details about your planned internship for institutional approval (AppEx-A).</p>
         </div>
-        <div className="bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-          <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">Phase 2: Workflow Activation</span>
-        </div>
       </div>
 
       {error && <Alert type="danger" className="mb-6">{error}</Alert>}
@@ -336,7 +363,7 @@ export default function InternshipRequestForm({ user }) {
           </div>
 
           {(form.internshipType === 'Self' || form.mode === 'Freelance') && (
-            <div className={`grid grid-cols-1 gap-8 mt-8 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 animate-in fade-in duration-500 ${form.mode === 'Freelance' ? 'md:grid-cols-1 max-w-sm' : 'md:grid-cols-3'}`}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 animate-in fade-in duration-500">
               <FormGroup label={form.mode === 'Freelance' ? 'Project / Client Name' : 'Organization / Project Name'}>
                 <TextInput
                   placeholder={form.mode === 'Freelance' ? 'e.g. Upwork Project, Fiverr Client' : 'e.g. Google, Private Venture'}
@@ -349,7 +376,7 @@ export default function InternshipRequestForm({ user }) {
               </FormGroup>
 
               {/* External Mentor details — NOT shown for Freelance (Faculty Supervisor is sufficient) */}
-              {form.mode !== 'Freelance' && (
+              {form.mode !== 'Freelance' ? (
                 <>
                   <FormGroup label="External Mentor Name">
                     <TextInput
@@ -381,10 +408,8 @@ export default function InternshipRequestForm({ user }) {
                     </div>
                   </FormGroup>
                 </>
-              )}
-
-              {form.mode === 'Freelance' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              ) : (
+                <>
                   <FormGroup label="Freelance Platform">
                     <SelectInput
                       value={form.freelancePlatform}
@@ -417,11 +442,13 @@ export default function InternshipRequestForm({ user }) {
                       required
                     />
                   </FormGroup>
-                  <p className="md:col-span-2 text-[9px] font-bold text-blue-600 italic px-1">
-                    <i className="fas fa-circle-info mr-1"></i>
-                    Your Faculty Supervisor will be the primary academic contact. No external site mentor details are required for Freelance mode.
-                  </p>
-                </div>
+                  <div className="md:col-span-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 flex items-center gap-3">
+                    <i className="fas fa-circle-info text-blue-500"></i>
+                    <p className="text-[10px] font-bold text-blue-600 italic">
+                      Your Faculty Supervisor will be the primary academic contact. No external site mentor details are required for Freelance mode.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -532,12 +559,10 @@ export default function InternshipRequestForm({ user }) {
             </div>
           )}
         </section>
-
-        {/* ── SECTION 03: SCHEDULE & LOGISTICS ── */}
         <section>
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center font-black text-xs shadow-lg shadow-rose-200">03</div>
-            <h3 className="text-sm font-black text-gray-800 tracking-widest uppercase">Schedule & Logistics</h3>
+            <h3 className="text-sm font-black text-gray-800 tracking-widest uppercase">Schedules</h3>
             <div className="h-[1px] bg-gray-100 flex-1 ml-2"></div>
           </div>
 
@@ -555,7 +580,10 @@ export default function InternshipRequestForm({ user }) {
               </SelectInput>
             </FormGroup>
 
-            <FormGroup label="Start Date">
+            <FormGroup 
+              label="Start Date" 
+              sublabel={activePhase?.scheduledEndAt ? `Must be before ${new Date(new Date(activePhase.scheduledEndAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}` : "Start date of your internship"}
+            >
               <TextInput
                 type="date"
                 value={form.startDate}
@@ -564,11 +592,12 @@ export default function InternshipRequestForm({ user }) {
               />
             </FormGroup>
 
-            <FormGroup label="End Date">
+            <FormGroup label="End Date (Auto-calculated)">
               <TextInput
                 type="date"
                 value={form.endDate}
-                onChange={e => setForm({ ...form, endDate: e.target.value })}
+                disabled={true}
+                className="bg-gray-50 opacity-70 cursor-not-allowed font-black"
                 required
               />
             </FormGroup>

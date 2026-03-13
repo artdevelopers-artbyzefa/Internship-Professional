@@ -17,6 +17,7 @@ import {
 } from '../emailServices/emailService.js';
 import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
+import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -326,7 +327,12 @@ router.post('/onboard-and-assign-site-supervisor', async (req, res) => {
         );
 
         // 2. See if user exists, if not onboard
-        let user = await User.findOne({ email: emailLower });
+        let user = await User.findOne({ 
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        });
         if (!user) {
             const rawToken = crypto.randomBytes(32).toString('hex');
             const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -378,7 +384,12 @@ router.post('/onboard-and-assign-faculty', async (req, res) => {
         const emailLower = email.toLowerCase().trim();
 
         // Check if exists
-        let faculty = await User.findOne({ email: emailLower });
+        let faculty = await User.findOne({ 
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        });
         if (!faculty) {
             const rawToken = crypto.randomBytes(32).toString('hex');
             const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -428,6 +439,19 @@ router.post('/decide-request', async (req, res) => {
         }
 
         await user.save();
+
+        // Notify Student
+        await createNotification({
+            recipient: studentId,
+            sender: req.user._id, // Set by protect middleware
+            type: 'internship_request',
+            title: `Internship Request ${decision.toUpperCase()}`,
+            message: decision === 'approve' 
+                ? 'Your internship request has been approved by the Office. Please proceed to the agreement stage.'
+                : `Your internship request was rejected: ${comment}`,
+            link: '/student/dashboard'
+        });
+
         console.log(`[${getPKTTime()}] [OFFICE] Internship Request ${decision === 'approve' ? 'Approved' : 'Rejected'} for ${user.email}`);
 
         res.json({ message: `Internship request ${decision}d` });
@@ -493,6 +517,19 @@ router.post('/decide-agreement', async (req, res) => {
         }
 
         await user.save();
+
+        // Notify Student
+        await createNotification({
+            recipient: studentId,
+            sender: req.user._id,
+            type: 'internship_request',
+            title: `Agreement ${decision.toUpperCase()}`,
+            message: decision === 'approve'
+                ? 'Your internship agreement has been verified and approved. You are now authorized to start the cycle.'
+                : `Your internship agreement was rejected: ${comment}`,
+            link: '/student/dashboard'
+        });
+
         console.log(`[${getPKTTime()}] [OFFICE] Agreement ${decision === 'approve' ? 'Approved' : 'Rejected'} for ${user.email}`);
 
         res.json({ message: `Agreement ${decision}d` });
@@ -557,6 +594,16 @@ router.post('/assign-student', async (req, res) => {
 
         student.status = 'Assigned';
         await student.save();
+
+        // Notify Student
+        await createNotification({
+            recipient: studentId,
+            sender: officeId,
+            type: 'internship_request',
+            title: 'Placement Finalized',
+            message: `You have been officially assigned to ${companyName}. Academic supervisor: ${faculty.name}.`,
+            link: '/student/dashboard'
+        });
 
         // 2. Log Action
         await new AuditLog({
@@ -775,7 +822,12 @@ router.post('/add-company', async (req, res) => {
                     const supervisorEmail = supervisor.email.toLowerCase().trim();
 
                     // Check if user already exists
-                    let user = await User.findOne({ email: supervisorEmail });
+                    let user = await User.findOne({ 
+                        $or: [
+                            { email: supervisorEmail },
+                            { secondaryEmail: supervisorEmail }
+                        ]
+                    });
                     if (!user) {
                         // Generate Activation Token
                         const rawToken = crypto.randomBytes(32).toString('hex');
@@ -881,7 +933,12 @@ router.post('/add-site-supervisor', async (req, res) => {
         await company.save();
 
         // 4. Onboard User
-        let user = await User.findOne({ email: supervisorEmail });
+        let user = await User.findOne({ 
+            $or: [
+                { email: supervisorEmail },
+                { secondaryEmail: supervisorEmail }
+            ]
+        });
         if (!user) {
             const rawToken = crypto.randomBytes(32).toString('hex');
             const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -1003,9 +1060,14 @@ router.post('/onboard-faculty', async (req, res) => {
 
         const emailLower = email.toLowerCase().trim();
 
-        const existing = await User.findOne({ email: emailLower });
+        const existing = await User.findOne({ 
+            $or: [
+                { email: emailLower },
+                { secondaryEmail: emailLower }
+            ]
+        });
         if (existing) {
-            return res.status(400).json({ message: 'Email is already registered.' });
+            return res.status(400).json({ message: 'This email is already registered or linked to an account.' });
         }
 
         // 2. Generate Secure Token
@@ -1063,6 +1125,7 @@ router.post('/onboard-student', async (req, res) => {
         const existing = await User.findOne({
             $or: [
                 { email: emailLower },
+                { secondaryEmail: emailLower },
                 { reg: reg.toUpperCase() }
             ]
         });

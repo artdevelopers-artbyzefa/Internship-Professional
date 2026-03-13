@@ -1,9 +1,12 @@
 import React from 'react';
 
-export function FormGroup({ label, error, children }) {
+export function FormGroup({ label, sublabel, error, children }) {
   return (
     <div className="mb-4">
-      {label && <label className="block text-xs font-medium text-gray-700 mb-1.5">{label}</label>}
+      <div className="flex flex-col mb-1.5">
+        {label && <label className="block text-xs font-black text-gray-700 uppercase tracking-tight">{label}</label>}
+        {sublabel && <span className="text-[10px] text-gray-400 font-medium italic">{sublabel}</span>}
+      </div>
       {children}
       {error && <div className="text-xs text-danger mt-1">{error}</div>}
     </div>

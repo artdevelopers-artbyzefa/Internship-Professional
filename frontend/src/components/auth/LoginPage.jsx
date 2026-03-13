@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button.jsx';
 import { FormGroup, TextInput, SelectInput } from '../ui/FormInput.jsx';
 import Alert from '../ui/Alert.jsx';
@@ -7,6 +8,7 @@ import { validate } from '../../utils/validation.js';
 import { showToast } from '../../utils/notifications.jsx';
 
 export default function LoginPage({ onLogin }) {
+  const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '', role: 'student' });
   const [otpMode, setOtpMode] = useState(false);
   const [otp, setOtp] = useState('');
@@ -160,7 +162,7 @@ export default function LoginPage({ onLogin }) {
             <input type="checkbox" className="rounded" /> Remember me
           </label>
           <button className="text-sm text-secondary underline bg-transparent border-0 cursor-pointer font-medium"
-            onClick={() => window._goForgot?.()}>Forgot Password?</button>
+            onClick={() => navigate('/forgot-password')}>Forgot Password?</button>
         </div>
 
         <Button variant="primary" block onClick={handleLogin} disabled={loading} className="mb-8">

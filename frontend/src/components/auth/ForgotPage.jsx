@@ -95,9 +95,9 @@ export default function ForgotPage({ onBack }) {
             {step === 1 && (
               <>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Enter your registered institutional email to receive a **6-digit security code**.
+                  Enter your registered email to receive a 6-digit security code.
                 </p>
-                <FormGroup label="Institutional Email">
+                <FormGroup label="Email">
                   <TextInput
                     iconLeft="fa-envelope"
                     type="email"

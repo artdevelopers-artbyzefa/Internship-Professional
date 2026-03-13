@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, getInitials } from '../../utils/helpers.js';
 import { apiRequest } from '../../utils/api.js';
-
-// ── Phase countdown chip ───────────────────────────────────────────────────
 function PhaseChip({ activePhase }) {
   const calc = useCallback(() => {
     if (!activePhase?.scheduledEndAt) return null;
@@ -46,10 +44,47 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
   const pageLabel = navItems.find(n => n.id === activePage)?.label || 'Dashboard';
 
   const [activePhase, setActivePhase] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = useCallback(() => {
+    apiRequest('/notifications').then(data => {
+      setNotifications(data || []);
+      setUnreadCount((data || []).filter(n => !n.read).length);
+    }).catch(() => { });
+  }, []);
 
   useEffect(() => {
-    apiRequest('/phases/current').then(d => setActivePhase(d)).catch(() => { });
-  }, []);
+    const fetchPhase = () => apiRequest('/phases/current').then(d => setActivePhase(d)).catch(() => { });
+    fetchPhase();
+    fetchNotifications();
+    
+    // Sync phase status and notifications every 3 minutes
+    const interval = setInterval(() => {
+        fetchPhase();
+        fetchNotifications();
+    }, 180000);
+
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await apiRequest('/notifications/mark-read', 'PATCH');
+      fetchNotifications();
+    } catch (err) { }
+  };
+
+  const handleNotifClick = async (notif) => {
+    try {
+      if (!notif.read) {
+        await apiRequest(`/notifications/${notif._id}/read`, 'PATCH');
+        fetchNotifications();
+      }
+      if (notif.link) navigate(notif.link);
+      setShowNotif(false);
+    } catch (err) { }
+  };
 
   const rolePaths = {
     student: '/student',
@@ -95,26 +130,57 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
             onClick={() => { setShowNotif(!showNotif); setShowDD(false); }}
             className="w-9 h-9 rounded-xl bg-gray-50 border-0 cursor-pointer flex items-center justify-center text-gray-600 hover:bg-blue-50 hover:text-secondary transition-all relative">
             <i className="fas fa-bell text-sm" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+            )}
           </button>
           {showNotif && (
-            <div className="absolute right-0 top-11 bg-white border border-gray-100 rounded-xl p-2 w-72 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
-              <div className="px-3 py-2 text-xs font-bold text-primary border-b border-gray-50 mb-1">Notifications</div>
-              {[
-                { icon: 'fa-file-alt', text: 'New internship application submitted', time: '2h ago' },
-                { icon: 'fa-calendar', text: 'Assignment deadline approaching in 2 days', time: '5h ago' },
-                { icon: 'fa-clipboard-check', text: 'Student evaluation pending your review', time: '1d ago' },
-              ].map((n, i) => (
-                <div key={i} className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <div className="w-7 h-7 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <i className={`fas ${n.icon} text-xs`} />
+            <div className="absolute right-0 top-11 bg-white border border-gray-100 rounded-2xl w-80 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+                <span className="text-[11px] font-black text-primary uppercase tracking-wider">Notifications</span>
+                {unreadCount > 0 && (
+                  <button onClick={handleMarkAllRead} className="text-[10px] font-bold text-secondary hover:underline bg-transparent border-0 cursor-pointer">
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+              <div className="max-h-[350px] overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map((n, i) => (
+                    <div 
+                      key={n._id || i} 
+                      onClick={() => handleNotifClick(n)}
+                      className={`flex items-start gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/80 cursor-pointer transition-colors ${!n.read ? 'bg-blue-50/30' : ''}`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        n.type === 'phase_change' ? 'bg-amber-50 text-amber-500' :
+                        n.type === 'assignment_submission' ? 'bg-emerald-50 text-emerald-500' :
+                        n.type === 'internship_request' ? 'bg-blue-50 text-blue-500' :
+                        'bg-slate-50 text-slate-500'
+                      }`}>
+                        <i className={`fas ${
+                          n.type === 'phase_change' ? 'fa-bolt' :
+                          n.type === 'assignment_submission' ? 'fa-file-upload' :
+                          n.type === 'internship_request' ? 'fa-user-clock' :
+                          'fa-bell'
+                        } text-xs`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs leading-snug ${!n.read ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>{n.title}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{n.message}</p>
+                        <p className="text-[9px] text-gray-300 font-bold uppercase mt-1.5 tracking-tighter">
+                          {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(n.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 flex flex-col items-center justify-center text-gray-300">
+                    <i className="fas fa-bell-slash text-2xl mb-2 opacity-20" />
+                    <p className="text-xs font-medium">No notifications yet</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-700 font-medium leading-tight">{n.text}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{n.time}</p>
-                  </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -145,9 +211,6 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
               </div>
               <div onClick={handleProfileClick} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-600 cursor-pointer transition-colors">
                 <i className="fas fa-user-circle w-4 text-primary" /> My Profile
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-500 cursor-pointer transition-colors">
-                <i className="fas fa-shield-halved w-4 text-blue-400" /> Account Security
               </div>
               <hr className="my-1 border-gray-100" />
               <div onClick={onLogout} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-sm text-red-500 cursor-pointer transition-colors">

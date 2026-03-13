@@ -173,31 +173,36 @@ export default function RegisteredStudents({ user }) {
 
     return (
         <div className="space-y-6 pb-20">
-            <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200/60 p-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200/60 p-4 md:p-8">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/5 text-primary flex items-center justify-center text-xl flex-shrink-0 border border-primary/10">
+                        <i className={`fas ${isSupervisor ? 'fa-user-check' : 'fa-users-viewfinder'}`} />
+                    </div>
                     <div>
-                        <h2 className="text-2xl font-black text-gray-800 tracking-tight">
+                        <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">
                             {isSupervisor ? 'My Assigned Interns' : 'Student Records'}
                         </h2>
-                        <p className="text-sm text-gray-400 font-medium mt-1">
+                        <p className="text-[10px] md:text-sm text-gray-400 font-medium uppercase tracking-wider block">
                             {isSupervisor
-                                ? `Students assigned to you for industrial supervision.`
-                                : isFaculty ? 'Students assigned to you for faculty supervision.' : 'Institutional student registry and placement monitoring.'}
+                                ? `Active student placements`
+                                : isFaculty ? 'Faculty supervision log' : 'Institutional student registry'}
                         </p>
                     </div>
-                    <div className="relative group">
-                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm group-focus-within:text-primary transition-all duration-300"></i>
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={e => { setSearch(e.target.value); setPage(1); }}
-                            placeholder="Search records..."
-                            className="pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary/20 w-80 transition-all shadow-sm"
-                        />
-                    </div>
                 </div>
+                <div className="relative group w-full lg:w-auto">
+                    <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm group-focus-within:text-primary transition-all duration-300"></i>
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
+                        placeholder="Search by name or reg..."
+                        className="pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary/20 w-full lg:w-80 transition-all shadow-sm"
+                    />
+                </div>
+            </div>
 
-                <div className="border-t border-gray-100 pt-6 relative min-h-[400px]">
+            <div className="relative min-h-[400px]">
                     {loading && (
                         <div className="absolute inset-x-0 top-6 bottom-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center rounded-xl">
                             <div className="w-10 h-10 border-4 border-slate-100 border-t-primary rounded-full animate-spin mb-3"></div>
@@ -220,29 +225,29 @@ export default function RegisteredStudents({ user }) {
                 </div>
 
                 {totalPages > 1 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between pt-8 mt-6 border-t border-gray-100 gap-4">
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] leading-none">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-8 mt-6 border-t border-gray-100">
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] leading-none order-2 sm:order-1">
                             Showing <span className="text-slate-700">{(page - 1) * 15 + 1}–{Math.min(page * 15, totalResults)}</span> of {totalResults}
                         </p>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-3 order-1 sm:order-2">
                             <button
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
                                 disabled={page === 1 || loading}
-                                className="w-10 h-10 rounded-xl border border-slate-200 text-slate-400 text-xs font-bold hover:bg-white hover:border-primary hover:text-primary disabled:opacity-30 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:cursor-not-allowed bg-slate-50"
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-2xl border border-slate-200 text-slate-400 text-sm font-bold hover:bg-white hover:border-primary hover:text-primary active:scale-95 disabled:opacity-30 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:cursor-not-allowed bg-slate-50"
                             >
                                 <i className="fas fa-chevron-left"></i>
                             </button>
 
-                            <div className="flex items-center gap-1.5 px-3 bg-slate-50 rounded-xl border border-slate-100">
-                                <span className="text-[10px] font-black text-primary">{page}</span>
+                            <div className="flex items-center gap-2 px-4 h-10 md:h-12 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
+                                <span className="text-xs font-black text-primary">{page}</span>
                                 <span className="text-[10px] font-black text-slate-300">/</span>
-                                <span className="text-[10px] font-black text-slate-400">{totalPages}</span>
+                                <span className="text-xs font-black text-slate-400">{totalPages}</span>
                             </div>
 
                             <button
                                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                 disabled={page === totalPages || loading}
-                                className="w-10 h-10 rounded-xl border border-slate-200 text-slate-400 text-xs font-bold hover:bg-white hover:border-primary hover:text-primary disabled:opacity-30 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:cursor-not-allowed bg-slate-50"
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-2xl border border-slate-200 text-slate-400 text-sm font-bold hover:bg-white hover:border-primary hover:text-primary active:scale-95 disabled:opacity-30 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:cursor-not-allowed bg-slate-50"
                             >
                                 <i className="fas fa-chevron-right"></i>
                             </button>

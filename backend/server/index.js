@@ -16,9 +16,12 @@ import analyticsRoutes from './routes/analytics.js';
 import phasesRoutes from './routes/phases.js';
 import supervisorRoutes from './routes/supervisor.js';
 import evaluationRoutes from './routes/evaluation.js';
+import notificationRoutes from './routes/notifications.js';
 import { getPKTTime } from './utils/time.js';
+import { seedPhases } from './routes/phases.js';
 
 dotenv.config();
+seedPhases();
 
 const app = express();
 app.set('trust proxy', 1);
@@ -63,6 +66,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/phases', phasesRoutes);
 app.use('/api/supervisor', supervisorRoutes);
 app.use('/api/evaluation', evaluationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Simple Health Check
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));

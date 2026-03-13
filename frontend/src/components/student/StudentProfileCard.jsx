@@ -4,8 +4,8 @@ export default function StudentProfileCard({ user }) {
     if (!user) return null;
 
     return (
-        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-6 mb-8 flex flex-col md:flex-row items-center gap-6">
-            <div className="w-24 h-24 rounded-2xl bg-gray-50 border overflow-hidden flex-shrink-0">
+        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-4 sm:p-6 mb-8 flex flex-col md:flex-row items-center gap-4 sm:gap-6">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gray-50 border overflow-hidden flex-shrink-0">
                 {user.profilePicture ? (
                     <img src={user.profilePicture} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
@@ -14,46 +14,38 @@ export default function StudentProfileCard({ user }) {
                     </div>
                 )}
             </div>
-            <div className="flex-1 text-center md:text-left overflow-hidden">
+            <div className="flex-1 text-center md:text-left min-w-0 w-full">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-                    <div>
-                        <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-none">{user.name}</h3>
-                        <div className="flex items-center gap-3 mt-2 justify-center md:justify-start">
-                            <span className="text-primary font-bold text-[10px] uppercase tracking-widest bg-primary/5 px-2 py-1 rounded-lg border border-primary/10">
-                                <i className="fas fa-id-card mr-1.5 opacity-50"></i> {user.reg}
+                    <div className="min-w-0">
+                        <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight truncate px-2">{user.name}</h3>
+                        <div className="flex flex-wrap items-center gap-2 mt-3 justify-center md:justify-start px-2">
+                            <span className="text-primary font-bold text-[9px] sm:text-[10px] uppercase tracking-wider bg-primary/5 px-2.5 py-1.5 rounded-xl border border-primary/10 flex items-center shrink-0">
+                                <i className="fas fa-id-card mr-2 opacity-60"></i> {user.reg}
                             </span>
-                            <span className="text-gray-400 font-bold text-[10px] uppercase tracking-widest bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
-                                <i className="fas fa-envelope mr-1.5 opacity-50"></i> {user.email}
+                            <span className="text-gray-400 font-bold text-[9px] sm:text-[10px] bg-gray-50 px-2.5 py-1.5 rounded-xl border border-gray-100 flex items-center min-w-0">
+                                <i className="fas fa-envelope mr-2 opacity-60 text-[10px] shrink-0"></i> 
+                                <span className="break-all sm:break-normal">{user.email}</span>
                             </span>
                         </div>
                     </div>
-                    <div className="flex flex-col items-center md:items-end gap-2 pr-2 hidden md:flex">
-                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border ${user.status === 'Assigned' || user.status === 'Agreement Approved'
-                            ? 'bg-emerald-500 text-white border-emerald-400'
-                            : 'bg-primary text-white border-primary/20'
-                            }`}>
-                            {user.status || 'Verified'}
-                        </span>
-                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Current Academic Status</p>
-                    </div>
                 </div>
 
-                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden divide-y md:divide-y-0 md:divide-x divide-gray-100 grid grid-cols-1 md:grid-cols-4">
-                    <div className="p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Father's Name</p>
-                        <p className="text-xs font-bold text-gray-800 truncate w-full">{user.fatherName || 'Information Pending'}</p>
+                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100">
+                    <div className="p-3 md:p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white">
+                        <p className="text-[8px] md:text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 md:mb-1.5">Father's Name</p>
+                        <p className="text-[10px] md:text-xs font-bold text-gray-800 truncate w-full text-center md:text-left">{user.fatherName || 'Pending'}</p>
                     </div>
-                    <div className="p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Classification</p>
-                        <p className="text-xs font-bold text-gray-800">Semester {user.semester || '—'} / Sec {user.section || '—'}</p>
+                    <div className="p-3 md:p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white">
+                        <p className="text-[8px] md:text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 md:mb-1.5">Classification</p>
+                        <p className="text-[10px] md:text-xs font-bold text-gray-800 text-center md:text-left">Sem {user.semester || '—'} / {user.section || '—'}</p>
                     </div>
-                    <div className="p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Current Merit</p>
-                        <p className="text-xs font-bold text-gray-800">{user.cgpa || '0.00'} CGPA</p>
+                    <div className="p-3 md:p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white">
+                        <p className="text-[8px] md:text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 md:mb-1.5">Academic Merit</p>
+                        <p className="text-[10px] md:text-xs font-bold text-gray-800 text-center md:text-left">{user.cgpa || '0.00'} CGPA</p>
                     </div>
-                    <div className="p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white bg-gray-50/10">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Registered Course</p>
-                        <p className="text-xs font-bold text-gray-800 truncate w-full">{user.registeredCourse || 'Internship'}</p>
+                    <div className="p-3 md:p-4 flex flex-col items-center md:items-start transition-colors hover:bg-white">
+                        <p className="text-[8px] md:text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 md:mb-1.5">Course</p>
+                        <p className="text-[10px] md:text-xs font-bold text-gray-800 truncate w-full text-center md:text-left">{user.registeredCourse || 'Internship'}</p>
                     </div>
                 </div>
             </div>

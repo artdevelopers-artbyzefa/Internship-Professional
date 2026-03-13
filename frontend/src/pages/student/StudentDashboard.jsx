@@ -6,7 +6,39 @@ import StudentProfileCard from '../../components/student/StudentProfileCard.jsx'
 import { apiRequest } from '../../utils/api.js';
 import { gradeFromPct, gradeColor, gradePointsFromPct } from '../../utils/helpers.js';
 
-export default function StudentDashboard({ user, isEligible, isPhase1, isPendingSetup, hardCriteriaMet, isProfileComplete: isProfileCompleteProp, activePhase }) {
+function CountdownDisplay({ targetDate }) {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const end = new Date(targetDate);
+      const diff = end - now;
+
+      if (diff <= 0) {
+        setTimeLeft('Time reached');
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      let str = '';
+      if (days > 0) str += `${days}d `;
+      str += `${hours}h ${mins}m`;
+      setTimeLeft(str);
+    };
+
+    update();
+    const timer = setInterval(update, 60000);
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  return <span className="text-xs font-black text-gray-800 tabular-nums">{timeLeft}</span>;
+}
+
+export default function StudentDashboard({ user, eligibility, isEligible, isPhase1, isPendingSetup, hardCriteriaMet, isProfileComplete: isProfileCompleteProp, activePhase }) {
   const [assignments, setAssignments] = useState([]);
   const [gradeInfo, setGradeInfo] = useState(null);
 
@@ -39,7 +71,12 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
   // ── Phase events for calendar ──
   const [allPhases, setAllPhases] = useState([]);
   useEffect(() => {
-    apiRequest('/phases').then(d => setAllPhases(d || [])).catch(() => { });
+    const fetchPhases = () => {
+      apiRequest('/phases').then(d => setAllPhases(d || [])).catch(() => { });
+    };
+    fetchPhases();
+    const interval = setInterval(fetchPhases, 300000); // 5 mins
+    return () => clearInterval(interval);
   }, []);
 
   // Build calendar events list (assignments + phase milestones)
@@ -88,14 +125,14 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
       const dayEvt = events.filter(e => e.day === d);
 
       days.push(
-        <div key={d} className={`h-16 md:h-24 p-1 md:p-2 border-b border-r border-gray-100 hover:bg-blue-50/20 transition-all ${isToday ? 'bg-blue-50/40' : 'bg-white'}`}>
-          <span className={`text-[9px] md:text-[10px] font-black inline-flex items-center justify-center ${isToday ? 'bg-primary text-white w-4 h-4 md:w-5 md:h-5 rounded-full' : 'text-gray-400'}`}>
+        <div key={d} className={`h-16 sm:h-20 md:h-24 p-1 md:p-2 border-b border-r border-gray-100 hover:bg-blue-50/20 transition-all ${isToday ? 'bg-blue-50/40' : 'bg-white'}`}>
+          <span className={`text-[8px] sm:text-[10px] font-black inline-flex items-center justify-center ${isToday ? 'bg-primary text-white w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-full' : 'text-gray-400'}`}>
             {d}
           </span>
-          <div className="mt-0.5 space-y-0.5">
-            {dayEvt.slice(0, 2).map((e, i) => (
+          <div className="mt-0.5 flex flex-col gap-0.5">
+            {dayEvt.slice(0, 3).map((e, i) => (
               <div key={i} title={e.label}
-                className={`px-1 py-0.5 rounded text-[7px] md:text-[8px] font-bold border truncate shadow-sm cursor-default ${e.type === 'phase'
+                className={`px-1 py-0.5 rounded text-[6px] sm:text-[8px] font-bold border truncate shadow-sm cursor-default ${e.type === 'phase'
                   ? e.phaseStatus === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                     : e.phaseStatus === 'completed' ? 'bg-blue-50 text-blue-500 border-blue-100'
                       : 'bg-indigo-50 text-indigo-500 border-indigo-100'
@@ -103,12 +140,11 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                     : 'bg-rose-50 text-rose-500 border-rose-100'
                   }`}>
-                <i className={`fas mr-0.5 ${e.type === 'phase' ? 'fa-flag' : e.submitted ? 'fa-check' : 'fa-clock'
-                  }`} />
-                <span className="hidden md:inline">{e.label}</span>
+                <i className={`fas sm:mr-0.5 ${e.type === 'phase' ? 'fa-flag' : e.submitted ? 'fa-check' : 'fa-clock'}`} />
+                <span className="hidden sm:inline">{e.label}</span>
               </div>
             ))}
-            {dayEvt.length > 2 && <div className="text-[7px] text-gray-400 font-bold">+{dayEvt.length - 2} more</div>}
+            {dayEvt.length > 3 && <div className="text-[6px] text-gray-400 font-bold">+{dayEvt.length - 3}</div>}
           </div>
         </div>
       );
@@ -119,20 +155,48 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
   // ── Phase 1 view ──
   const Phase1Dashboard = () => (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="mb-8 p-8 bg-white rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
-        <div className="relative z-10">
+      <div className="mb-8 p-8 bg-white rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="relative z-10 flex-1">
           <div className="flex items-center gap-3 mb-4">
             <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Stage 1</span>
             <span className="text-sm font-bold text-primary">Pre-internship Verification</span>
           </div>
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight leading-none mb-3">Welcome to COMSATS University Abbottabad Internship Portal</h2>
+          <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-none mb-3">Welcome to COMSATS University Abbottabad Internship Portal</h2>
           <p className="text-gray-500 font-medium max-w-xl">
             Complete your institutional registration to proceed with the academic internship cycle.
           </p>
         </div>
+
+        {/* Phase 2 Countdown for Phase 1 view */}
+        {(() => {
+            const p2 = allPhases.find(p => p.order === 2);
+            if (p2?.scheduledStartAt) {
+                return (
+                    <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl shadow-inner min-w-[200px]">
+                        <p className="text-[9px] font-black text-indigo-400 tracking-widest uppercase mb-2">Phase 2 Starts In</p>
+                        <div className="flex items-center gap-3">
+                            <CountdownDisplay targetDate={p2.scheduledStartAt} />
+                            <i className="fas fa-calendar-check text-indigo-400" />
+                        </div>
+                    </div>
+                );
+            }
+            if (activePhase?.scheduledEndAt) {
+                return (
+                    <div className="bg-amber-50 border border-amber-100 p-5 rounded-2xl shadow-inner min-w-[200px]">
+                        <p className="text-[9px] font-black text-amber-500 tracking-widest uppercase mb-2">Registration Deadline</p>
+                        <div className="flex items-center gap-3">
+                            <CountdownDisplay targetDate={activePhase.scheduledEndAt} />
+                            <i className="fas fa-clock text-amber-500 animate-pulse" />
+                        </div>
+                    </div>
+                );
+            }
+            return null;
+        })()}
       </div>
 
-      <Phase1EligibilityBanner user={user} />
+      <Phase1EligibilityBanner user={user} eligibility={eligibility} activePhase={activePhase} />
 
       {isPendingSetup && (
         <Alert type="warning" title="Finalize Academic Profile" className="mt-8 shadow-sm">
@@ -154,24 +218,48 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
 
       {/* Header with phase progress */}
-      <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">
-            Welcome back, {user.name?.split(' ')[0]}
-          </h2>
-          <p className="text-xs text-gray-400 font-medium mt-1">
-            {user.reg}{user.assignedCompany ? ` · ${user.assignedCompany}` : ''}
-          </p>
+      <div className="bg-white p-5 md:p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-primary/5 text-primary flex items-center justify-center text-xl shadow-inner">
+            <i className="fas fa-user-graduate" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg md:text-2xl font-black text-gray-800 tracking-tight truncate">
+              Welcome back, {user.name?.split(' ')[0]}
+            </h2>
+            <p className="text-[10px] md:text-xs text-gray-400 font-medium mt-1 uppercase tracking-wider flex flex-wrap items-center gap-x-2">
+              <span className="shrink-0">{user.reg}</span>
+              {user.assignedCompany && (
+                <span className="flex items-center gap-2">
+                  <span className="hidden sm:inline text-gray-200">|</span>
+                  <span className="truncate max-w-[180px] sm:max-w-none text-gray-500 font-bold italic">{user.assignedCompany}</span>
+                </span>
+              )}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="text-right">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Phase Progress</p>
-            <p className="text-sm font-black text-primary">{activePhase?.label || 'Active'}</p>
-            <div className="mt-2 w-36 bg-gray-100 h-1.5 rounded-full overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-center gap-4 bg-gray-50/50 p-3 md:p-4 rounded-xl border border-gray-100/50 lg:bg-transparent lg:p-0 lg:border-0 lg:ml-auto">
+          {/* Phase Countdown */}
+          {activePhase?.scheduledEndAt && (
+            <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+                <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Time Remaining</span>
+                    <CountdownDisplay targetDate={activePhase.scheduledEndAt} />
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center text-xs">
+                    <i className="fas fa-hourglass-half animate-pulse" />
+                </div>
+            </div>
+          )}
+
+          <div className="text-right flex-1 lg:flex-none ml-4">
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Phase Progress</p>
+            <p className="text-xs md:text-sm font-black text-primary truncate max-w-[120px]">{activePhase?.label || 'Active'}</p>
+            <div className="mt-2 w-full lg:w-36 bg-gray-200 h-1.5 rounded-full overflow-hidden">
               <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${(phaseOrder / 5) * 100}%` }} />
             </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white text-lg font-black shadow-lg shadow-primary/20">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary flex items-center justify-center text-white text-sm md:text-lg font-black shadow-lg shadow-primary/20 flex-shrink-0">
             {phaseOrder}
           </div>
         </div>
@@ -225,25 +313,25 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
       {/* Full-width Calendar */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Calendar toolbar */}
-        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/40 flex items-center justify-between">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-100 bg-gray-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-1 h-5 bg-primary rounded-full" />
-            <h3 className="text-xs font-black text-gray-700 uppercase tracking-widest">Academic Calendar</h3>
+            <h3 className="text-[10px] md:text-xs font-black text-gray-700 uppercase tracking-widest">Academic Calendar</h3>
             {assignments.length > 0 && (
-              <span className="px-2 py-0.5 bg-rose-50 text-rose-500 text-[9px] font-black rounded-full border border-rose-100 uppercase tracking-wider">
-                {assignments.length} Deadline{assignments.length !== 1 ? 's' : ''}
+              <span className="px-2 py-0.5 bg-rose-50 text-rose-500 text-[8px] md:text-[9px] font-black rounded-full border border-rose-100 uppercase tracking-wider">
+                {assignments.length} Task{assignments.length !== 1 ? 's' : ''}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between sm:justify-end gap-3">
             <span className="text-xs font-black text-gray-700">
               {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
             </span>
             <div className="flex gap-1">
-              <button onClick={prevMonth} className="w-7 h-7 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-primary hover:border-primary/20 transition-all flex items-center justify-center cursor-pointer shadow-sm border-0">
+              <button onClick={prevMonth} className="w-8 h-8 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-primary hover:border-primary/20 transition-all flex items-center justify-center cursor-pointer shadow-sm">
                 <i className="fas fa-chevron-left text-[10px]" />
               </button>
-              <button onClick={nextMonth} className="w-7 h-7 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-primary hover:border-primary/20 transition-all flex items-center justify-center cursor-pointer shadow-sm border-0">
+              <button onClick={nextMonth} className="w-8 h-8 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-primary hover:border-primary/20 transition-all flex items-center justify-center cursor-pointer shadow-sm">
                 <i className="fas fa-chevron-right text-[10px]" />
               </button>
             </div>
@@ -263,15 +351,15 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
         </div>
 
         {/* Legend */}
-        <div className="px-6 py-3 bg-gray-50/30 border-t border-gray-50 flex items-center gap-6">
-          <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-            <span className="w-3 h-3 rounded bg-primary inline-block" /> Today
+        <div className="px-4 md:px-6 py-3 bg-gray-50/30 border-t border-gray-50 flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-wider">
+            <span className="w-2.5 h-2.5 rounded bg-blue-100 border border-blue-200 inline-block" /> Today
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-            <span className="w-3 h-3 rounded bg-rose-400 inline-block" /> Deadline (Pending)
+          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-wider">
+            <span className="w-2.5 h-2.5 rounded bg-rose-400 inline-block" /> Overdue / Pending
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-            <span className="w-3 h-3 rounded bg-emerald-400 inline-block" /> Submitted
+          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-wider">
+            <span className="w-2.5 h-2.5 rounded bg-emerald-400 inline-block" /> Completed
           </div>
         </div>
       </div>
@@ -291,24 +379,24 @@ export default function StudentDashboard({ user, isEligible, isPhase1, isPending
                 const daysLeft = Math.ceil((dl - today) / (1000 * 60 * 60 * 24));
                 const submitted = a.submissionStatus === 'Submitted';
                 return (
-                  <div key={i} className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${submitted ? 'bg-emerald-50 text-emerald-500' : isOverdue ? 'bg-rose-50 text-rose-500' : 'bg-primary/5 text-primary'}`}>
+                  <div key={i} className="px-4 md:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/40 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-xs md:text-sm flex-shrink-0 ${submitted ? 'bg-emerald-50 text-emerald-500' : isOverdue ? 'bg-rose-50 text-rose-500' : 'bg-primary/5 text-primary'}`}>
                         <i className={`fas ${submitted ? 'fa-check-circle' : 'fa-clock'}`} />
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-800 leading-none">{a.title}</p>
-                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{a.courseTitle || 'Company Task'}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-gray-800 leading-tight truncate">{a.title}</p>
+                        <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase tracking-wider">{a.courseTitle || 'Company Task'}</p>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 flex items-center gap-4">
+                    <div className="flex items-center justify-between sm:justify-end gap-6 bg-gray-50 sm:bg-transparent p-2.5 sm:p-0 rounded-xl">
                       {submitted && (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[9px] font-black rounded-full border border-emerald-100 uppercase tracking-wider">Submitted</span>
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[9px] font-black rounded-full border border-emerald-100 uppercase tracking-wider">Success</span>
                       )}
-                      <div>
-                        <p className="text-xs font-black text-gray-700">{dl.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                        <p className={`text-[9px] font-black uppercase tracking-wider mt-0.5 text-right ${submitted ? 'text-emerald-500' : isOverdue ? 'text-rose-500' : daysLeft <= 3 ? 'text-amber-500' : 'text-gray-400'}`}>
-                          {submitted ? 'Done' : isOverdue ? 'Overdue' : daysLeft === 0 ? 'Due Today' : `${daysLeft}d left`}
+                      <div className="text-right">
+                        <p className="text-xs font-black text-gray-700">{dl.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
+                        <p className={`text-[9px] font-black uppercase tracking-wider mt-0.5 ${submitted ? 'text-emerald-500' : isOverdue ? 'text-rose-500' : daysLeft <= 3 ? 'text-amber-500' : 'text-gray-400'}`}>
+                          {submitted ? 'Verified' : isOverdue ? 'Overdue' : daysLeft === 0 ? 'Today' : `${daysLeft}d left`}
                         </p>
                       </div>
                     </div>

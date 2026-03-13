@@ -8,16 +8,15 @@ import Evaluation from '../models/Evaluation.js';
 import Archive from '../models/Archive.js';
 import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
+import { createBulkNotifications, createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
-
-// ... existing DEFAULT_PHASES ...
 
 // @route   POST api/phases/:id/start
 // @desc    Manually activate a phase (IO override)
 router.post('/:id/start', async (req, res) => {
     try {
-        const { officeId } = req.body;
+        const { officeId, scheduledEndAt } = req.body;
         const phase = await Phase.findById(req.params.id);
         if (!phase) return res.status(404).json({ message: 'Phase not found.' });
         if (phase.status === 'active') return res.status(400).json({ message: 'This phase is already active.' });
@@ -34,7 +33,7 @@ router.post('/:id/start', async (req, res) => {
                     // Mark as Failed if they were in an active track but did nothing
                     const allowedStatuses = ['Assigned', 'Internship Approved', 'Agreement Approved'];
                     if (allowedStatuses.includes(student.status)) {
-                        student.status = 'Fail'; // Or a custom status if preferred
+                        student.status = 'Fail'; 
                         await student.save();
                         console.log(`[PHASE 4] Student ${student.reg} marked as Failed (No Submissions).`);
                     }
@@ -51,8 +50,6 @@ router.post('/:id/start', async (req, res) => {
             const archiveData = [];
 
             for (const s of students) {
-                // Calculate their final percentage and grade before reset
-                // Only consider marks that have been finalized by faculty
                 const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
                 let avg = 0, pct = 0, grade = 'F';
 
@@ -67,7 +64,6 @@ router.post('/:id/start', async (req, res) => {
                     avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
                     pct = Math.round((avg / 10) * 100);
 
-                    // Grade mapping
                     if (pct >= 85) grade = 'A';
                     else if (pct >= 80) grade = 'A-';
                     else if (pct >= 75) grade = 'B+';
@@ -95,7 +91,6 @@ router.post('/:id/start', async (req, res) => {
                 });
             }
 
-            // Save to Archive before Purge
             const cycleName = `Internship Cycle - ${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
             const stats = {
                 totalStudents: archiveData.length,
@@ -113,10 +108,6 @@ router.post('/:id/start', async (req, res) => {
             });
             await newArchive.save();
 
-            // ── DATA PURGE & RESET (Clean Slate) ────────────────────────────────
-            // Required to remove all data from the current cycle for a fresh start.
-
-            // Dynamic import Company to avoid circular dependencies if any
             const Company = await import('../models/Company.js').then(m => m.default);
             const Notice = await import('../models/Notice.js').then(m => m.default);
             const Assignment = await import('../models/Assignment.js').then(m => m.default);
@@ -127,14 +118,11 @@ router.post('/:id/start', async (req, res) => {
                 Evaluation.deleteMany({}),
                 Assignment.deleteMany({}),
                 Notice.deleteMany({}),
-                Company.deleteMany({}), // Clean slate for companies too
-                AuditLog.deleteMany({}), // Optional: Wipe logs for fresh start, or keep if history is needed. User explicitly asked for clean slate.
-
-                // Delete all students, faculty, and site supervisors. Keep IO and HOD.
+                Company.deleteMany({}), 
+                AuditLog.deleteMany({}), 
                 User.deleteMany({ role: { $in: ['student', 'faculty_supervisor', 'site_supervisor'] } })
             ]);
 
-            // 2. Reset all Phases to pending except Phase 1 stays active for the next cycle
             await Phase.updateMany({}, {
                 $set: {
                     status: 'pending',
@@ -156,7 +144,6 @@ router.post('/:id/start', async (req, res) => {
                 await p1.save();
             }
 
-            // Create a fresh log for the new cycle start
             await new AuditLog({
                 action: 'SYSTEM_RESET_PHASE_5',
                 performedBy: officeId,
@@ -165,16 +152,26 @@ router.post('/:id/start', async (req, res) => {
             }).save();
 
             console.log(`[${getPKTTime()}] [PHASE 5] System Purged & Archived: ${cycleName}`);
-
-            return res.json({ message: `Cycle archived and system reset. Companies and records purged. Starting Phase 1 again.` });
+            return res.json({ message: `Cycle archived and system reset. Starting Phase 1 again.` });
         }
 
         await Phase.updateMany({ status: 'active' }, { $set: { status: 'completed', completedAt: new Date(), completedBy: officeId } });
 
         phase.status = 'active';
         phase.startedAt = new Date();
-        phase.startedBy = officeId;
+        if (scheduledEndAt) {
+            phase.scheduledEndAt = new Date(scheduledEndAt);
+        }
         await phase.save();
+ 
+        // Notify ALL users about phase change
+        const allUsers = await User.find({}, '_id');
+        await createBulkNotifications(allUsers.map(u => u._id), {
+            type: 'phase_change',
+            title: `System Alert: ${phase.label}`,
+            message: `The internship cycle has progressed. ${phase.label} is now active.`,
+            link: '/'
+        });
 
         await new AuditLog({ action: 'PHASE_STARTED', performedBy: officeId, details: `Phase "${phase.label}" manually started.`, ipAddress: req.ip }).save();
         console.log(`[${getPKTTime()}] [PHASE] Manually started: ${phase.label}`);
@@ -194,8 +191,7 @@ const DEFAULT_PHASES = [
     { key: 'completion', label: 'Phase 5: Completion & Closure', description: 'Final results are compiled and the internship cycle is officially concluded.', icon: 'fa-flag-checkered', order: 5 },
 ];
 
-// Helper: seed phase records on first launch
-const seedPhases = async () => {
+export const seedPhases = async () => {
     const count = await Phase.countDocuments();
     if (count === 0) {
         await Phase.insertMany(DEFAULT_PHASES.map(p => ({ ...p, status: 'pending' })));
@@ -220,6 +216,15 @@ const autoAdvanceBySchedule = async () => {
         phase.status = 'active';
         phase.startedAt = now;
         await phase.save();
+ 
+        // Auto-notify on schedule hit
+        const allUsers = await User.find({}, '_id');
+        await createBulkNotifications(allUsers.map(u => u._id), {
+            type: 'phase_change',
+            title: `System Alert: ${phase.label}`,
+            message: `The internship cycle has automatically progressed to ${phase.label}.`,
+            link: '/'
+        });
         console.log(`[${getPKTTime()}] [AUTO-PHASE] Started: ${phase.label}`);
     }
 
@@ -236,9 +241,7 @@ const autoAdvanceBySchedule = async () => {
 // @route   GET api/phases/current
 router.get('/current', async (req, res) => {
     try {
-        await seedPhases();
-        await autoAdvanceBySchedule();
-        const active = await Phase.findOne({ status: 'active' });
+        const active = await Phase.findOne({ status: 'active' }).lean();
         res.json(active || null);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
@@ -248,9 +251,7 @@ router.get('/current', async (req, res) => {
 // @route   GET api/phases
 router.get('/', async (req, res) => {
     try {
-        await seedPhases();
-        await autoAdvanceBySchedule();
-        const phases = await Phase.find().sort({ order: 1 }).populate('startedBy completedBy', 'name');
+        const phases = await Phase.find().sort({ order: 1 }).populate('startedBy completedBy', 'name').lean();
         res.json(phases);
     } catch (err) {
         console.error(err);

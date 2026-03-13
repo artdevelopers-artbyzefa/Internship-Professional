@@ -11,6 +11,7 @@ import AuditLog from '../models/AuditLog.js';
 import { protect } from '../middleware/auth.js';
 import { uploadCloudinary } from '../utils/cloudinary.js';
 import https from 'https';
+import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -89,6 +90,16 @@ router.post('/handle-request', protect, isFaculty, async (req, res) => {
         }
 
         await student.save();
+
+        // Notify Student
+        await createNotification({
+            recipient: studentId,
+            sender: req.user.id,
+            type: 'internship_request',
+            title: `Supervision Request ${action}`,
+            message: `Faculty Supervisor ${req.user.name} has ${action.toLowerCase()} your internship supervision request.`,
+            link: '/student/dashboard'
+        });
 
         // Audit Log
         await new AuditLog({
@@ -224,6 +235,16 @@ router.post('/submit-marks', protect, isFaculty, async (req, res) => {
 
         await markEntry.save();
 
+        // Notify Student
+        await createNotification({
+            recipient: studentId,
+            sender: req.user.id,
+            type: 'assignment_submission',
+            title: 'Assignment Graded',
+            message: `Faculty has graded your submission for "${assignment.title}".`,
+            link: '/student/marks'
+        });
+
         // 3. Audit Log
         await new AuditLog({
             action,
@@ -330,6 +351,19 @@ router.post('/create-assignment', protect, isFaculty, uploadCloudinary.single('f
         });
 
         await assignment.save();
+
+        // Notify all assigned students
+        const students = await User.find({ assignedFaculty: req.user.id, role: 'student' }, '_id');
+        for (const student of students) {
+            await createNotification({
+                recipient: student._id,
+                sender: req.user.id,
+                type: 'assignment_submission',
+                title: 'New Assignment Posted',
+                message: `Supervisor ${req.user.name} posted a new task: "${title}".`,
+                link: '/student/assignments'
+            });
+        }
 
         // Audit Log
         await new AuditLog({
@@ -607,6 +641,16 @@ router.post('/weekly-evaluations/:studentId', protect, isFaculty, async (req, re
                     updatedBy: req.user.id
                 });
                 await mark.save();
+
+                // Notify Student
+                await createNotification({
+                    recipient: req.params.studentId,
+                    sender: req.user.id,
+                    type: 'assignment_submission',
+                    title: 'Weekly Report Evaluated',
+                    message: `Your weekly progress has been evaluated by ${req.user.name}.`,
+                    link: '/student/marks'
+                });
             }
         }
 

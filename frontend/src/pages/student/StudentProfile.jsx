@@ -97,7 +97,14 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
                 iconLeft="fa-user-tie"
                 placeholder="Enter father's name"
                 value={form.fatherName}
-                onChange={e => setForm({ ...form, fatherName: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (/\d/.test(val)) {
+                    showToast.error("Father's Name cannot contain numbers");
+                    return;
+                  }
+                  setForm({ ...form, fatherName: val });
+                }}
                 disabled={isDisabled}
               />
             </FormGroup>
@@ -107,7 +114,10 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
                 iconLeft="fa-users-rectangle"
                 placeholder="e.g. A, B, C"
                 value={form.section}
-                onChange={e => setForm({ ...form, section: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value.toUpperCase().replace(/[^A-D]/g, '').slice(0, 1);
+                  setForm({ ...form, section: val });
+                }}
                 disabled={isDisabled}
               />
             </FormGroup>
@@ -165,8 +175,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
               </FormGroup>
             </div>
 
-            {!user.secondaryEmail && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-dashed">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-dashed">
                 <FormGroup label="New Password">
                   <TextInput
                     type="password"
@@ -188,8 +197,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
                     disabled={isDisabled}
                   />
                 </FormGroup>
-              </div>
-            )}
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t">

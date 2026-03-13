@@ -132,7 +132,7 @@ export default function SupervisorDashboard({ user, activePhase }) {
                         <i className="fas fa-info-circle text-lg" />
                     </div>
                     <div>
-                        <p className="text-xs font-black text-blue-700 uppercase tracking-widest">Phase 2: Placement & Approvals</p>
+                        <p className="text-xs font-black text-blue-700 uppercase tracking-widest">Placement & Approvals</p>
                         <p className="text-xs text-blue-500 font-medium mt-0.5">Assigned interns are currently undergoing administrative approvals. Assignments and grading will unlock in Phase 3.</p>
                     </div>
                 </div>

@@ -15,22 +15,33 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
   const location = useLocation();
   const status = user.status || 'verified';
   const [activePhase, setActivePhase] = useState(undefined);
-  const [isEligible, setIsEligible] = useState(true);
-  const [hardCriteriaMet, setHardCriteriaMet] = useState(true); // can the student participate at all?
+  const [eligibility, setEligibility] = useState(null);
 
   useEffect(() => {
     const userId = user.id || user._id;
-    Promise.all([
-      apiRequest('/phases/current'),
-      apiRequest(`/student/eligibility/${userId}`)
-    ])
-      .then(([phase, eligData]) => {
-        setActivePhase(phase);
-        setIsEligible(eligData?.eligible ?? true);
-        setHardCriteriaMet(eligData?.hardCriteriaMet ?? true);
-      })
-      .catch(() => setActivePhase(null));
-  }, []);
+    const fetchData = () => {
+      Promise.all([
+        apiRequest('/phases/current'),
+        apiRequest(`/student/eligibility/${userId}`)
+      ])
+        .then(([phase, eligData]) => {
+          setActivePhase(phase);
+          setEligibility(eligData);
+        })
+        .catch(() => {
+          setActivePhase(null);
+          setEligibility({ eligible: true, hardCriteriaMet: true });
+        });
+    };
+
+    fetchData();
+    // Re-fetch every 3 minutes to keep countdowns and UI in sync with IO overrides
+    const interval = setInterval(fetchData, 180000);
+    return () => clearInterval(interval);
+  }, [user.id, user._id]);
+
+  const isEligible = eligibility?.eligible ?? true;
+  const hardCriteriaMet = eligibility?.hardCriteriaMet ?? true;
 
   const isGlobalPhase1 = activePhase?.key === 'registration';
   // Derive from real user data so it reacts when onUpdateUser is called
@@ -144,12 +155,12 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
       <div className="p-6">
         <Routes>
           {/* Dashboard & Profile — always accessible */}
-          <Route path="dashboard" element={<StudentDashboard user={user} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} hardCriteriaMet={hardCriteriaMet} isProfileComplete={isProfileComplete} activePhase={activePhase} />} />
-          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} activePhase={activePhase} />} />
+          <Route path="dashboard" element={<StudentDashboard user={user} eligibility={eligibility} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} hardCriteriaMet={hardCriteriaMet} isProfileComplete={isProfileComplete} activePhase={activePhase} />} />
+          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} eligibility={eligibility} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} activePhase={activePhase} />} />
 
           {/* Institutional Workflow Routes */}
           <Route path="internship-assessment" element={
-            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} activePhase={activePhase} />
           } />
           <Route path="internship-status" element={
             isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipStatus user={user} activePhase={activePhase} />
