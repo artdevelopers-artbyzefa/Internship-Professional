@@ -13,11 +13,9 @@ import nodemailer from 'nodemailer';
  * Central transporter logic using institutional SMTP relay
  */
 const getTransporter = () => {
-    // Priority: 1. SMTP_USER env var, 2. Known working default, 3. SENDER_EMAIL fallback
     let smtpUser = process.env.SMTP_USER;
     
     if (!smtpUser) {
-        // Fallback to the working credential found in local config to rescue the live site
         smtpUser = 'a4dd03001@smtp-brevo.com';
         console.warn(`[EMAIL] SMTP_USER missing. Using fallback: ${smtpUser}`);
     }
