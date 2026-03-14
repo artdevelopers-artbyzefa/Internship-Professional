@@ -16,6 +16,7 @@ import RegisteredStudents from './RegisteredStudents.jsx';
 import SiteSupervisorManagement from './SiteSupervisorManagement.jsx';
 import PhaseManagement from './PhaseManagement.jsx';
 import InternshipRequestsManager from './InternshipRequestsManager.jsx';
+import EmailCenter from './EmailCenter.jsx';
 
 const officeNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
@@ -27,6 +28,7 @@ const officeNav = [
   { id: 'company-registry', label: 'Company Registry', icon: 'fa-building' },
   { id: 'notice-board', label: 'Notice Board', icon: 'fa-bullhorn' },
   { id: 'archive', label: 'Historical Archives', icon: 'fa-database' },
+  { id: 'email-center', label: 'Email Center', icon: 'fa-envelope-open-text' },
   { id: 'phase-control', label: 'Phase Control', icon: 'fa-layer-group' }
 ];
 
@@ -77,6 +79,7 @@ export default function InternshipOfficePortal({ user, onLogout }) {
           <Route path="download-reports" element={<OfficeReports user={user} />} />
           <Route path="notice-board" element={<NoticeManagement user={user} />} />
           <Route path="archive" element={<HODArchive />} />
+          <Route path="email-center" element={<EmailCenter />} />
           <Route path="phase-control" element={<PhaseManagement user={user} />} />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />

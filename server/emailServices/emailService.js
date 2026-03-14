@@ -7,47 +7,46 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+import nodemailer from 'nodemailer';
+
 /**
- * Central helper to send transactional emails via Brevo API
+ * Central transporter logic using institutional SMTP relay
  */
+const getTransporter = () => {
+    return nodemailer.createTransport({
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.SMTP_USER || process.env.SENDER_EMAIL,
+            pass: process.env.BREVO_API_KEY
+        }
+    });
+};
+
 const brevoSend = async (to, subject, html) => {
   const SENDER_NAME = process.env.SENDER_NAME;
   const SENDER_EMAIL = process.env.SENDER_EMAIL;
-  const API_KEY = process.env.BREVO_API_KEY;
 
-  if (!API_KEY || !SENDER_NAME || !SENDER_EMAIL) {
-    console.error(`[EMAIL ERROR] Brevo configuration missing! SENDER_NAME: ${SENDER_NAME}, SENDER_EMAIL: ${SENDER_EMAIL}, API_KEY: ${API_KEY ? 'Present' : 'Missing'}`);
-    return { success: false, error: 'Brevo config missing' };
+  if (!process.env.BREVO_API_KEY || !SENDER_NAME || !SENDER_EMAIL) {
+    console.error(`[EMAIL ERROR] SMTP configuration missing!`);
+    return { success: false, error: 'SMTP config missing' };
   }
 
   try {
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'api-key': API_KEY
-      },
-      body: JSON.stringify({
-        sender: { name: SENDER_NAME, email: SENDER_EMAIL },
-        to: [{ email: to }],
-        subject: subject,
-        htmlContent: html
-      })
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+        to,
+        subject,
+        html
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      console.log(`[EMAIL SUCCESS] Sent to: ${to} (MessageId: ${data.messageId || 'N/A'})`);
-      return { success: true };
-    } else {
-      console.error('[EMAIL ERROR] Brevo API failed:', JSON.stringify(data, null, 2));
-      return { success: false, error: data };
-    }
+    console.log(`[EMAIL SUCCESS] Sent to: ${to} (MessageId: ${info.messageId})`);
+    return { success: true };
   } catch (error) {
-    console.error('[EMAIL ERROR] Fetch/Connection failed:', error);
-    return { success: false, error };
+    console.error('[EMAIL ERROR] SMTP failed:', error);
+    return { success: false, error: error.message };
   }
 };
 
@@ -251,4 +250,51 @@ export const sendCompanySupervisorActivationEmail = async (email, token, name, c
     </div>
   `;
   return await brevoSend(email, `Official Onboarding: Site Supervisor for ${companyName}`, html);
+};
+/**
+ * Sends a custom bulk email to multiple recipients
+ * Uses bcc for privacy if sending the same message to everyone
+ */
+export const sendBulkEmailService = async (recipients, subject, content) => {
+  const SENDER_NAME = process.env.SENDER_NAME;
+  const SENDER_EMAIL = process.env.SENDER_EMAIL;
+
+  if (!process.env.BREVO_API_KEY) return { success: false, error: 'SMTP config missing' };
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+      <div style="background-color: #1e3a8a; padding: 30px; text-align: center;">
+        <h2 style="color: #ffffff; margin: 0; font-size: 20px;">DIMS Official Communication</h2>
+        <p style="color: #bfdbfe; font-size: 12px; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Internship Office - CUI Abbottabad</p>
+      </div>
+      <div style="padding: 40px; color: #334155; line-height: 1.6; font-size: 15px;">
+        ${content.replace(/\n/g, '<br/>')}
+      </div>
+      <div style="background-color: #f8fafc; padding: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+        <p style="color: #94a3b8; font-size: 11px; margin: 0;">
+          This is an official institutional announcement sent via the Digital Internship Management System.
+        </p>
+        <p style="color: #94a3b8; font-size: 11px; margin-top: 5px;">
+          &copy; 2026 COMSATS University Islamabad, Abbottabad Campus
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+        to: SENDER_EMAIL, // Primary recipient is the sender
+        bcc: recipients,
+        subject,
+        html
+    });
+
+    console.log(`[BULK SUCCESS] Sent to ${recipients.length} recipients. MessageId: ${info.messageId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('[BULK EMAIL ERROR]', error);
+    return { success: false, error: error.message };
+  }
 };

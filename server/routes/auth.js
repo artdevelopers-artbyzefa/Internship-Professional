@@ -253,16 +253,24 @@ router.post('/verify-reset-code', async (req, res) => {
 router.post('/reset-password-final', async (req, res) => {
     try {
         const { email, code, newPassword } = req.body;
+        if (!email || !code || !newPassword) {
+            return res.status(400).json({ message: 'Missing required fields.' });
+        }
+
         const emailLower = email.toLowerCase().trim();
+        const codeClean = code.toString().trim();
+
+        console.log(`[RESET-PW] Attempting final reset for ${emailLower} with code ${codeClean}`);
 
         const user = await User.findOne({
             email: emailLower,
-            resetPasswordCode: code,
-            resetPasswordExpires: { $gt: Date.now() }
+            resetPasswordCode: codeClean,
+            resetPasswordExpires: { $gt: new Date() }
         });
 
         if (!user) {
-            return res.status(400).json({ message: 'Your session has expired. Please request a new code.' });
+            console.log(`[RESET-PW-FAIL] No user or expired session for ${emailLower}`);
+            return res.status(400).json({ message: 'Your session has expired or code is invalid. Please request a new code.' });
         }
 
         // 1. Hash and Save
@@ -274,9 +282,11 @@ router.post('/reset-password-final', async (req, res) => {
 
         await user.save();
 
+        console.log(`[RESET-PW-SUCCESS] Password updated for ${emailLower}`);
         res.json({ message: 'Password reset successful! You can now log in.' });
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('[RESET-PW-ERROR]', err);
+        res.status(500).json({ message: `Server error: ${err.message}` });
     }
 });
 

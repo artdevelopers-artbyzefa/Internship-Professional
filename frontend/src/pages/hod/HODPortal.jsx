@@ -7,12 +7,14 @@ import HODApprovedResults from './HODApprovedResults.jsx';
 import HODReports from './HODReports.jsx';
 import HODArchive from './HODArchive.jsx';
 import RegisteredStudents from '../office/RegisteredStudents.jsx';
+import EmailCenter from '../office/EmailCenter.jsx';
 import { apiRequest } from '../../utils/api.js';
 
 const hodNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-shield-halved' },
   { id: 'registered-students', label: 'Student Records', icon: 'fa-users' },
   { id: 'reports', label: 'Internship Analysis', icon: 'fa-file-export' },
+  { id: 'email-center', label: 'Institutional Sync', icon: 'fa-envelope-open-text' },
   { id: 'archive', label: 'Previous Cycles', icon: 'fa-database' },
 ];
 
@@ -70,6 +72,7 @@ export default function HODPortal({ user, onLogout }) {
           <Route path="dashboard" element={<HODDashboard />} />
           <Route path="registered-students" element={<RegisteredStudents user={user} />} />
           <Route path="reports" element={<HODReports />} />
+          <Route path="email-center" element={<EmailCenter />} />
           <Route path="archive" element={<HODArchive />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

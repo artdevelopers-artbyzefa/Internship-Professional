@@ -200,7 +200,52 @@ export default function RegisteredStudents({ user }) {
         }
     ];
 
-    const columns = isSupervisor ? supervisorColumns : officeColumns;
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const toggleAll = () => {
+        if (selectedIds.length === students.length) setSelectedIds([]);
+        else setSelectedIds(students.map(s => s._id));
+    };
+
+    const handleEmailSelected = () => {
+        if (selectedIds.length === 0) return;
+        navigate('/office/email-center', { state: { selectedRecipients: selectedIds } });
+    };
+
+    const isOffice = user?.role === 'internship_office';
+
+    // Update columns to include checkbox
+    const selectColumn = {
+        key: 'select',
+        label: (
+            <input 
+                type="checkbox" 
+                checked={selectedIds.length === students.length && students.length > 0} 
+                onChange={toggleAll}
+                className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+            />
+        ),
+        render: (_, row) => (
+            <input 
+                type="checkbox" 
+                checked={selectedIds.includes(row._id)} 
+                onChange={() => toggleSelect(row._id)}
+                className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+            />
+        )
+    };
+
+    const columns = isSupervisor 
+        ? supervisorColumns 
+        : isOffice 
+            ? [selectColumn, ...officeColumns]
+            : officeColumns;
 
     return (
         <div className="space-y-6 pb-20">
@@ -214,22 +259,41 @@ export default function RegisteredStudents({ user }) {
                         <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">
                             {isSupervisor ? 'My Assigned Interns' : 'Student Records'}
                         </h2>
-                        <p className="text-[10px] md:text-sm text-gray-400 font-medium uppercase tracking-wider block">
-                            {isSupervisor
-                                ? `Active student placements`
-                                : isFaculty ? 'Faculty supervision log' : 'Institutional student registry'}
-                        </p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-[10px] md:text-sm text-gray-400 font-medium uppercase tracking-wider block">
+                                {isSupervisor
+                                    ? `Active student placements`
+                                    : isFaculty ? 'Faculty supervision log' : 'Institutional student registry'}
+                            </p>
+                            {selectedIds.length > 0 && (
+                                <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded-full">
+                                    {selectedIds.length} selected
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div className="relative group w-full lg:w-auto">
-                    <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm group-focus-within:text-primary transition-all duration-300"></i>
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={e => { setSearch(e.target.value); setPage(1); }}
-                        placeholder="Search by name or reg..."
-                        className="pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary/20 w-full lg:w-80 transition-all shadow-sm"
-                    />
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                    {selectedIds.length > 0 && isOffice && (
+                        <button
+                            onClick={handleEmailSelected}
+                            className="w-full sm:w-auto px-6 py-3 bg-primary text-white text-xs font-black rounded-xl hover:bg-blue-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                        >
+                            <i className="fas fa-paper-plane"></i>
+                            Email Selected
+                        </button>
+                    )}
+                    <div className="relative group w-full lg:w-80">
+                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm group-focus-within:text-primary transition-all duration-300"></i>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={e => { setSearch(e.target.value); setPage(1); setSelectedIds([]); }}
+                            placeholder="Search by name or reg..."
+                            className="pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary/20 w-full transition-all shadow-sm"
+                        />
+                    </div>
                 </div>
             </div>
 

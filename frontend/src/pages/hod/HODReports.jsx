@@ -126,6 +126,8 @@ export default function HODReports() {
     const studentData = results.map(r => [
       r.student.reg,
       r.student.name,
+      r.student.phone || 'N/A',
+      r.student.secondaryEmail || 'N/A',
       `${r.faculty?.name || 'N/A'}\n(${r.faculty?.phone || 'N/A'})`,
       `${r.siteSupervisor?.name || 'N/A'}\n(${r.siteSupervisor?.phone || 'N/A'})`,
       r.company,

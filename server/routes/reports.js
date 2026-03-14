@@ -341,16 +341,18 @@ router.post('/hod-full-report', protect, async (req, res) => {
                 {
                     table: {
                         headerRows: 1,
-                        widths: [52, 78, 80, 68, 52, 38, 24, 22, 22, 35],
+                        widths: [48, 65, 45, 55, 60, 60, 48, 32, 22, 18, 18, 30],
                         body: [
                             [
                                 { text: 'REG. NO', style: 'tableHeader' },
-                                { text: 'STUDENT NAME', style: 'tableHeader' },
-                                { text: 'ACADEMIC SUPERVISOR\n(Name + Phone)', style: 'tableHeader' },
-                                { text: 'SITE SUPERVISOR\n(Name + Phone)', style: 'tableHeader' },
+                                { text: 'NAME', style: 'tableHeader' },
+                                { text: 'PHONE', style: 'tableHeader' },
+                                { text: 'EMAIL (SEC)', style: 'tableHeader' },
+                                { text: 'ACADEMIC SUP.', style: 'tableHeader' },
+                                { text: 'SITE SUP.', style: 'tableHeader' },
                                 { text: 'COMPANY', style: 'tableHeader' },
                                 { text: 'MODE', style: 'tableHeader' },
-                                { text: 'AVG\n(/10)', style: 'tableHeader' },
+                                { text: 'AVG', style: 'tableHeader' },
                                 { text: '%', style: 'tableHeader' },
                                 { text: 'GRD', style: 'tableHeader' },
                                 { text: 'STATUS', style: 'tableHeader' }
@@ -359,19 +361,21 @@ router.post('/hod-full-report', protect, async (req, res) => {
                                 ? tables.students.map((row, idx) => {
                                     const bg = idx % 2 !== 0 ? '#f8fafc' : null;
                                     return [
-                                        { text: s(row[0]), style: 'tableCell', fontSize: 6.2, bold: true, fillColor: bg },
-                                        { text: s(row[1]), style: 'tableCell', bold: true, fillColor: bg },
-                                        { text: s(row[2]), style: 'tableCell', fontSize: 6.2, fillColor: bg },
-                                        { text: s(row[3]), style: 'tableCell', fontSize: 6.2, fillColor: bg },
-                                        { text: s(row[4]), style: 'tableCell', fontSize: 6.5, fillColor: bg },
-                                        { text: s(row[5]), style: 'tableCell', fontSize: 6, alignment: 'center', fillColor: bg },
-                                        { text: s(row[6]), style: 'tableCell', alignment: 'center', bold: true, fillColor: bg },
-                                        { text: s(row[7]), style: 'tableCell', alignment: 'center', bold: true, fillColor: bg },
-                                        { text: s(row[8]), style: 'tableCell', alignment: 'center', bold: true, color: '#1e40af', fillColor: bg },
-                                        { text: s(row[9]), style: 'tableCell', alignment: 'center', bold: true, color: statusColor(s(row[9])), fillColor: bg }
+                                        { text: s(row[0]), style: 'tableCell', fontSize: 5.5, bold: true, fillColor: bg },
+                                        { text: s(row[1]), style: 'tableCell', fontSize: 6.5, bold: true, fillColor: bg },
+                                        { text: s(row[2]), style: 'tableCell', fontSize: 6, fillColor: bg },
+                                        { text: s(row[3]), style: 'tableCell', fontSize: 5.5, fillColor: bg },
+                                        { text: s(row[4]), style: 'tableCell', fontSize: 5.5, fillColor: bg },
+                                        { text: s(row[5]), style: 'tableCell', fontSize: 5.5, fillColor: bg },
+                                        { text: s(row[6]), style: 'tableCell', fontSize: 5.5, fillColor: bg },
+                                        { text: s(row[7]), style: 'tableCell', fontSize: 5.5, alignment: 'center', fillColor: bg },
+                                        { text: s(row[8]), style: 'tableCell', fontSize: 6, alignment: 'center', bold: true, fillColor: bg },
+                                        { text: s(row[9]), style: 'tableCell', fontSize: 6, alignment: 'center', bold: true, fillColor: bg },
+                                        { text: s(row[10]), style: 'tableCell', fontSize: 6, alignment: 'center', bold: true, color: '#1e40af', fillColor: bg },
+                                        { text: s(row[11]), style: 'tableCell', fontSize: 6, alignment: 'center', bold: true, color: statusColor(s(row[11])), fillColor: bg }
                                     ];
                                 })
-                                : [[{ text: 'No student data available.', colSpan: 10, style: 'tableCell', alignment: 'center', italics: true }, {},{},{},{},{},{},{},{},{}]]
+                                : [[{ text: 'No student data available.', colSpan: 12, style: 'tableCell', alignment: 'center', italics: true }, {},{},{},{},{},{},{},{},{},{},{}]]
                             )
                         ]
                     },
@@ -398,8 +402,8 @@ router.post('/hod-full-report', protect, async (req, res) => {
                     }
                     const grouped = {};
                     tables.students.forEach(row => {
-                        // Supervisor is row[2] which is "Name\n(Phone)"
-                        const rawSup = s(row[2]);
+                        // Supervisor is row[4] in the NEW structure (Academic Supervisor Name + Phone)
+                        const rawSup = s(row[4]);
                         const supName = rawSup.split('\n')[0].trim() || 'Unassigned';
                         if (!grouped[supName]) grouped[supName] = [];
                         grouped[supName].push(row);
@@ -443,11 +447,11 @@ router.post('/hod-full-report', protect, async (req, res) => {
                                         return [
                                             { text: s(row[0]), style: 'tableCell', fontSize: 6.5, bold: true, fillColor: bg },
                                             { text: s(row[1]), style: 'tableCell', bold: true, fillColor: bg },
-                                            { text: s(row[4]), style: 'tableCell', fontSize: 7, fillColor: bg },
-                                            { text: s(row[5]), style: 'tableCell', fontSize: 6.5, alignment: 'center', fillColor: bg },
-                                            { text: s(row[7]), style: 'tableCell', alignment: 'center', bold: true, fillColor: bg },
-                                            { text: s(row[8]), style: 'tableCell', alignment: 'center', bold: true, color: '#1e40af', fillColor: bg },
-                                            { text: s(row[9]), style: 'tableCell', alignment: 'center', bold: true, color: statusColor(s(row[9])), fillColor: bg }
+                                            { text: s(row[6]), style: 'tableCell', fontSize: 7, fillColor: bg },
+                                            { text: s(row[7]), style: 'tableCell', fontSize: 6.5, alignment: 'center', fillColor: bg },
+                                            { text: s(row[9]), style: 'tableCell', alignment: 'center', bold: true, fillColor: bg },
+                                            { text: s(row[10]), style: 'tableCell', alignment: 'center', bold: true, color: '#1e40af', fillColor: bg },
+                                            { text: s(row[11]), style: 'tableCell', alignment: 'center', bold: true, color: statusColor(s(row[11])), fillColor: bg }
                                         ];
                                     })
                                 ]
@@ -586,31 +590,35 @@ router.post('/hod-excel-report', protect, async (req, res) => {
         // ── SHEET 2: Full Student Registry ─────────────────────────────────
         const sh2 = workbook.addWorksheet('Student Achievement Register');
         sh2.columns = [
-            { header: 'REGISTRATION #',           key: 'reg',     width: 20 },
-            { header: 'STUDENT FULL NAME',         key: 'name',    width: 32 },
-            { header: 'ACADEMIC SUPERVISOR',       key: 'faculty', width: 38 },
-            { header: 'SITE SUPERVISOR',           key: 'site',    width: 38 },
-            { header: 'AFFILIATED COMPANY',        key: 'company', width: 35 },
-            { header: 'PLACEMENT MODE',            key: 'mode',    width: 22 },
-            { header: 'AVG MARKS (/10)',           key: 'avg',     width: 16 },
-            { header: 'PERCENTAGE (%)',            key: 'pct',     width: 16 },
-            { header: 'GRADE',                     key: 'grade',   width: 12 },
+            { header: 'REGISTRATION #',           key: 'reg',     width: 18 },
+            { header: 'STUDENT FULL NAME',         key: 'name',    width: 28 },
+            { header: 'CONTACT (WHATSAPP)',        key: 'phone',   width: 20 },
+            { header: 'SECONDARY EMAIL',           key: 'secEmail',width: 28 },
+            { header: 'ACADEMIC SUPERVISOR',       key: 'faculty', width: 35 },
+            { header: 'SITE SUPERVISOR',           key: 'site',    width: 35 },
+            { header: 'AFFILIATED COMPANY',        key: 'company', width: 30 },
+            { header: 'PLACEMENT MODE',            key: 'mode',    width: 20 },
+            { header: 'AVG MARKS (/10)',           key: 'avg',     width: 14 },
+            { header: 'PERCENTAGE (%)',            key: 'pct',     width: 14 },
+            { header: 'GRADE',                     key: 'grade',   width: 10 },
             { header: 'FINAL STATUS',              key: 'status',  width: 18 }
         ];
         styleHeader(sh2, 1);
 
         (tables.students || []).forEach((row, idx) => {
             const r = sh2.addRow({
-                reg:     row[0] ?? 'N/A',
-                name:    row[1] ?? 'N/A',
-                faculty: String(row[2] ?? 'N/A').replace(/\n/g, ' | '),
-                site:    String(row[3] ?? 'N/A').replace(/\n/g, ' | '),
-                company: row[4] ?? 'N/A',
-                mode:    row[5] ?? 'N/A',
-                avg:     row[6] ?? 'N/A',
-                pct:     row[7] ?? 'N/A',
-                grade:   row[8] ?? 'N/A',
-                status:  row[9] ?? 'N/A'
+                reg:      row[0] ?? 'N/A',
+                name:     row[1] ?? 'N/A',
+                phone:    row[2] ?? 'N/A',
+                secEmail: row[3] ?? 'N/A',
+                faculty:  String(row[4] ?? 'N/A').replace(/\n/g, ' | '),
+                site:     String(row[5] ?? 'N/A').replace(/\n/g, ' | '),
+                company:  row[6] ?? 'N/A',
+                mode:     row[7] ?? 'N/A',
+                avg:      row[8] ?? 'N/A',
+                pct:      row[9] ?? 'N/A',
+                grade:    row[10] ?? 'N/A',
+                status:   row[11] ?? 'N/A'
             });
             styleAltRow(r, idx);
 
@@ -619,12 +627,13 @@ router.post('/hod-excel-report', protect, async (req, res) => {
             r.getCell('grade').font = { bold: true, color: NAVY };
 
             const sc = r.getCell('status');
-            if (row[9] === 'Pass')      { sc.font = { color: GREEN, bold: true }; }
-            else if (row[9] === 'Fail') { sc.font = { color: RED,   bold: true }; }
-            else                        { sc.font = { color: { argb: 'FF64748B' }, italic: true }; }
+            const statusVal = row[11];
+            if (statusVal === 'Pass')      { sc.font = { color: GREEN, bold: true }; }
+            else if (statusVal === 'Fail') { sc.font = { color: RED,   bold: true }; }
+            else                           { sc.font = { color: { argb: 'FF64748B' }, italic: true }; }
 
             const mc = r.getCell('mode');
-            if (row[5] === 'Freelance') { mc.font = { color: AMBER, bold: true }; }
+            if (row[7] === 'Freelance') { mc.font = { color: AMBER, bold: true }; }
             else                        { mc.font = { color: NAVY }; }
         });
 

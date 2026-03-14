@@ -13,7 +13,8 @@ import {
     sendAssignmentConfirmationEmail,
     sendFacultyPasswordResetEmail,
     sendStudentActivationEmail,
-    sendCompanySupervisorActivationEmail
+    sendCompanySupervisorActivationEmail,
+    sendBulkEmailService
 } from '../emailServices/emailService.js';
 import { getPKTTime } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
@@ -29,6 +30,144 @@ router.get('/all-students', async (req, res) => {
             .select('name email secondaryEmail reg semester status createdAt')
             .sort({ createdAt: -1 });
         res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST api/office/broadcast-email
+// @desc    Send bulk emails to a specific category of users
+router.post('/broadcast-email', protect, async (req, res) => {
+    const { category, subject, message, selectedRecipients } = req.body;
+
+    if ((!category && !selectedRecipients) || !subject || !message) {
+        return res.status(400).json({ message: 'Category/Recipients, subject and message are required' });
+    }
+
+    try {
+        let recipients = [];
+        let users = [];
+
+        if (selectedRecipients && Array.isArray(selectedRecipients) && selectedRecipients.length > 0) {
+            users = await User.find({ _id: { $in: selectedRecipients } });
+        } else {
+            let query = {};
+            if (category === 'Students') {
+                query = { role: 'student' };
+            } else if (category === 'Faculty Supervisors') {
+                query = { role: 'faculty_supervisor' };
+            } else if (category === 'Site Supervisors') {
+                query = { role: 'site_supervisor' };
+            } else if (category === 'All Internal Roles') {
+                query = { role: { $in: ['student', 'faculty_supervisor'] } };
+            } else if (category === 'Ineligible Students') {
+                // Logic based on the 'Ineligible' flag we use on frontend
+                // Roughly: Status is NOT 'Assigned', 'Internship Approved', or 'Agreement Approved'
+                query = { 
+                    role: 'student', 
+                    status: { $nin: ['Assigned', 'Internship Approved', 'Agreement Approved'] }
+                };
+            } else if (category === 'Students Pending Placement') {
+                // Agreement approved but not yet assigned
+                query = { 
+                    role: 'student', 
+                    status: 'Agreement Approved'
+                };
+            } else {
+                 return res.status(400).json({ message: 'Invalid category' });
+            }
+            users = await User.find(query);
+        }
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'No recipients found' });
+        }
+
+        const hasPlaceholders = message.includes('{{name}}') || message.includes('{{reg}}') || subject.includes('{{name}}');
+
+        let successCount = 0;
+        let failureCount = 0;
+        let lastError = null;
+
+        if (hasPlaceholders) {
+            // Must send individual emails for personalization
+            for (const user of users) {
+                if (!user.email) continue;
+
+                const personalizedSubject = subject.replace(/{{name}}/g, user.name || 'User');
+                const personalizedMessage = message
+                    .replace(/{{name}}/g, user.name || 'User')
+                    .replace(/{{reg}}/g, user.reg || 'N/A');
+
+                const result = await sendBulkEmailService([user.email], personalizedSubject, personalizedMessage);
+                if (result.success) {
+                    successCount++;
+                } else {
+                    failureCount++;
+                    lastError = result.error;
+                }
+            }
+        } else {
+            // Fast bulk send using BCC
+            recipients = users.map(u => u.email).filter(e => e);
+            const result = await sendBulkEmailService(recipients, subject, message);
+            if (result.success) {
+                successCount = recipients.length;
+            } else {
+                failureCount = recipients.length;
+                lastError = result.error;
+            }
+        }
+
+        if (successCount > 0) {
+            await new AuditLog({
+                action: 'BROADCAST_EMAIL',
+                performedBy: req.user.id,
+                details: `Broadcast: ${category || 'Selected Items'}. Sent: ${successCount}. Failed: ${failureCount}. Personalizer: ${hasPlaceholders ? 'ON' : 'OFF'}`,
+                ipAddress: req.ip
+            }).save();
+
+            return res.json({ 
+                success: true, 
+                message: `Broadcast completed. Sent: ${successCount}${failureCount > 0 ? `, Failed: ${failureCount}` : ''}` 
+            });
+        } else {
+            console.error('[BROADCAST FAILED]', lastError);
+            return res.status(500).json({ 
+                success: false, 
+                message: lastError || 'Failed to send emails. Please check SMTP configuration.' 
+            });
+        }
+    } catch (err) {
+        console.error('[BROADCAST EMAIL ERROR]', err);
+        res.status(500).json({ message: 'Server error while broadcasting email' });
+    }
+});
+
+// @route   GET api/office/recipients/:category
+// @desc    Get list of potential recipients for a category
+router.get('/recipients/:category', protect, async (req, res) => {
+    try {
+        const { category } = req.params;
+        let query = {};
+        if (category === 'Students') {
+            query = { role: 'student' };
+        } else if (category === 'Faculty Supervisors') {
+            query = { role: 'faculty_supervisor' };
+        } else if (category === 'Site Supervisors') {
+            query = { role: 'site_supervisor' };
+        } else if (category === 'All Internal Roles') {
+            query = { role: { $in: ['student', 'faculty_supervisor'] } };
+        } else if (category === 'Ineligible Students') {
+            query = { role: 'student', status: { $nin: ['Assigned', 'Internship Approved', 'Agreement Approved'] } };
+        } else if (category === 'Students Pending Placement') {
+            query = { role: 'student', status: 'Agreement Approved' };
+        } else {
+            return res.status(400).json({ message: 'Invalid category' });
+        }
+        
+        const users = await User.find(query).select('name email reg role');
+        res.json(users);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -1616,9 +1755,9 @@ router.get('/aggregated-marks', protect, async (req, res) => {
         if (semester && semester !== 'All') studentMatch.semester = parseInt(semester);
 
         const students = await User.find(studentMatch)
-            .select('name reg semester assignedCompany assignedFaculty assignedSiteSupervisor internshipRequest status email phone')
-            .populate('assignedFaculty', 'name email phone')
-            .populate('assignedSiteSupervisor', 'name email phone');
+            .select('name reg semester assignedCompany assignedFaculty assignedSiteSupervisor internshipRequest status email secondaryEmail whatsappNumber section')
+            .populate('assignedFaculty', 'name email whatsappNumber')
+            .populate('assignedSiteSupervisor', 'name email whatsappNumber');
 
         const results = [];
         for (const s of students) {
@@ -1644,7 +1783,14 @@ router.get('/aggregated-marks', protect, async (req, res) => {
             if (marks.length === 0) {
                 grade = 'N/A';
                 gp = 0;
-                status = s.status === 'Fail' ? 'Fail' : (s.status === 'Registered' ? 'Ineligible' : 'Pending');
+                // If the student is not yet 'Assigned', they are effectively 'Ineligible' for this cycle's reports
+                if (s.status === 'Assigned' || s.status === 'Internship Approved' || s.status === 'Agreement Approved') {
+                    status = 'Pending Evaluation';
+                } else if (s.status === 'Fail') {
+                    status = 'Fail';
+                } else {
+                    status = 'Ineligible';
+                }
             }
 
             results.push({
@@ -1653,17 +1799,19 @@ router.get('/aggregated-marks', protect, async (req, res) => {
                     reg: s.reg, 
                     _id: s._id, 
                     email: s.email, 
-                    phone: s.phone || 'N/A' 
+                    secondaryEmail: s.secondaryEmail || 'N/A',
+                    phone: s.whatsappNumber || 'N/A',
+                    section: s.section || 'N/A'
                 },
                 faculty: {
                     name: s.assignedFaculty?.name || 'Unassigned',
                     email: s.assignedFaculty?.email || 'N/A',
-                    phone: s.assignedFaculty?.phone || 'N/A'
+                    phone: s.assignedFaculty?.whatsappNumber || 'N/A'
                 },
                 siteSupervisor: {
                     name: s.assignedSiteSupervisor?.name || 'N/A',
                     email: s.assignedSiteSupervisor?.email || 'N/A',
-                    phone: s.assignedSiteSupervisor?.phone || 'N/A'
+                    phone: s.assignedSiteSupervisor?.whatsappNumber || 'N/A'
                 },
                 mode: placementMode,
                 company: s.assignedCompany || 'N/A',
