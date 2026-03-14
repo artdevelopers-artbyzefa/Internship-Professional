@@ -20,7 +20,6 @@ export const sendEmail = async ({ to, subject, text, html }) => {
                 pass: process.env.BREVO_API_KEY, 
             },
         });
-
         const info = await transporter.sendMail({
             from: `"${process.env.SENDER_NAME || 'CUI DIMS'}" <${process.env.SENDER_EMAIL}>`,
             to: Array.isArray(to) ? to.join(', ') : to,
