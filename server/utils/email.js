@@ -16,7 +16,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
             port: 587,
             secure: false, // true for 465, false for other ports
             auth: {
-                user: process.env.SENDER_EMAIL, // Usually the email associated with Brevo
+                user: process.env.SMTP_USER || process.env.SENDER_EMAIL,
                 pass: process.env.BREVO_API_KEY, 
             },
         });
@@ -53,7 +53,7 @@ export const sendBulkEmails = async (recipients, subject, html) => {
             port: 587,
             secure: false,
             auth: {
-                user: process.env.SENDER_EMAIL,
+                user: process.env.SMTP_USER || process.env.SENDER_EMAIL,
                 pass: process.env.BREVO_API_KEY,
             },
         });
