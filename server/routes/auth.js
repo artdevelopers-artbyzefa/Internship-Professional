@@ -206,7 +206,10 @@ router.post('/forgot-password', async (req, res) => {
         const mailResult = await sendPasswordResetCode(emailLower, code);
 
         if (!mailResult.success) {
-            return res.status(500).json({ message: 'Failed to send verification code. Please try again later.' });
+            return res.status(500).json({ 
+                message: 'Failed to send verification code.',
+                details: mailResult.error 
+            });
         }
 
         res.json({ message: 'Verification code sent to your email.' });
@@ -350,7 +353,10 @@ router.post('/login', async (req, res) => {
 
             const mailResult = await sendPasswordResetCode(emailLower, code);
             if (!mailResult.success) {
-                return res.status(500).json({ message: 'Failed to send verification code. Please try again later.' });
+                return res.status(500).json({ 
+                    message: 'Failed to send verification code.',
+                    details: mailResult.error
+                });
             }
 
             return res.json({
