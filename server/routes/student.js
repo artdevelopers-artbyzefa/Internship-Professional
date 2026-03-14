@@ -223,14 +223,20 @@ router.get('/my-evaluations', protect, async (req, res) => {
 // @desc    Update student profile information
 router.put('/update-profile', protect, async (req, res) => {
     try {
+        console.log(`[UPDATE-PROFILE] Request from ${req.user.email}:`, req.body);
         const { fatherName, section, dateOfBirth, profilePicture, secondaryEmail, whatsappNumber, newPassword } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        if (fatherName) user.fatherName = fatherName;
-        if (section) user.section = section;
+        if (fatherName) {
+            user.fatherName = fatherName.trim();
+        }
+        if (section) {
+            user.section = section.trim().toUpperCase();
+        }
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
         if (whatsappNumber !== undefined) user.whatsappNumber = whatsappNumber;
+        
         if (secondaryEmail) {
             const lowerEmail = secondaryEmail.toLowerCase().trim();
 
@@ -263,7 +269,7 @@ router.put('/update-profile', protect, async (req, res) => {
 
         // Check if the uploaded string is a new Base64 image
         if (profilePicture && profilePicture.startsWith('data:image')) {
-            // Upload to Cloudinary using their uploader
+            console.log('[UPDATE-PROFILE] Uploading new profile picture to Cloudinary...');
             const uploadRes = await cloudinary.uploader.upload(profilePicture, {
                 folder: 'dims/profiles',
                 upload_preset: 'public_preset',
@@ -272,11 +278,13 @@ router.put('/update-profile', protect, async (req, res) => {
 
             user.profilePicture = uploadRes.secure_url;
         } else if (profilePicture) {
-            // Unchanged url
+            // Unchanged url or external link
             user.profilePicture = profilePicture;
         }
 
+        console.log('[UPDATE-PROFILE] Saving user...');
         await user.save();
+        console.log('[UPDATE-PROFILE] Save successful.');
 
         // Fetch populated user to ensure all fields needed for dashboard are present
         const populatedUser = await User.findById(user._id)
@@ -310,8 +318,8 @@ router.put('/update-profile', protect, async (req, res) => {
             }
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
+        console.error('[UPDATE-PROFILE-ERROR]', err);
+        res.status(500).json({ message: `Update failed: ${err.message}` });
     }
 });
 

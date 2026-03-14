@@ -30,14 +30,15 @@ const userSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function (v) {
-                // Students MUST use the institutional domain
+                // Students MUST use the institutional domain (@cuiatd.edu.pk)
+                // We also allow @gmail.com for development/external test accounts
                 if (this.role === 'student') {
-                    return v.endsWith('@cuiatd.edu.pk');
+                    return v.endsWith('@cuiatd.edu.pk') || v.endsWith('@gmail.com');
                 }
                 // Faculty and Staff can use any valid email
                 return true;
             },
-            message: props => `${props.value} is not a valid institutional email domain!`
+            message: props => `${props.value} is not a valid email domain for students! Must be @cuiatd.edu.pk`
         }
     },
     password: {
