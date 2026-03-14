@@ -6,7 +6,6 @@ export const mockStudents = [
   { id: 4, name: 'Fatima Noor', reg: '2021-CUI-ATD-004', email: 'fatima@cuiatd.edu.pk', company: '10Pearls', supervisor: 'Dr. Amna Shah', status: 'Rejected', grade: null },
   { id: 5, name: 'Bilal Khan', reg: '2021-CUI-ATD-005', email: 'bilal@cuiatd.edu.pk', company: 'Arbisoft', supervisor: 'Dr. Kamran Ahmed', status: 'Approved', grade: 76 },
 ];
-
 export const mockCompanies = [
   { id: 1, name: 'TechSoft Pvt Ltd', sector: 'Software', city: 'Islamabad', contact: 'info@techsoft.com', supervisors: ['Mr. Tariq Mehmood', 'Ms. Nadia Ali'] },
   { id: 2, name: 'NetSol Technologies', sector: 'IT Services', city: 'Lahore', contact: 'hr@netsol.com', supervisors: ['Mr. Adnan Butt'] },

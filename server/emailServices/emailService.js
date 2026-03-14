@@ -13,9 +13,13 @@ import nodemailer from 'nodemailer';
  * Central transporter logic using institutional SMTP relay
  */
 const getTransporter = () => {
-    // 1. Check SMTP_USER, 2. Fallback to SENDER_EMAIL
-    const smtpUser = process.env.SMTP_USER || process.env.SENDER_EMAIL;
+    let smtpUser = process.env.SMTP_USER;
     
+    if (!smtpUser) {
+        smtpUser = 'a4dd03001@smtp-brevo.com';
+        console.warn(`[EMAIL] SMTP_USER missing. Using fallback: ${smtpUser}`);
+    }
+
     if (!process.env.BREVO_API_KEY) {
         console.error('[EMAIL ERROR] BREVO_API_KEY is missing!');
     }
