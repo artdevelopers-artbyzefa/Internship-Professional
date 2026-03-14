@@ -21,9 +21,12 @@ const getTransporter = () => {
     }
 
     if (!process.env.BREVO_API_KEY) {
-        console.error('[EMAIL ERROR] BREVO_API_KEY is missing in environment variables!');
+        console.error('[EMAIL ERROR] BREVO_API_KEY is missing!');
     }
     
+    // Log the user for debugging (safe to log publicly as long as password is hidden)
+    console.log(`[EMAIL] Attempting SMTP login with user: ${smtpUser}`);
+
     return nodemailer.createTransport({
         host: 'smtp-relay.brevo.com',
         port: 587,
