@@ -72,6 +72,9 @@ const userSchema = new mongoose.Schema({
     secondaryEmail: { type: String, trim: true, lowercase: true, unique: true, sparse: true, index: true },
     secondaryEmailVerificationCode: { type: String },
     secondaryEmailVerificationExpires: { type: Date },
+    pendingSecondaryEmail: { type: String, trim: true, lowercase: true },
+    secondaryEmailOtp: { type: String },
+    secondaryEmailOtpExpires: { type: Date },
     section: { type: String, trim: true },
     dateOfBirth: { type: Date },
     profilePicture: { type: String }, // URL or Base64
@@ -178,14 +181,16 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Performance Indexes for high-traffic student queries
+// Extreme Performance Indexes for high-traffic queries
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ assignedFaculty: 1 });
 userSchema.index({ assignedSiteSupervisor: 1 });
+userSchema.index({ name: 'text', email: 'text' }); // Search optimization
+userSchema.index({ role: 1, createdAt: -1 }); // Registry sorting optimization
 
-// Auto-extract and Enforce Roll Number from Email for Students
+// Auto-extract and Enforce Roll Number from Email for Students (only if not manually provided)
 userSchema.pre('save', async function () {
-    if (this.role === 'student' && this.email) {
+    if (this.role === 'student' && this.email && !this.reg) {
         const rollPart = this.email.split('@')[0].toUpperCase();
         this.reg = `CIIT/${rollPart}/ATD`;
     }

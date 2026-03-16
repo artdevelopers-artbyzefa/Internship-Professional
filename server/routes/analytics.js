@@ -21,38 +21,58 @@ const isManagement = (req, res, next) => {
 // @desc    Get stats for Phase 1: Total Registered, Eligible, Ineligible, Supervisors
 router.get('/registration-stats', protect, isManagement, async (req, res) => {
     try {
-        const students = await User.find({ role: 'student' }).select('semester status cgpa assignedCompanySupervisor internshipAgreement.companySupervisorName');
-        const facultyCount = await User.countDocuments({ role: 'faculty_supervisor' });
+        const stats = await User.aggregate([
+            { $match: { role: 'student' } },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    eligible: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $in: ["$semester", ['4', '5', '6', '7', '8']] },
+                                        { $ne: ["$status", "unverified"] },
+                                        { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        },
+                        siteSupervisorSet: { 
+                            $push: { 
+                                $cond: [
+                                    { $ifNull: ["$assignedCompanySupervisor", false] }, 
+                                    "$assignedCompanySupervisor", 
+                                    { $ifNull: ["$internshipAgreement.companySupervisorName", "$$REMOVE"] }
+                                ] 
+                            } 
+                        }
+                    }
+                }
+            }
+        ]);
 
-        // Count distinct site supervisors from both assignments and agreements
+        const facultyCount = await User.countDocuments({ role: 'faculty_supervisor' });
+        
+        // Site supervisor count is a bit tricky with aggregation if we want uniqueness across fields,
+        // but for 50 users even a separate query or a simple set from the push is fine.
+        // Let's refine the site supervisor count.
+        const studentsForSup = await User.find({ role: 'student' }).select('assignedCompanySupervisor internshipAgreement.companySupervisorName');
         const siteSupSet = new Set();
-        students.forEach(s => {
+        studentsForSup.forEach(s => {
             if (s.assignedCompanySupervisor) siteSupSet.add(s.assignedCompanySupervisor);
             if (s.internshipAgreement?.companySupervisorName) siteSupSet.add(s.internshipAgreement.companySupervisorName);
         });
 
-        const eligibleSemesters = ['4', '5', '6', '7', '8'];
-        let total = students.length;
-        let eligible = 0;
-        let ineligible = 0;
-
-        students.forEach(s => {
-            const semOk = eligibleSemesters.includes(s.semester);
-            const verified = s.status !== 'unverified';
-            const cgpaVal = parseFloat(s.cgpa) || 0;
-            const cgpaOk = cgpaVal >= 2.0;
-
-            if (semOk && verified && cgpaOk) {
-                eligible++;
-            } else {
-                ineligible++;
-            }
-        });
+        const result = stats[0] || { total: 0, eligible: 0 };
 
         res.json({
-            total,
-            eligible,
-            ineligible,
+            total: result.total,
+            eligible: result.eligible,
+            ineligible: result.total - result.eligible,
             facultyCount,
             siteSupervisorCount: siteSupSet.size
         });
@@ -66,68 +86,85 @@ router.get('/registration-stats', protect, isManagement, async (req, res) => {
 // @desc    Get stats for Phase 2: Eligible Students vs Submitted Requests
 router.get('/request-stats', protect, isManagement, async (req, res) => {
     try {
-        const students = await User.find({ role: 'student' });
-
         const eligibleSemesters = ['4', '5', '6', '7', '8'];
-        let eligibleCount = 0;
-        let submittedCount = 0;
-        let approvedCount = 0;
-        let pendingCount = 0;
-        const typeBreakdown = { self: 0, university: 0 };
-        const modeBreakdown = { onsite: 0, remote: 0, hybrid: 0, freelance: 0 };
+        
+        const stats = await User.aggregate([
+            { $match: { role: 'student' } },
+            {
+                $addFields: {
+                    isEligible: {
+                        $and: [
+                            { $in: ["$semester", eligibleSemesters] },
+                            { $ne: ["$status", "unverified"] },
+                            { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
+                        ]
+                    }
+                }
+            },
+            { $match: { isEligible: true } },
+            {
+                $group: {
+                    _id: null,
+                    eligibleCount: { $sum: 1 },
+                    submittedCount: {
+                        $sum: {
+                            $cond: [
+                                { $in: ["$status", ['Internship Request Submitted', 'Internship Approved', 'Assigned', 'Agreement Submitted', 'Agreement Approved']] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    approvedCount: {
+                        $sum: {
+                            $cond: [
+                                { $in: ["$status", ['Internship Approved', 'Assigned', 'Agreement Approved']] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    type_self: { $sum: { $cond: [{ $eq: ["$internshipRequest.type", "Self"] }, 1, 0] } },
+                    type_university: { $sum: { $cond: [{ $eq: ["$internshipRequest.type", "University Assigned"] }, 1, 0] } },
+                    mode_onsite: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "onsite"] }, 1, 0] } },
+                    mode_remote: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "remote"] }, 1, 0] } },
+                    mode_hybrid: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "hybrid"] }, 1, 0] } },
+                    mode_freelance: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "freelance"] }, 1, 0] } }
+                }
+            }
+        ]);
+
+        const studentsForSup = await User.find({ 
+            role: 'student',
+            $or: [
+                { assignedFaculty: { $exists: true } },
+                { assignedCompanySupervisor: { $exists: true } }
+            ]
+        }).select('assignedFaculty assignedCompanySupervisor');
+
         const facultySupSet = new Set();
         const siteSupSet = new Set();
-
-        students.forEach(s => {
-            const semOk = eligibleSemesters.includes(s.semester);
-            const verified = s.status !== 'unverified';
-            const cgpaVal = parseFloat(s.cgpa) || 0;
-            const cgpaOk = cgpaVal >= 2.0;
-
-            if (semOk && verified && cgpaOk) {
-                eligibleCount++;
-
-                const hasSubmitted = s.status === 'Internship Request Submitted' ||
-                    s.status === 'Internship Approved' ||
-                    s.status.includes('Agreement') ||
-                    s.status === 'Assigned';
-
-                const isApproved = s.status === 'Internship Approved' ||
-                    s.status.includes('Agreement Approved') ||
-                    s.status === 'Assigned';
-
-                if (hasSubmitted) {
-                    submittedCount++;
-
-                    // Placement Type Breakdown
-                    if (s.internshipRequest?.type === 'Self') typeBreakdown.self++;
-                    else if (s.internshipRequest?.type === 'University Assigned') typeBreakdown.university++;
-
-                    // Mode Breakdown
-                    const mode = s.internshipRequest?.mode?.toLowerCase();
-                    if (mode && modeBreakdown.hasOwnProperty(mode)) {
-                        modeBreakdown[mode]++;
-                    }
-
-                    // Supervisor tracking
-                    if (s.assignedFaculty) facultySupSet.add(s.assignedFaculty.toString());
-                    if (s.assignedCompanySupervisor) siteSupSet.add(s.assignedCompanySupervisor);
-                }
-
-                if (isApproved) approvedCount++;
-                if (!hasSubmitted) pendingCount++;
-            }
+        studentsForSup.forEach(s => {
+            if (s.assignedFaculty) facultySupSet.add(s.assignedFaculty.toString());
+            if (s.assignedCompanySupervisor) siteSupSet.add(s.assignedCompanySupervisor);
         });
 
+        const result = stats[0] || { eligibleCount: 0, submittedCount: 0, approvedCount: 0 };
+
         res.json({
-            eligible: eligibleCount,
-            submitted: submittedCount,
-            approved: approvedCount,
-            pending: pendingCount, // pending submission
-            completionRate: eligibleCount > 0 ? ((submittedCount / eligibleCount) * 100).toFixed(0) : 0,
+            eligible: result.eligibleCount,
+            submitted: result.submittedCount,
+            approved: result.approvedCount,
+            pending: result.eligibleCount - result.submittedCount,
+            completionRate: result.eligibleCount > 0 ? ((result.submittedCount / result.eligibleCount) * 100).toFixed(0) : 0,
             breakdowns: {
-                type: typeBreakdown,
-                mode: modeBreakdown
+                type: { self: result.type_self || 0, university: result.type_university || 0 },
+                mode: { 
+                    onsite: result.mode_onsite || 0, 
+                    remote: result.mode_remote || 0, 
+                    hybrid: result.mode_hybrid || 0, 
+                    freelance: result.mode_freelance || 0 
+                }
             },
             supervisors: {
                 faculty: facultySupSet.size,

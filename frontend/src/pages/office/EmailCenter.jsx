@@ -61,15 +61,21 @@ const EmailCenter = () => {
     };
 
     const fetchSpecificRecipients = async (ids) => {
+        if (!ids || ids.length === 0) return;
         setFetchingRecipients(true);
         try {
-            // Re-use API logic: we can just find them
-            const data = await apiRequest('/office/registered-students'); // Fallback or add specific endpoint
-            // Filter locally for now or add endpoint
-            const filtered = data.students?.filter(s => ids.includes(s._id)) || [];
-            setRecipientsList(filtered);
+            // Use the new ?ids= filter I just added to the office/registered-students route
+            const idString = ids.join(',');
+            const response = await apiRequest(`/office/registered-students?ids=${idString}&limit=500`);
+            
+            // Backend returns { data: [...], total, page, pages }
+            const students = response?.data || [];
+            setRecipientsList(students);
+            // Ensure they are selected in the state
+            setPayload(prev => ({ ...prev, selectedRecipients: students.map(s => s._id) }));
         } catch (err) {
-            console.error(err);
+            console.error('[EMAIL CENTER] Error fetching selected recipients:', err);
+            showToast.error('Could not load names of selected students');
         } finally {
             setFetchingRecipients(false);
         }

@@ -14,14 +14,14 @@ import nodemailer from 'nodemailer';
  */
 const getTransporter = () => {
     // 1. Check SMTP_USER, 2. Fallback to SENDER_EMAIL
-    const smtpUser = process.env.SMTP_USER || process.env.SENDER_EMAIL;
+    const smtpUser = (process.env.SMTP_USER || process.env.SENDER_EMAIL || '').trim();
+    const apiKey = (process.env.BREVO_API_KEY || '').trim();
     
-    if (!process.env.BREVO_API_KEY) {
+    if (!apiKey) {
         console.error('[EMAIL ERROR] BREVO_API_KEY is missing!');
     }
     
-    // Log the user for debugging (safe to log publicly as long as password is hidden)
-    console.log(`[EMAIL] Attempting SMTP login with user: ${smtpUser}`);
+    console.log(`[EMAIL] [v2-FIX] Trying SMTP login with user: ${smtpUser}`);
 
     return nodemailer.createTransport({
         host: 'smtp-relay.brevo.com',
@@ -29,7 +29,7 @@ const getTransporter = () => {
         secure: false,
         auth: {
             user: smtpUser,
-            pass: process.env.BREVO_API_KEY
+            pass: apiKey
         }
     });
 };
@@ -56,6 +56,34 @@ const brevoSend = async (to, subject, html) => {
     return { success: true };
   } catch (error) {
     console.error('[EMAIL ERROR] SMTP failed:', error);
+    
+    // Self-healing: If it's an auth error and we haven't tried the hardcoded fallback, try one more time
+    if (error.message.includes('535') && !process.env.SMTP_USER) {
+        console.log('[EMAIL] Auth failed with SENDER_EMAIL. Retrying with institutional SMTP ID...');
+        try {
+            const retryTransporter = nodemailer.createTransport({
+                host: 'smtp-relay.brevo.com',
+                port: 587,
+                secure: false,
+                auth: {
+                    user: 'a4dd03001@smtp-brevo.com',
+                    pass: process.env.BREVO_API_KEY
+                }
+            });
+            const info = await retryTransporter.sendMail({
+                from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+                to,
+                subject,
+                html
+            });
+            console.log(`[EMAIL SUCCESS] Fixed via retry! Sent to: ${to}`);
+            return { success: true };
+        } catch (retryError) {
+            console.error('[EMAIL ERROR] Retry also failed:', retryError);
+            return { success: false, error: retryError.message };
+        }
+    }
+    
     return { success: false, error: error.message };
   }
 };
@@ -199,6 +227,54 @@ export const sendPasswordResetCode = async (email, code) => {
     </div>
   `;
   return await brevoSend(email, 'Your Verification Code - DIMS Security', html);
+};
+
+/**
+ * Sends a 6-digit verification code for linking a secondary email
+ */
+export const sendSecondaryEmailVerificationCode = async (email, code) => {
+    const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 40px; border: 1px solid #e2e8f0; border-radius: 16px; text-align: center;">
+        <h2 style="color: #10b981;">Secondary Email Link</h2>
+        <p style="color: #334155;">Use the verification code below to link this email to your DIMS portal account. This code is valid for <strong>5 minutes</strong>.</p>
+        <div style="background-color: #f0fdf4; border: 2px solid #dcfce7; border-radius: 12px; padding: 20px; margin: 30px 0;">
+          <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; color: #059669; letter-spacing: 8px;">${code}</span>
+        </div>
+        <p style="color: #94a3b8; font-size: 11px;">If you are not trying to link this email, please ignore this message.</p>
+      </div>
+    `;
+    return await brevoSend(email, 'Verify Your Secondary Email - DIMS', html);
+};
+
+/**
+ * Sends a confirmation email after successfully linking a secondary email
+ */
+export const sendSecondaryEmailLinkedConfirmation = async (email, primaryEmail) => {
+    const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 550px; margin: 0 auto; background-color: #ffffff; padding: 40px; border: 1px solid #e2e8f0; border-radius: 20px;">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <div style="width: 60px; hieght: 60px; background-color: #ecfdf5; color: #10b981; border-radius: 100%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                <i style="font-size: 30px;">✓</i>
+            </div>
+            <h2 style="color: #064e3b; margin: 0;">Email Linked Successfully</h2>
+        </div>
+        <p style="color: #374151; font-size: 15px; line-height: 24px;">
+          This is to confirm that <strong>${email}</strong> has been successfully registered as a secondary email for your DIMS account (${primaryEmail}).
+        </p>
+        <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; margin: 25px 0;">
+            <h4 style="color: #111827; margin: 0 0 10px 0; font-size: 14px;">What this means:</h4>
+            <ul style="color: #4b5563; font-size: 13px; margin: 0; padding-left: 20px; line-height: 20px;">
+                <li>You can now log in using this email address.</li>
+                <li>You can receive recovery OTPs on this email if you lose access to your primary email.</li>
+                <li>Dual-access security is now active for your profile.</li>
+            </ul>
+        </div>
+        <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 30px;">
+          If you did not perform this action, please contact the Internship Office immediately.
+        </p>
+      </div>
+    `;
+    return await brevoSend(email, 'Success: Secondary Email Linked to DIMS', html);
 };
 
 /**

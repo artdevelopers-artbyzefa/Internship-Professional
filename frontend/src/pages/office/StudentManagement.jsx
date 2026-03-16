@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiRequest } from '../../utils/api.js';
 import Button from '../../components/ui/Button.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
@@ -10,24 +10,39 @@ const ITEMS_PER_PAGE = 10;
 
 export default function StudentManagement({ user }) {
     const [students, setStudents] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [errorDictionary, setErrorDictionary] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [resendingId, setResendingId] = useState(null);
 
-    const initialForm = { name: '', reg: '', email: '', semester: '7' };
+    const initialForm = { name: '', reg: '', email: '', semester: '7', fatherName: '', whatsappNumber: '', section: '', cgpa: '' };
     const [form, setForm] = useState(initialForm);
 
-    useEffect(() => { fetchStudents(); }, []);
+    // Debounced fetch
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchStudents();
+        }, search ? 500 : 0); // debounce search
+        return () => clearTimeout(timer);
+    }, [page, search]);
 
     const fetchStudents = async () => {
+        setLoading(true);
         try {
-            const data = await apiRequest('/office/all-students');
-            setStudents(data || []);
+            const data = await apiRequest(`/office/all-students?page=${page}&limit=${ITEMS_PER_PAGE}&search=${encodeURIComponent(search)}`);
+            if (data && data.students) {
+                setStudents(data.students);
+                setTotal(data.total);
+                setTotalPages(data.pages);
+            }
         } catch (err) {
-            console.error(err);
+            console.error('[FETCH_REGISTRY_ERROR]', err);
+            showToast.error('Failed to load student records.');
         } finally {
             setLoading(false);
         }
@@ -39,43 +54,52 @@ export default function StudentManagement({ user }) {
         if (!validate.required(form.reg)) e.reg = 'Registration number is required';
         if (!validate.required(form.email)) e.email = 'Email is required';
         else if (!validate.institutionalEmail(form.email)) e.email = 'Must be @cuiatd.edu.pk';
+        
+        if (form.cgpa && (parseFloat(form.cgpa) < 0 || parseFloat(form.cgpa) > 4.0)) {
+            e.cgpa = 'CGPA must be between 0.0 and 4.0';
+        }
+        
         setErrorDictionary(e);
         return Object.keys(e).length === 0;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return; // double-submit protection
         if (!validateForm()) return;
+
         setSubmitting(true);
         try {
-            await apiRequest('/office/onboard-student', {
+            const res = await apiRequest('/office/onboard-student', {
                 method: 'POST',
                 body: { ...form, officeId: user.id || user._id }
             });
-            showToast.success('Student onboarded and activation email sent.');
+            showToast.success(res.message || 'Student profile created.');
             setShowForm(false);
             setForm(initialForm);
+            setPage(1); 
             fetchStudents();
         } catch (err) {
-            // handled by apiRequest
+            // Error is handled by apiRequest (toast)
         } finally {
             setSubmitting(false);
         }
     };
 
-    const filtered = useMemo(() => {
-        if (!search.trim()) return students;
-        const q = search.toLowerCase();
-        return students.filter(s =>
-            s.name?.toLowerCase().includes(q) ||
-            s.reg?.toLowerCase().includes(q) ||
-            s.email?.toLowerCase().includes(q) ||
-            String(s.semester).includes(q)
-        );
-    }, [students, search]);
-
-    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-    const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const handleResendLink = async (studentId) => {
+        setResendingId(studentId);
+        try {
+            await apiRequest('/office/resend-student-activation', {
+                method: 'POST',
+                body: { studentId, officeId: user.id || user._id }
+            });
+            showToast.success('Activation link resent to student.');
+        } catch (err) {
+            // toast handled
+        } finally {
+            setResendingId(null);
+        }
+    };
 
     const columns = [
         { key: 'reg', label: 'Registration #' },
@@ -84,135 +108,191 @@ export default function StudentManagement({ user }) {
         { key: 'semester', label: 'Sem', render: v => v ? `Sem ${v}` : '—' },
         {
             key: 'status',
-            label: 'Status',
-            render: (val) => {
+            label: 'Registry Status',
+            render: (val, row) => {
                 const map = {
-                    'unverified': { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending Activation' },
-                    'verified': { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Verified' },
+                    'unverified': { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending Activation' },
+                    'verified': { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Verified' },
                 };
-                const cfg = map[val] || { bg: 'bg-blue-50', text: 'text-blue-600', label: val };
+                const cfg = map[val] || { bg: 'bg-blue-100', text: 'text-blue-700', label: val };
+                
                 return (
-                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${cfg.bg} ${cfg.text}`}>
-                        {cfg.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${cfg.bg} ${cfg.text}`}>
+                            {cfg.label}
+                        </span>
+                        {val === 'unverified' && (
+                            <button
+                                onClick={() => handleResendLink(row._id || row.id)}
+                                disabled={resendingId === (row._id || row.id)}
+                                className="text-[10px] font-black text-primary hover:underline disabled:opacity-50"
+                                title="Resend Activation Link"
+                            >
+                                {resendingId === (row._id || row.id) ? 'Sending...' : 'Resend link'}
+                            </button>
+                        )}
+                    </div>
                 );
             }
         }
     ];
 
-    if (loading) return <div className="py-16 text-center"><i className="fas fa-circle-notch fa-spin text-2xl text-primary opacity-50"></i></div>;
-
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                     <div>
-                        <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student Registry</h2>
+                        <h2 className="text-3xl font-black text-gray-900 tracking-tight">Student Registry</h2>
                         <p className="text-sm text-gray-400 font-medium mt-1">Institutional records for all active and pending student accounts.</p>
                     </div>
                     <Button
                         variant={showForm ? 'outline' : 'primary'}
                         onClick={() => setShowForm(!showForm)}
-                        className="rounded-xl px-6 h-11 font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/10 flex-shrink-0"
+                        className="rounded-2xl px-6 h-12 font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/10 flex-shrink-0"
                     >
                         {showForm ? <><i className="fas fa-xmark mr-2"></i>Close</> : <><i className="fas fa-user-plus mr-2"></i>Onboard Student</>}
                     </Button>
                 </div>
 
                 {/* Onboarding Form */}
-                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showForm ? 'max-h-[400px] opacity-100 mb-8' : 'max-h-0 opacity-0 pointer-events-none'}`}>
-                    <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center">
-                                <i className="fas fa-id-card-clip"></i>
+                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showForm ? 'max-h-[800px] opacity-100 mb-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                    <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 shadow-inner">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+                                <i className="fas fa-id-card-clip text-xl"></i>
                             </div>
                             <div>
-                                <h3 className="text-sm font-black text-gray-800">Manual Onboarding</h3>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Enrollment verified via Internship Office</p>
+                                <h3 className="text-lg font-black text-gray-800">Manual Registration</h3>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-primary">Pre-filling eligibility data for internship cycle</p>
                             </div>
                         </div>
-                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                            <FormGroup label="Full Name" error={errorDictionary.name}>
-                                <TextInput iconLeft="fa-user" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
-                            </FormGroup>
-                            <FormGroup label="Registration Number" error={errorDictionary.reg}>
-                                <TextInput iconLeft="fa-fingerprint" value={form.reg} onChange={e => setForm({ ...form, reg: e.target.value })} placeholder="FA21-BCS-001" />
-                            </FormGroup>
-                            <FormGroup label="Institutional Email" error={errorDictionary.email}>
-                                <TextInput iconLeft="fa-envelope" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="name@cuiatd.edu.pk" />
-                            </FormGroup>
-                            <FormGroup label="Semester">
-                                <div className="flex gap-2">
-                                    <SelectInput iconLeft="fa-layer-group" value={form.semester} onChange={e => setForm({ ...form, semester: e.target.value })} className="flex-1">
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                            {/* Row 1: Core Identity */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <FormGroup label="Full Name" error={errorDictionary.name}>
+                                    <TextInput iconLeft="fa-user" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Student's Legal Name" />
+                                </FormGroup>
+                                <FormGroup label="Registration Number" error={errorDictionary.reg}>
+                                    <TextInput iconLeft="fa-fingerprint" value={form.reg} onChange={e => setForm({ ...form, reg: e.target.value })} placeholder="FA21-BCS-001" />
+                                </FormGroup>
+                                <FormGroup label="Institutional Email" error={errorDictionary.email}>
+                                    <TextInput iconLeft="fa-envelope" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="name@cuiatd.edu.pk" />
+                                </FormGroup>
+                                <FormGroup label="Current Semester">
+                                    <SelectInput iconLeft="fa-layer-group" value={form.semester} onChange={e => setForm({ ...form, semester: e.target.value })}>
                                         {['1', '2', '3', '4', '5', '6', '7', '8'].map(s => <option key={s} value={s}>Sem {s}</option>)}
                                     </SelectInput>
-                                    <Button variant="primary" type="submit" loading={submitting} className="rounded-xl px-5 bg-gray-900 border-0">Enroll</Button>
-                                </div>
-                            </FormGroup>
+                                </FormGroup>
+                            </div>
+
+                            {/* Row 2: Eligibility & Contact */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <FormGroup label="Father's Name">
+                                    <TextInput iconLeft="fa-user-tie" value={form.fatherName} onChange={e => setForm({ ...form, fatherName: e.target.value })} placeholder="Parent/Guardian Name" />
+                                </FormGroup>
+                                <FormGroup label="WhatsApp Number">
+                                    <TextInput iconLeft="fa-phone" value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} placeholder="03XXXXXXXXX" />
+                                </FormGroup>
+                                <FormGroup label="Section (A/B/C/D)">
+                                    <TextInput iconLeft="fa-users-rectangle" value={form.section} onChange={e => setForm({ ...form, section: e.target.value })} placeholder="e.g. A" />
+                                </FormGroup>
+                                <FormGroup label="Current CGPA" error={errorDictionary.cgpa}>
+                                    <TextInput iconLeft="fa-chart-line" type="number" step="0.01" value={form.cgpa} onChange={e => setForm({ ...form, cgpa: e.target.value })} placeholder="e.g. 3.25" />
+                                </FormGroup>
+                            </div>
+
+                            <div className="flex justify-end pt-4 border-t border-slate-200/50">
+                                <Button 
+                                    variant="primary" 
+                                    type="submit" 
+                                    loading={submitting} 
+                                    className="rounded-2xl px-12 bg-gray-900 hover:bg-black border-0 shadow-xl shadow-black/10 h-14 font-black"
+                                >
+                                    Complete Enrollment
+                                </Button>
+                            </div>
                         </form>
                     </div>
                 </div>
 
                 {/* Search + count */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
-                        <i className="fas fa-users text-primary/40"></i>
-                        <span><strong className="text-gray-700">{filtered.length}</strong> student{filtered.length !== 1 ? 's' : ''}</span>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-primary">
+                             <i className="fas fa-users text-xs"></i>
+                        </div>
+                        <div className="text-sm font-bold text-gray-400">
+                             Total Records: <span className="text-gray-900">{total}</span>
+                             {search && <span className="ml-2 font-medium text-blue-500 hover:underline cursor-pointer" onClick={() => setSearch('')}>(Clear Filter)</span>}
+                        </div>
                     </div>
-                    <div className="relative">
-                        <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs"></i>
+                    <div className="relative group lg:w-96">
+                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-xs transition-colors group-focus-within:text-primary"></i>
                         <input
                             type="text"
                             value={search}
                             onChange={e => { setSearch(e.target.value); setPage(1); }}
-                            placeholder="Search by name, reg, or email..."
-                            className="pl-9 pr-4 py-2.5 border border-gray-100 rounded-xl text-sm font-medium text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 w-72"
+                            placeholder="Find by name, registration, or email..."
+                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-semibold text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/30 transition-all"
                         />
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="border-t border-gray-50 pt-6">
-                    {paginated.length === 0 ? (
-                        <div className="py-12 text-center text-gray-300">
-                            <i className="fas fa-inbox text-3xl mb-3 block"></i>
-                            <p className="text-sm font-semibold">No students found</p>
+                <div className="min-h-[400px]">
+                    {loading ? (
+                         <div className="py-24 text-center">
+                            <i className="fas fa-circle-notch fa-spin text-3xl text-primary opacity-20 mb-4"></i>
+                            <p className="text-xs font-black text-gray-300 uppercase tracking-widest">Retrieving Records...</p>
+                         </div>
+                    ) : students.length === 0 ? (
+                        <div className="py-24 text-center bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100">
+                            <i className="fas fa-folder-open text-gray-200 text-5xl mb-4"></i>
+                            <p className="text-sm font-black text-gray-400 uppercase">No students found in registry</p>
                         </div>
                     ) : (
-                        <DataTable columns={columns} data={paginated} />
+                        <DataTable columns={columns} data={students} hover striped={false} />
                     )}
                 </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-6 mt-4 border-t border-gray-50">
-                        <p className="text-xs text-gray-400 font-medium">
-                            Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 mt-8 border-t border-gray-50">
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                            Page <span className="text-gray-900">{page}</span> of {totalPages} • Showing {students.length} of {total} records
                         </p>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1.5">
                             <button
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
                                 disabled={page === 1}
-                                className="w-8 h-8 rounded-lg border border-gray-100 text-gray-400 text-xs font-bold hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                                className="w-10 h-10 rounded-xl border border-gray-100 text-gray-400 flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all"
                             >
-                                <i className="fas fa-chevron-left"></i>
+                                <i className="fas fa-chevron-left text-xs"></i>
                             </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                                <button
-                                    key={p}
-                                    onClick={() => setPage(p)}
-                                    className={`w-8 h-8 rounded-lg text-xs font-black transition-colors ${p === page ? 'bg-primary text-white' : 'border border-gray-100 text-gray-400 hover:bg-gray-50'}`}
-                                >
-                                    {p}
-                                </button>
-                            ))}
+                            
+                            {/* Simple pagination numbers */}
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                                .map((p, i, arr) => (
+                                    <React.Fragment key={p}>
+                                        {i > 0 && arr[i - 1] !== p - 1 && <span className="px-2 text-gray-300 self-center">...</span>}
+                                        <button
+                                            onClick={() => setPage(p)}
+                                            className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${p === page ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'border border-gray-100 text-gray-400 hover:border-primary hover:text-primary bg-white'}`}
+                                        >
+                                            {p}
+                                        </button>
+                                    </React.Fragment>
+                                ))
+                            }
+
                             <button
                                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                 disabled={page === totalPages}
-                                className="w-8 h-8 rounded-lg border border-gray-100 text-gray-400 text-xs font-bold hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                                className="w-10 h-10 rounded-xl border border-gray-100 text-gray-400 flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all"
                             >
-                                <i className="fas fa-chevron-right"></i>
+                                <i className="fas fa-chevron-right text-xs"></i>
                             </button>
                         </div>
                     </div>

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
+import PageErrorBoundary from '../../components/ui/PageErrorBoundary.jsx';
 import OfficeDashboard from './OfficeDashboard.jsx';
 import StudentRequestVerification from './StudentRequestVerification.jsx';
 import FacultyManagement from './FacultyManagement.jsx';
@@ -17,6 +18,7 @@ import SiteSupervisorManagement from './SiteSupervisorManagement.jsx';
 import PhaseManagement from './PhaseManagement.jsx';
 import InternshipRequestsManager from './InternshipRequestsManager.jsx';
 import EmailCenter from './EmailCenter.jsx';
+import HODArchive from '../hod/HODArchive.jsx';
 
 const officeNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
@@ -32,7 +34,11 @@ const officeNav = [
   { id: 'phase-control', label: 'Phase Control', icon: 'fa-layer-group' }
 ];
 
-import HODArchive from '../hod/HODArchive.jsx';
+// Helper — wraps any element in an error boundary so ONE page crash
+// never takes down the entire portal.
+const Safe = ({ children }) => (
+  <PageErrorBoundary>{children}</PageErrorBoundary>
+);
 
 export default function InternshipOfficePortal({ user, onLogout }) {
   const navigate = useNavigate();
@@ -60,27 +66,27 @@ export default function InternshipOfficePortal({ user, onLogout }) {
     >
       <div className="p-6">
         <Routes>
-          <Route path="dashboard" element={<OfficeDashboard user={user} />} />
-          <Route path="student-registry" element={<StudentManagement user={user} />} />
-          <Route path="registered-students" element={<RegisteredStudents user={user} />} />
-          <Route path="internship-requests" element={<InternshipRequestsManager user={user} />} />
+          <Route path="dashboard"           element={<Safe><OfficeDashboard user={user} /></Safe>} />
+          <Route path="student-registry"    element={<Safe><StudentManagement user={user} /></Safe>} />
+          <Route path="registered-students" element={<Safe><RegisteredStudents user={user} /></Safe>} />
+          <Route path="internship-requests" element={<Safe><InternshipRequestsManager user={user} /></Safe>} />
 
-          <Route path="verification-dashboard" element={<StudentRequestVerification user={user} />} />
+          <Route path="verification-dashboard" element={<Safe><StudentRequestVerification user={user} /></Safe>} />
 
-          <Route path="faculty-management" element={<FacultyManagement user={user} />} />
-          <Route path="supervisor-management" element={<SiteSupervisorManagement user={user} />} />
-          <Route path="company-registry" element={<CompanyManagement user={user} />} />
-          <Route path="assignment-center" element={<AssignmentCenter user={user} />} />
+          <Route path="faculty-management"   element={<Safe><FacultyManagement user={user} /></Safe>} />
+          <Route path="supervisor-management" element={<Safe><SiteSupervisorManagement user={user} /></Safe>} />
+          <Route path="company-registry"     element={<Safe><CompanyManagement user={user} /></Safe>} />
+          <Route path="assignment-center"    element={<Safe><AssignmentCenter user={user} /></Safe>} />
 
-          <Route path="add-assignments" element={<ManageAssignments user={user} />} />
-          <Route path="view-results" element={<ViewAllResults />} />
+          <Route path="add-assignments"  element={<Safe><ManageAssignments user={user} /></Safe>} />
+          <Route path="view-results"     element={<Safe><ViewAllResults /></Safe>} />
 
-          <Route path="reports-analytics" element={<ReportsAnalytics user={user} />} />
-          <Route path="download-reports" element={<OfficeReports user={user} />} />
-          <Route path="notice-board" element={<NoticeManagement user={user} />} />
-          <Route path="archive" element={<HODArchive />} />
-          <Route path="email-center" element={<EmailCenter />} />
-          <Route path="phase-control" element={<PhaseManagement user={user} />} />
+          <Route path="reports-analytics"  element={<Safe><ReportsAnalytics user={user} /></Safe>} />
+          <Route path="download-reports"   element={<Safe><OfficeReports user={user} /></Safe>} />
+          <Route path="notice-board"       element={<Safe><NoticeManagement user={user} /></Safe>} />
+          <Route path="archive"            element={<Safe><HODArchive /></Safe>} />
+          <Route path="email-center"       element={<Safe><EmailCenter /></Safe>} />
+          <Route path="phase-control"      element={<Safe><PhaseManagement user={user} /></Safe>} />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

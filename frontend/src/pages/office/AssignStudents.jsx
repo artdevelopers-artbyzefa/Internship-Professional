@@ -25,7 +25,7 @@ export default function AssignStudents({ user }) {
       const [stuData, facData, compData] = await Promise.all([
         apiRequest('/office/approved-students'),
         apiRequest('/auth/faculty-list'),
-        apiRequest('/office/companies')
+        apiRequest('/office/companies/dropdown')
       ]);
       setStudents(stuData);
       setFaculty(facData);

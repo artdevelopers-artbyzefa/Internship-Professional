@@ -19,6 +19,12 @@ export default function CompanyManagement({ view, user }) {
   const [studentsList, setStudentsList] = useState([]);
   const [fetchingStudents, setFetchingStudents] = useState(false);
 
+  // Pagination & Search State
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
   const initialForm = {
     name: '',
     address: '',
@@ -35,14 +41,25 @@ export default function CompanyManagement({ view, user }) {
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
 
+  // Debounce Search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset to page 1 on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     fetchCompanies();
-  }, []);
+  }, [page, debouncedSearch]);
 
   const fetchCompanies = async () => {
+    setLoading(true);
     try {
-      const data = await apiRequest('/office/companies');
-      setCompanies(data || []);
+      const resp = await apiRequest(`/office/companies?page=${page}&search=${debouncedSearch}`);
+      setCompanies(resp.data || []);
+      setTotalPages(resp.pages || 1);
     } catch (err) {
       // Handled by apiRequest
     } finally {
@@ -53,7 +70,6 @@ export default function CompanyManagement({ view, user }) {
   const validateForm = () => {
     const e = {};
     if (!validate.required(form.name)) e.name = 'Company name is required';
-    if (!validate.required(form.regNo)) e.regNo = 'Registration number is required';
     if (!validate.required(form.mouSignedDate)) e.mouSignedDate = 'MOU date is required';
 
     const supervisorErrors = [];
@@ -268,17 +284,29 @@ export default function CompanyManagement({ view, user }) {
           <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Company Registry</h2>
           <p className="text-xs md:text-sm text-gray-500">Manage institutional partners and student-submitted internship sites.</p>
         </div>
-        <button
-          onClick={() => {
-            setShowAddForm(!showAddForm);
-            setEditingCompanyId(null);
-            setForm(initialForm);
-          }}
-          className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl font-bold transition-all h-fit ${showAddForm ? 'bg-gray-100 text-gray-600' : 'bg-primary text-white shadow-lg shadow-blue-600/20'}`}
-        >
-          <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`}></i>
-          <span className="text-sm">{showAddForm ? 'Close Form' : 'Register MOU'}</span>
-        </button>
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <div className="relative w-full md:w-64">
+            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+            <input 
+              type="text"
+              placeholder="Search companies..."
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={() => {
+              setShowAddForm(!showAddForm);
+              setEditingCompanyId(null);
+              setForm(initialForm);
+            }}
+            className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl font-bold transition-all h-fit whitespace-nowrap ${showAddForm ? 'bg-gray-100 text-gray-600' : 'bg-primary text-white shadow-lg shadow-blue-600/20'}`}
+          >
+            <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`}></i>
+            <span className="text-sm">{showAddForm ? 'Close' : 'Register MOU'}</span>
+          </button>
+        </div>
       </div>
 
       <div className={`grid transition-all duration-500 ease-in-out ${showAddForm ? 'grid-rows-[1fr] opacity-100 mb-10' : 'grid-rows-[0fr] opacity-0 mb-0 overflow-hidden'}`}>
@@ -294,8 +322,8 @@ export default function CompanyManagement({ view, user }) {
                 <FormGroup label="Company Name" error={errorDictionary.name}>
                   <TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Google Pakistan" />
                 </FormGroup>
-                <FormGroup label="Registration Number" error={errorDictionary.regNo}>
-                  <TextInput value={form.regNo} onChange={e => setForm({ ...form, regNo: e.target.value })} placeholder="e.g. SECP-12345" />
+                <FormGroup label="Registration Number (Optional)">
+                  <TextInput value={form.regNo} onChange={e => setForm({ ...form, regNo: e.target.value })} placeholder="e.g. SECP-12345 (Leave blank if unavailable)" />
                 </FormGroup>
                 <FormGroup label="Industry Scope">
                   <TextInput value={form.scope} onChange={e => setForm({ ...form, scope: e.target.value })} placeholder="e.g. Software Development" />
@@ -402,6 +430,30 @@ export default function CompanyManagement({ view, user }) {
       <div className="overflow-x-auto -mx-4 md:mx-0">
         <DataTable columns={columns} data={companies} />
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+            >
+              <i className="fas fa-chevron-left text-[10px]"></i>
+            </button>
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+            >
+              <i className="fas fa-chevron-right text-[10px]"></i>
+            </button>
+          </div>
+        </div>
+      )}
       {showStudentsModal && (
         <Modal onClose={() => setShowStudentsModal(false)} size="lg">
           <ModalTitle>Assigned Students: {selectedSupervisorForStudents?.name}</ModalTitle>

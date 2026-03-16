@@ -22,6 +22,7 @@ router.get('/me', protect, async (req, res) => {
             id: user._id,
             name: user.name,
             email: user.email,
+            secondaryEmail: user.secondaryEmail || null,
             role: user.role,
             reg: user.reg,
             semester: user.semester,
@@ -173,10 +174,10 @@ router.post('/verify-email/:token', async (req, res) => {
 });
 
 // @route   POST api/auth/forgot-password
-// @desc    Generate a 6-digit code and email it to user
+// @desc    Check secondary email exists, then generate a 6-digit code sent to both emails
 router.post('/forgot-password', async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email, sendTo } = req.body; // sendTo: 'primary' | 'secondary'
         const emailLower = email.toLowerCase().trim();
 
         const user = await User.findOne({
@@ -187,32 +188,54 @@ router.post('/forgot-password', async (req, res) => {
         });
 
         if (!user) {
-            // Security response: don't reveal if user exists
+            // Security: don't reveal if user exists
             return res.json({ message: 'If an account exists with this email, a verification code has been sent.' });
         }
+
+        // Require secondary email to be linked before allowing password reset
+        if (!user.secondaryEmail) {
+            return res.status(403).json({
+                requiresSecondaryEmail: true,
+                message: 'You must link a secondary email on your profile before you can reset your password. Please log in and go to My Profile → Contact & Security.'
+            });
+        }
+
+        // If no sendTo specified yet, return which emails are available (UI decision step)
+        if (!sendTo) {
+            return res.json({
+                status: 'choose_email',
+                primaryEmail: user.email,
+                secondaryEmail: user.secondaryEmail,
+                message: 'Choose which email to receive the verification code.'
+            });
+        }
+
+        const targetEmail = sendTo === 'secondary' ? user.secondaryEmail : user.email;
 
         // Generate 6-digit numeric code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 Minutes
 
-        // Use updateOne with $set to bypass any in-memory model caching issues
         await User.updateOne(
             { _id: user._id },
             { $set: { resetPasswordCode: code, resetPasswordExpires: expiry } }
         );
 
-        console.log(`[FORGOT-PW] Code ${code} saved for ${emailLower}, expires ${expiry}`);
+        console.log(`[FORGOT-PW] Code ${code} saved for ${user.email}, sending to ${targetEmail}`);
 
-        const mailResult = await sendPasswordResetCode(emailLower, code);
+        const mailResult = await sendPasswordResetCode(targetEmail, code);
 
         if (!mailResult.success) {
-            return res.status(500).json({ 
-                message: 'Failed to send verification code.',
-                details: mailResult.error 
+            return res.status(500).json({
+                message: `Email system error: ${mailResult.error || 'Authentication failed'}. Please contact admin.`
             });
         }
 
-        res.json({ message: 'Verification code sent to your email.' });
+        res.json({
+            status: 'code_sent',
+            sentTo: targetEmail,
+            message: `Verification code sent to ${targetEmail}.`
+        });
     } catch (err) {
         console.error('[FORGOT-PW ERROR]', err);
         res.status(500).json({ message: 'Server error' });
@@ -226,16 +249,8 @@ router.post('/verify-reset-code', async (req, res) => {
         const { email, code } = req.body;
         const emailLower = email.toLowerCase().trim();
 
-        // Debug: log what we're searching for
-        const userByEmail = await User.findOne({ email: emailLower });
-        if (userByEmail) {
-            console.log(`[VERIFY-CODE] DB has code: '${userByEmail.resetPasswordCode}', received: '${code}', expires: ${userByEmail.resetPasswordExpires}`);
-        } else {
-            console.log(`[VERIFY-CODE] No user found for email: ${emailLower}`);
-        }
-
         const user = await User.findOne({
-            email: emailLower,
+            $or: [{ email: emailLower }, { secondaryEmail: emailLower }],
             resetPasswordCode: code.toString().trim(),
             resetPasswordExpires: { $gt: new Date() }
         });
@@ -266,7 +281,7 @@ router.post('/reset-password-final', async (req, res) => {
         console.log(`[RESET-PW] Attempting final reset for ${emailLower} with code ${codeClean}`);
 
         const user = await User.findOne({
-            email: emailLower,
+            $or: [{ email: emailLower }, { secondaryEmail: emailLower }],
             resetPasswordCode: codeClean,
             resetPasswordExpires: { $gt: new Date() }
         });
@@ -276,16 +291,13 @@ router.post('/reset-password-final', async (req, res) => {
             return res.status(400).json({ message: 'Your session has expired or code is invalid. Please request a new code.' });
         }
 
-        // 1. Hash and Save
         user.password = await bcrypt.hash(newPassword, 12);
-
-        // 2. Clear Reset Fields
         user.resetPasswordCode = undefined;
         user.resetPasswordExpires = undefined;
 
         await user.save();
 
-        console.log(`[RESET-PW-SUCCESS] Password updated for ${emailLower}`);
+        console.log(`[RESET-PW-SUCCESS] Password updated for ${user.email}`);
         res.json({ message: 'Password reset successful! You can now log in.' });
     } catch (err) {
         console.error('[RESET-PW-ERROR]', err);
@@ -322,6 +334,7 @@ router.post('/login', async (req, res) => {
 
         // 2. Fast Password Verification
         const isMatch = await bcrypt.compare(password, user.password);
+        
         if (!isMatch) {
             console.log(`[AUTH-FAILURE] Incorrect password for: ${user.email}`);
             return res.status(400).json({ message: 'Invalid credentials.' });
@@ -354,8 +367,7 @@ router.post('/login', async (req, res) => {
             const mailResult = await sendPasswordResetCode(emailLower, code);
             if (!mailResult.success) {
                 return res.status(500).json({ 
-                    message: 'Failed to send verification code.',
-                    details: mailResult.error
+                    message: `[v2-FIX] Email failed: ${mailResult.error || 'Check SMTP config'}`
                 });
             }
 
@@ -392,6 +404,7 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
+                secondaryEmail: user.secondaryEmail || null,
                 role: user.role,
                 reg: user.reg,
                 semester: user.semester,
@@ -413,6 +426,7 @@ router.post('/login', async (req, res) => {
             },
             token
         });
+
 
     } catch (error) {
         console.error('Login error:', error);

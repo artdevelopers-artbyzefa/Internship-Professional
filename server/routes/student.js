@@ -12,6 +12,7 @@ import { protect } from '../middleware/auth.js';
 import { getPKTTime } from '../utils/time.js';
 import { uploadCloudinary, cloudinary } from '../utils/cloudinary.js';
 import { createNotification } from '../utils/notifications.js';
+import { sendSecondaryEmailVerificationCode, sendSecondaryEmailLinkedConfirmation } from '../emailServices/emailService.js';
 
 const router = express.Router();
 
@@ -224,7 +225,7 @@ router.get('/my-evaluations', protect, async (req, res) => {
 router.put('/update-profile', protect, async (req, res) => {
     try {
         console.log(`[UPDATE-PROFILE] Request from ${req.user.email}:`, req.body);
-        const { fatherName, section, dateOfBirth, profilePicture, secondaryEmail, whatsappNumber, newPassword } = req.body;
+        const { fatherName, section, dateOfBirth, profilePicture, whatsappNumber, newPassword } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -237,29 +238,6 @@ router.put('/update-profile', protect, async (req, res) => {
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
         if (whatsappNumber !== undefined) user.whatsappNumber = whatsappNumber;
         
-        if (secondaryEmail) {
-            const lowerEmail = secondaryEmail.toLowerCase().trim();
-
-            // Prevent editing if already set
-            if (user.secondaryEmail && user.secondaryEmail !== lowerEmail) {
-                return res.status(400).json({ message: 'Secondary email is already registered and cannot be modified.' });
-            }
-
-            // Crucial Security: Ensure secondary email is not already a PRIMARY email or someone else's secondary
-            const collision = await User.findOne({
-                _id: { $ne: user._id },
-                $or: [
-                    { email: lowerEmail },
-                    { secondaryEmail: lowerEmail }
-                ]
-            });
-
-            if (collision) {
-                return res.status(400).json({ message: 'The secondary email is already linked to another account.' });
-            }
-
-            user.secondaryEmail = lowerEmail;
-        }
 
         // Handle Password Change
         if (newPassword && newPassword.trim() !== "") {
@@ -320,6 +298,125 @@ router.put('/update-profile', protect, async (req, res) => {
     } catch (err) {
         console.error('[UPDATE-PROFILE-ERROR]', err);
         res.status(500).json({ message: `Update failed: ${err.message}` });
+    }
+});
+
+// @route   POST api/student/secondary-email/send-otp
+// @desc    Send OTP to a secondary email before linking
+router.post('/secondary-email/send-otp', protect, async (req, res) => {
+    try {
+        const { secondaryEmail } = req.body;
+        if (!secondaryEmail) return res.status(400).json({ message: 'Secondary email is required.' });
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        if (user.secondaryEmail) {
+            return res.status(400).json({ message: 'A secondary email is already linked to this account.' });
+        }
+
+        const lowerEmail = secondaryEmail.toLowerCase().trim();
+
+        if (lowerEmail.endsWith('@cuiatd.edu.pk')) {
+            return res.status(400).json({ message: 'Secondary email must be a personal email (Gmail, Yahoo, etc.). Institutional emails cannot be used as a backup.' });
+        }
+
+        if (lowerEmail === user.email) {
+            return res.status(400).json({ message: 'Secondary email cannot be the same as your primary email.' });
+        }
+
+        const collision = await User.findOne({
+            _id: { $ne: user._id },
+            $or: [{ email: lowerEmail }, { secondaryEmail: lowerEmail }]
+        });
+        if (collision) {
+            return res.status(400).json({ message: 'This email is already linked to another account.' });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+
+        await User.updateOne({ _id: user._id }, { $set: {
+            pendingSecondaryEmail: lowerEmail,
+            secondaryEmailOtp: code,
+            secondaryEmailOtpExpires: expiry
+        }});
+
+        const result = await sendSecondaryEmailVerificationCode(lowerEmail, code);
+        if (!result.success) {
+            return res.status(500).json({ message: 'Failed to send verification email. Please try again.' });
+        }
+
+        console.log(`[SECONDARY-EMAIL] OTP sent to ${lowerEmail} for user ${user.email}`);
+        res.json({ message: 'Verification code sent! Check your secondary email inbox.' });
+    } catch (err) {
+        console.error('[SECONDARY-EMAIL OTP ERROR]', err);
+        res.status(500).json({ message: 'Server error.' });
+    }
+});
+
+// @route   POST api/student/secondary-email/confirm
+// @desc    Confirm OTP and permanently link secondary email
+router.post('/secondary-email/confirm', protect, async (req, res) => {
+    try {
+        const { otp } = req.body;
+        if (!otp) return res.status(400).json({ message: 'Verification code is required.' });
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        if (!user.pendingSecondaryEmail || !user.secondaryEmailOtp) {
+            return res.status(400).json({ message: 'No pending secondary email. Please start over.' });
+        }
+
+        if (new Date() > new Date(user.secondaryEmailOtpExpires)) {
+            return res.status(400).json({ message: 'Verification code expired. Please request a new one.' });
+        }
+
+        if (otp.toString().trim() !== user.secondaryEmailOtp) {
+            return res.status(400).json({ message: 'Invalid verification code.' });
+        }
+
+        const confirmedEmail = user.pendingSecondaryEmail;
+
+        await User.updateOne({ _id: user._id }, {
+            $set: { secondaryEmail: confirmedEmail },
+            $unset: { pendingSecondaryEmail: '', secondaryEmailOtp: '', secondaryEmailOtpExpires: '' }
+        });
+
+        await sendSecondaryEmailLinkedConfirmation(confirmedEmail, user.email);
+
+        console.log(`[SECONDARY-EMAIL] Linked ${confirmedEmail} to ${user.email}`);
+
+        const updatedUser = await User.findById(user._id).populate('assignedFaculty', 'name email whatsappNumber');
+        res.json({
+            message: 'Secondary email linked successfully!',
+            user: {
+                id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                reg: updatedUser.reg,
+                status: updatedUser.status,
+                fatherName: updatedUser.fatherName,
+                secondaryEmail: updatedUser.secondaryEmail,
+                section: updatedUser.section,
+                semester: updatedUser.semester,
+                cgpa: updatedUser.cgpa,
+                dateOfBirth: updatedUser.dateOfBirth,
+                profilePicture: updatedUser.profilePicture,
+                registeredCourse: updatedUser.registeredCourse,
+                whatsappNumber: updatedUser.whatsappNumber,
+                internshipRequest: updatedUser.internshipRequest,
+                internshipAgreement: updatedUser.internshipAgreement,
+                assignedFaculty: updatedUser.assignedFaculty,
+                assignedCompany: updatedUser.assignedCompany,
+                assignedCompanySupervisor: updatedUser.assignedCompanySupervisor
+            }
+        });
+    } catch (err) {
+        console.error('[SECONDARY-EMAIL CONFIRM ERROR]', err);
+        res.status(500).json({ message: 'Server error.' });
     }
 });
 

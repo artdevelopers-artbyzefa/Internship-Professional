@@ -203,8 +203,8 @@ export default function StudentAgreementForm({ user }) {
                   <FormGroup label="Company Address">
                     <TextInput required value={form.companyAddress} onChange={e => setForm({ ...form, companyAddress: e.target.value })} iconLeft="fa-location-dot" />
                   </FormGroup>
-                  <FormGroup label="Company Registration #">
-                    <TextInput required value={form.companyRegNo} onChange={e => setForm({ ...form, companyRegNo: e.target.value })} iconLeft="fa-hashtag" />
+                  <FormGroup label="Company Registration # (Optional)">
+                    <TextInput value={form.companyRegNo} onChange={e => setForm({ ...form, companyRegNo: e.target.value })} iconLeft="fa-hashtag" placeholder="e.g. SECP-12345 (Optional)" />
                   </FormGroup>
                   <FormGroup label="HR Email Address">
                     <TextInput type="email" required value={form.companyHREmail} onChange={e => setForm({ ...form, companyHREmail: e.target.value })} iconLeft="fa-envelope-circle-check" />

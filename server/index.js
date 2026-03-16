@@ -22,7 +22,6 @@ import { seedPhases } from './routes/phases.js';
 
 dotenv.config();
 
-// Connect and Seed
 const initDB = async () => {
     try {
         console.log('[DB] Attempting connection...');
@@ -36,12 +35,24 @@ const initDB = async () => {
 
 initDB();
 
+// Auto-reconnect if MongoDB drops mid-session (common on free Atlas tier)
+mongoose.connection.on('disconnected', () => {
+    console.warn('[DB] Disconnected. Attempting auto-reconnect in 3s...');
+    setTimeout(() => {
+        mongoose.connect(process.env.MONGODB_URI).catch(e =>
+            console.error('[DB] Auto-reconnect failed:', e.message)
+        );
+    }, 3000);
+});
+mongoose.connection.on('error', (err) => {
+    console.error('[DB] Connection error:', err.message);
+});
+
 const app = express();
 app.set('trust proxy', 1);
 
-// Middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 const allowedOrigins = [
     "http://localhost:5173",
     "https://internship-professional-ie1e.vercel.app"
@@ -60,23 +71,21 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 app.use(cookieParser());
-app.use(morgan('dev')); // Log ALL requests to the terminal
+app.use(morgan('dev'));
 
-// DB Connection Middleware for Serverless
-let cachedDB = null;
 const connectDB = async (req, res, next) => {
-    if (mongoose.connection.readyState >= 1) {
-        return next();
-    }
+    if (mongoose.connection.readyState >= 1) return next();
 
     try {
-        console.log('[DB] Connecting to MongoDB...');
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('[DB] Connected successfully.');
+        const options = {
+            maxPoolSize: 10,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        };
+        await mongoose.connect(process.env.MONGODB_URI, options);
         return next();
     } catch (err) {
-        console.error('[DB] Connection Error:', err);
-        return res.status(500).json({ message: 'Database connection failed' });
+        return res.status(500).json({ message: 'Cloud database connection timeout. Please try again.' });
     }
 };
 
@@ -86,7 +95,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/office', officeRoutes);
@@ -99,17 +107,14 @@ app.use('/api/supervisor', supervisorRoutes);
 app.use('/api/evaluation', evaluationRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Simple Health Check
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
 app.get('/', (req, res) => res.json({ message: 'DIMS Backend Running on Vercel' }));
 
-// Diagnostic DB Test Route
 app.get('/api/db-test', async (req, res) => {
     try {
         const state = mongoose.connection.readyState;
         const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
 
-        // Try a manual ping if not connected
         if (state !== 1) {
             await mongoose.connect(process.env.MONGODB_URI);
         }
@@ -128,13 +133,77 @@ app.get('/api/db-test', async (req, res) => {
     }
 });
 
-// Export app for Vercel
-export default app;
+// ─── Process-Level Crash Guards ───────────────────────────────────────────
+// These MUST NOT call process.exit() — we want the server to keep running
+// on Vercel even if one request throws an unexpected error.
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught Exception — server kept alive:', err.message);
+    console.error(err.stack);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled Promise Rejection — server kept alive:');
+    console.error('Promise:', promise);
+    console.error('Reason:', reason?.stack || reason);
+});
 
-// Local Development
-if (process.env.NODE_ENV !== 'production') {
-    const PORT = 5000;
-    app.listen(PORT, () => {
-        console.log(`Backend running on port ${PORT}`);
+// ─── 404 Catch-All ─────────────────────────────────────────────────────────
+// Must come AFTER all routes. Always returns JSON, never raw HTML.
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        status: 404,
+        message: `Route not found: ${req.method} ${req.originalUrl}`
     });
+});
+
+// ─── Global Error Handler ──────────────────────────────────────────────────
+// Catches anything that calls next(err) or throws inside async routes.
+app.use((err, req, res, next) => {
+    // Don't send response if headers already sent
+    if (res.headersSent) return next(err);
+
+    console.error(`[ERROR] ${req.method} ${req.originalUrl}`, {
+        message: err.message,
+        code: err.code,
+        user: req.user?.id || 'unauthenticated'
+    });
+
+    // Mongoose Validation Error
+    if (err.name === 'ValidationError') {
+        const fields = Object.keys(err.errors).join(', ');
+        return res.status(400).json({ success: false, status: 400, message: `Validation failed for: ${fields}` });
+    }
+
+    // MongoDB Duplicate Key
+    if (err.code === 11000) {
+        const field = Object.keys(err.keyValue || {})[0] || 'field';
+        return res.status(409).json({ success: false, status: 409, message: `Duplicate entry: ${field} already exists.` });
+    }
+
+    // MongoDB Cast Error (bad ObjectId)
+    if (err.name === 'CastError') {
+        return res.status(400).json({ success: false, status: 400, message: `Invalid ID format for field: ${err.path}` });
+    }
+
+    // JWT errors
+    if (err.name === 'JsonWebTokenError') {
+        return res.status(401).json({ success: false, status: 401, message: 'Invalid token. Please log in again.' });
+    }
+    if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ success: false, status: 401, message: 'Session expired. Please log in again.' });
+    }
+
+    const status = err.status || err.statusCode || 500;
+    res.status(status).json({
+        success: false,
+        status,
+        message: status >= 500 ? 'Internal server error. Our team has been notified.' : (err.message || 'An error occurred.')
+    });
+});
+
+const PORT = process.env.PORT || 5000;
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`));
 }
+
+export default app;

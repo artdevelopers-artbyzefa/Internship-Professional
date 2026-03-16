@@ -163,41 +163,36 @@ export default function SiteSupervisorManagement({ user }) {
     const [editingSupervisor, setEditingSupervisor] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
+    // Pagination & Search State
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
     const initialForm = { companyId: '', name: '', email: '', whatsappNumber: '' };
     const [form, setForm] = useState(initialForm);
     const [errorDictionary, setErrorDictionary] = useState({});
 
-    useEffect(() => { fetchInitialData(); }, []);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    useEffect(() => { fetchInitialData(); }, [page, debouncedSearch]);
 
     const fetchInitialData = async () => {
+        setLoading(true);
         try {
-            const companyData = await apiRequest('/office/companies');
-            setCompanies(companyData || []);
-
-            // Group supervisors by email, preserving assignedStudents count from backend
-            const supervisorMap = {};
-            companyData?.forEach(company => {
-                company.siteSupervisors?.forEach(s => {
-                    const email = s.email?.toLowerCase().trim() || '';
-                    const name = s.name?.trim() || 'Unknown';
-                    const key = email || name; // Avoid grouping all empty-email supervisors together
-
-                    if (!supervisorMap[key]) {
-                        supervisorMap[key] = {
-                            ...s,
-                            email, // Ensure email is blank if missing
-                            assignedStudents: s.assignedStudents || 0,
-                            companies: [{ id: company._id, name: company.name }]
-                        };
-                    } else {
-                        supervisorMap[key].assignedStudents += (s.assignedStudents || 0);
-                        if (!supervisorMap[key].companies.find(c => c.id === company._id)) {
-                            supervisorMap[key].companies.push({ id: company._id, name: company.name });
-                        }
-                    }
-                });
-            });
-            setSupervisors(Object.values(supervisorMap));
+            const [companyResp, supResp] = await Promise.all([
+                apiRequest('/office/companies/dropdown'),
+                apiRequest(`/office/site-supervisors?page=${page}&search=${debouncedSearch}`)
+            ]);
+            setCompanies(companyResp || []);
+            setSupervisors(supResp.data || []);
+            setTotalPages(supResp.pages || 1);
         } catch (err) {
             console.error(err);
         } finally {
@@ -294,16 +289,28 @@ export default function SiteSupervisorManagement({ user }) {
                         <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Site Supervisor Management</h2>
                         <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Onboard and manage industrial mentors from institutional partner companies.</p>
                     </div>
-                    <Button
-                        variant={showAddForm ? 'outline' : 'primary'}
-                        onClick={() => setShowAddForm(!showAddForm)}
-                        className="rounded-xl px-6 h-12 shadow-lg shadow-blue-600/10 font-black text-xs uppercase tracking-widest"
-                    >
-                        {showAddForm
-                            ? <><i className="fas fa-times mr-2 text-[10px]"></i> Close</>
-                            : <><i className="fas fa-user-plus mr-2 text-[10px]"></i> Deploy Supervisor</>
-                        }
-                    </Button>
+                    <div className="flex flex-col md:flex-row items-center gap-4">
+                        <div className="relative w-full md:w-64">
+                            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                            <input 
+                                type="text"
+                                placeholder="Search supervisors..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                            />
+                        </div>
+                        <Button
+                            variant={showAddForm ? 'outline' : 'primary'}
+                            onClick={() => setShowAddForm(!showAddForm)}
+                            className="rounded-xl px-6 h-11 shadow-lg shadow-blue-600/10 font-black text-[10px] uppercase tracking-widest whitespace-nowrap"
+                        >
+                            {showAddForm
+                                ? <><i className="fas fa-times mr-2"></i> Close</>
+                                : <><i className="fas fa-user-plus mr-1.5"></i> Deploy Mentor</>
+                            }
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Add Form */}
@@ -377,6 +384,30 @@ export default function SiteSupervisorManagement({ user }) {
                         </table>
                     )}
                 </div>
+
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            Page {page} of {totalPages}
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+                            >
+                                <i className="fas fa-chevron-left text-[10px]"></i>
+                            </button>
+                            <button
+                                disabled={page === totalPages}
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+                            >
+                                <i className="fas fa-chevron-right text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Edit Modal */}

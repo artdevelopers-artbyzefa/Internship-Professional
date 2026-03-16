@@ -31,7 +31,7 @@ export default function AssignmentCenter({ user }) {
                 apiRequest('/office/approved-students'),
                 apiRequest('/office/assigned-students'),
                 apiRequest('/auth/faculty-list'),
-                apiRequest('/office/companies')
+                apiRequest('/office/companies/dropdown')
             ]);
             setPendingStudents(stuPending);
             setAssignedStudents(stuAssigned);

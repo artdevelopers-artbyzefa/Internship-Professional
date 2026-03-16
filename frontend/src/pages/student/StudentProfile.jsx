@@ -4,17 +4,14 @@ import { FormGroup, TextInput } from '../../components/ui/FormInput.jsx';
 import Button from '../../components/ui/Button.jsx';
 import { apiRequest } from '../../utils/api.js';
 import { showToast } from '../../utils/notifications.jsx';
-
 import Alert from '../../components/ui/Alert.jsx';
 
 export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, isPendingSetup }) {
-  // Disabled ONLY when student genuinely failed hard criteria (semester/CGPA/registration/email)
-  // Never disabled for pending-setup students — they NEED to edit to complete onboarding
   const isDisabled = isPhase1 && !isEligible && !isPendingSetup;
+
   const [form, setForm] = useState({
     fatherName: user.fatherName || '',
     section: user.section || '',
-    secondaryEmail: user.secondaryEmail || '',
     dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
     profilePicture: user.profilePicture || '',
     whatsappNumber: user.whatsappNumber || '',
@@ -23,19 +20,26 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
   });
   const [loading, setLoading] = useState(false);
 
+  // Secondary email OTP state
+  const [secondaryEmail, setSecondaryEmail] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  // Password visibility
+  const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // 1MB limit for quick UI feedback, though server now supports more
       if (file.size > 1.5 * 1024 * 1024) {
         showToast.error('File is too large! Please upload a photo smaller than 1.5MB.');
         return;
       }
-
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setForm({ ...form, profilePicture: reader.result });
-      };
+      reader.onloadend = () => setForm({ ...form, profilePicture: reader.result });
       reader.readAsDataURL(file);
     }
   };
@@ -45,7 +49,6 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
       showToast.error('Passwords do not match!');
       return;
     }
-
     setLoading(true);
     try {
       const data = await apiRequest('/student/update-profile', {
@@ -53,12 +56,59 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
         body: form
       });
       showToast.success('Profile updated successfully');
-      setForm(prev => ({ ...prev, newPassword: '', confirmPassword: '' })); // Clear passwords
+      setForm(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
       if (onUpdate) onUpdate(data.user);
     } catch (err) {
-      // showToast.error(err.message); // apiRequest already handles this
+      // apiRequest already shows toast
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!secondaryEmail.trim()) return showToast.error('Please enter a secondary email.');
+
+    // Must NOT be an institutional email — must be a personal backup
+    const trimmed = secondaryEmail.trim().toLowerCase();
+    if (trimmed.endsWith('@cuiatd.edu.pk')) {
+      return showToast.error('Secondary email must be a personal email (e.g. Gmail, Yahoo). Institutional emails cannot be used as backup.');
+    }
+    if (trimmed === user.email.toLowerCase()) {
+      return showToast.error('Secondary email cannot be the same as your primary institutional email.');
+    }
+
+    setOtpLoading(true);
+    try {
+      const data = await apiRequest('/student/secondary-email/send-otp', {
+        method: 'POST',
+        body: { secondaryEmail: trimmed }
+      });
+      showToast.success(data.message);
+      setOtpSent(true);
+    } catch (err) {
+      // handled by apiRequest toast
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleConfirmOtp = async () => {
+    if (!otp.trim()) return showToast.error('Please enter the verification code.');
+    setConfirmLoading(true);
+    try {
+      const data = await apiRequest('/student/secondary-email/confirm', {
+        method: 'POST',
+        body: { otp: otp.trim() }
+      });
+      showToast.success(data.message);
+      setOtpSent(false);
+      setSecondaryEmail('');
+      setOtp('');
+      if (onUpdate) onUpdate(data.user);
+    } catch (err) {
+      // handled
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -74,6 +124,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
           You meet all academic eligibility requirements! Fill in your Father&apos;s Name, Section, Date of Birth, and upload a Profile Picture to proceed to Phase 2.
         </Alert>
       )}
+
       <Card title="Edit My Profile" subtitle="Update your personal details and profile picture">
         <div className="space-y-6">
           {/* Profile Picture Upload */}
@@ -100,10 +151,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
                 value={form.fatherName}
                 onChange={e => {
                   const val = e.target.value;
-                  if (/\d/.test(val)) {
-                    showToast.error("Father's Name cannot contain numbers");
-                    return;
-                  }
+                  if (/\d/.test(val)) { showToast.error("Father's Name cannot contain numbers"); return; }
                   setForm({ ...form, fatherName: val });
                 }}
                 disabled={isDisabled}
@@ -142,7 +190,7 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
               />
               <p className="text-[10px] text-gray-400 mt-1 italic">Read-only field derived from email</p>
             </FormGroup>
-            
+
             <FormGroup label="WhatsApp/Mobile Number">
               <TextInput
                 iconLeft="fa-phone"
@@ -155,8 +203,9 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
             </FormGroup>
           </div>
 
+          {/* Contact & Security */}
           <div className="pt-6 border-t mt-4">
-            <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-4">Contact & Security</h4>
+            <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-4">Contact &amp; Security</h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormGroup label="Affiliated University Email">
@@ -169,62 +218,133 @@ export default function StudentProfile({ user, onUpdate, isEligible, isPhase1, i
                 <p className="text-[10px] text-gray-400 mt-1 italic font-medium">Primary institutional account (Permanent)</p>
               </FormGroup>
 
-              <FormGroup>
+              {/* Secondary Email — OTP Flow */}
+              <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
                     Secondary Email
                     {user.secondaryEmail && (
                       <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded text-[8px] font-black uppercase tracking-tighter border border-emerald-200 shadow-sm">
-                        <i className="fas fa-lock mr-1"></i> Permanent
+                        <i className="fas fa-lock mr-1"></i> Verified
                       </span>
                     )}
                   </label>
                 </div>
-                <TextInput
-                  iconLeft="fa-envelope"
-                  placeholder="personal.email@gmail.com"
-                  name="secondaryEmail"
-                  value={form.secondaryEmail}
-                  onChange={e => setForm({ ...form, secondaryEmail: e.target.value })}
-                  disabled={isDisabled || !!user.secondaryEmail}
-                  className={user.secondaryEmail ? 'bg-slate-100/80 cursor-not-allowed opacity-90 font-bold text-gray-700 border-slate-200' : ''}
-                />
-                <p className="text-[10px] text-gray-400 mt-2 italic font-medium leading-relaxed">
-                  {user.secondaryEmail
-                    ? 'Successfully registered for dual-access and OTP recovery. Cannot be modified for security reasons.'
-                    : 'Add a personal backup email for OTP recovery. Note: This can only be set once and cannot be changed later.'}
-                </p>
-              </FormGroup>
+
+                {user.secondaryEmail ? (
+                  <>
+                    <TextInput
+                      iconLeft="fa-envelope"
+                      value={user.secondaryEmail}
+                      readOnly
+                      className="bg-slate-100/80 cursor-not-allowed opacity-90 font-bold text-gray-700 border-slate-200"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-2 italic font-medium leading-relaxed">
+                      Registered for dual-access and OTP recovery. Cannot be modified for security reasons.
+                    </p>
+                  </>
+                ) : !otpSent ? (
+                  <>
+                    <div className="flex gap-2">
+                      <TextInput
+                        iconLeft="fa-envelope"
+                        placeholder="your.personal@gmail.com"
+                        type="email"
+                        value={secondaryEmail}
+                        onChange={e => setSecondaryEmail(e.target.value)}
+                        disabled={isDisabled}
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="mt-2 w-full text-xs py-2"
+                      onClick={handleSendOtp}
+                      disabled={isDisabled || otpLoading || !secondaryEmail.trim()}
+                    >
+                      {otpLoading
+                        ? <><i className="fas fa-circle-notch fa-spin mr-2"></i>Sending Code...</>
+                        : <><i className="fas fa-paper-plane mr-2"></i>Send Verification Code</>}
+                    </Button>
+                    <p className="text-[10px] text-gray-400 mt-2 italic leading-relaxed">
+                      A 6-digit code will be sent to verify this email. Can only be set once.
+                    </p>
+                  </>
+                ) : (
+                  <div className="space-y-3 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold">
+                      <i className="fas fa-envelope-open-text"></i>
+                      Code sent to <span className="text-emerald-800 font-black">{secondaryEmail}</span>
+                    </div>
+                    <TextInput
+                      iconLeft="fa-key"
+                      placeholder="000000"
+                      className="text-center text-xl tracking-[1em] font-black"
+                      value={otp}
+                      onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-700"
+                        onClick={handleConfirmOtp}
+                        disabled={confirmLoading || otp.length < 6}
+                      >
+                        {confirmLoading
+                          ? <><i className="fas fa-circle-notch fa-spin mr-2"></i>Confirming...</>
+                          : <><i className="fas fa-check-circle mr-2"></i>Confirm &amp; Link</>}
+                      </Button>
+                      <button
+                        className="text-xs text-gray-400 hover:text-gray-600 font-medium px-3 border border-gray-200 rounded-lg transition-colors bg-white"
+                        onClick={() => { setOtpSent(false); setOtp(''); }}
+                      >
+                        <i className="fas fa-arrow-left mr-1"></i>Back
+                      </button>
+                    </div>
+                    <button
+                      className="text-[10px] text-emerald-600 hover:underline w-full text-center font-medium"
+                      onClick={handleSendOtp}
+                      disabled={otpLoading}
+                    >
+                      {otpLoading ? 'Resending...' : 'Resend code'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* Password Change */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-dashed">
-                <FormGroup label="New Password">
-                  <TextInput
-                    type="password"
-                    iconLeft="fa-lock"
-                    placeholder="••••••••"
-                    value={form.newPassword}
-                    onChange={e => setForm({ ...form, newPassword: e.target.value })}
-                    disabled={isDisabled}
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1 italic">Leave blank if you don't want to change</p>
-                </FormGroup>
-                <FormGroup label="Confirm Password">
-                  <TextInput
-                    type="password"
-                    iconLeft="fa-shield"
-                    placeholder="••••••••"
-                    value={form.confirmPassword}
-                    onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-                    disabled={isDisabled}
-                  />
-                </FormGroup>
+              <FormGroup label="New Password">
+                <TextInput
+                  type={showPw ? 'text' : 'password'}
+                  iconLeft="fa-lock"
+                  iconRight={showPw ? 'fa-eye-slash' : 'fa-eye'}
+                  onToggleRight={() => setShowPw(!showPw)}
+                  placeholder="••••••••"
+                  value={form.newPassword}
+                  onChange={e => setForm({ ...form, newPassword: e.target.value })}
+                  disabled={isDisabled}
+                />
+                <p className="text-[10px] text-gray-400 mt-1 italic">Leave blank to keep current password</p>
+              </FormGroup>
+              <FormGroup label="Confirm Password">
+                <TextInput
+                  type={showConfirmPw ? 'text' : 'password'}
+                  iconLeft="fa-shield"
+                  iconRight={showConfirmPw ? 'fa-eye-slash' : 'fa-eye'}
+                  onToggleRight={() => setShowConfirmPw(!showConfirmPw)}
+                  placeholder="••••••••"
+                  value={form.confirmPassword}
+                  onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                  disabled={isDisabled}
+                />
+              </FormGroup>
             </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t">
             <Button variant="primary" onClick={handleSave} disabled={loading || isDisabled}>
-              {loading ? <><i className="fas fa-circle-notch fa-spin mr-2"></i> Saving...</> : <><i className="fas fa-save mr-2"></i> Save Changes</>}
+              {loading ? <><i className="fas fa-circle-notch fa-spin mr-2"></i>Saving...</> : <><i className="fas fa-save mr-2"></i>Save Changes</>}
             </Button>
           </div>
         </div>
