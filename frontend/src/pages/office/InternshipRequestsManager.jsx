@@ -761,7 +761,6 @@ export default function InternshipRequestsManager({ user }) {
             {/* Header */}
             <div className="bg-white rounded-[28px] border border-slate-100 shadow-lg shadow-slate-100/50 p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[4px] mb-1">FIFO Queue · First In, First Out</p>
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">Internship Requests</h2>
                     <p className="text-sm text-slate-400 font-medium mt-1">Review, assign, and action all student AppEx-A submissions.</p>
                 </div>
