@@ -33,27 +33,6 @@ export default function LoginPage({ onLogin }) {
     return Object.keys(e).length === 0;
   };
 
-  const handleQuickLogin = async () => {
-    setLoading(true);
-    setApiError('');
-    try {
-      const quickForm = {
-        email: 'fa23-bcs-013@cuiatd.edu.pk',
-        password: 'Megamix@1234',
-        role: 'student'
-      };
-      const data = await apiRequest('/auth/login', {
-        method: 'POST',
-        body: quickForm
-      });
-      showToast.success(`Quick Access: Welcome, ${data.user.name}!`);
-      onLogin(data);
-    } catch (err) {
-      setApiError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogin = async () => {
     if (!handleValidation()) return;
@@ -204,25 +183,6 @@ export default function LoginPage({ onLogin }) {
             : <><i className="fas fa-right-to-bracket mr-2"></i> Sign In</>}
         </Button>
 
-        <div className="relative flex items-center justify-center my-6">
-          <div className="border-t border-gray-100 w-full"></div>
-          <span className="bg-white px-3 text-xs text-gray-400 font-bold uppercase tracking-widest absolute">Quick Access</span>
-        </div>
-
-        <Button 
-          variant="outline" 
-          block 
-          onClick={handleQuickLogin} 
-          disabled={loading}
-          className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 mb-8 flex items-center justify-center gap-3 py-4 rounded-xl border-dashed"
-        >
-          <img src="https://ui-avatars.com/api/?name=Arslan+Rathore&background=0284c7&color=fff&bold=true" className="w-6 h-6 rounded-lg pointer-events-none" alt="" />
-          <div className="text-left">
-            <div className="text-xs font-black leading-none text-primary">Arslan Rathore</div>
-            <div className="text-[10px] text-gray-400 font-medium">fa23-bcs-013@cuiatd.edu.pk</div>
-          </div>
-          <i className="fas fa-bolt text-secondary ml-auto text-sm animate-pulse"></i>
-        </Button>
       </div>
     </div>
   );

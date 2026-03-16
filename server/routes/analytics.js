@@ -40,16 +40,16 @@ router.get('/registration-stats', protect, isManagement, async (req, res) => {
                                 1,
                                 0
                             ]
-                        },
-                        siteSupervisorSet: { 
-                            $push: { 
-                                $cond: [
-                                    { $ifNull: ["$assignedCompanySupervisor", false] }, 
-                                    "$assignedCompanySupervisor", 
-                                    { $ifNull: ["$internshipAgreement.companySupervisorName", "$$REMOVE"] }
-                                ] 
-                            } 
                         }
+                    },
+                    siteSupervisorSet: { 
+                        $push: { 
+                            $cond: [
+                                { $ifNull: ["$assignedCompanySupervisor", false] }, 
+                                "$assignedCompanySupervisor", 
+                                { $ifNull: ["$internshipAgreement.companySupervisorName", "$$REMOVE"] }
+                            ] 
+                        } 
                     }
                 }
             }
