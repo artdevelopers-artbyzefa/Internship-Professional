@@ -134,9 +134,9 @@ export const sendFacultyNominationEmail = async (email, token, name) => {
   const activationUrl = `${process.env.FRONTEND_URL}/faculty/activate/${token}`;
 
   const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f0fdf4; padding: 40px; border-radius: 16px; border: 1px solid #dcfce7;">
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #eff6ff; padding: 40px; border-radius: 16px; border: 1px solid #dbeafe;">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #166534; margin: 0; font-size: 24px;">Internship Management System</h1>
+        <h1 style="color: #1e3a8a; margin: 0; font-size: 24px;">Internship Management System</h1>
         <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">COMSATS University Islamabad, Abbottabad Campus</p>
       </div>
       <div style="background-color: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
@@ -150,13 +150,13 @@ export const sendFacultyNominationEmail = async (email, token, name) => {
           <strong style="color: #991b1b;">Security Notice:</strong> This activation link is valid for <strong>24 hours</strong> and can be used only once.
         </p>
         <div style="text-align: center; margin: 35px 0;">
-          <a href="${activationUrl}" style="background-color: #16a34a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+          <a href="${activationUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
             Set Password & Activate
           </a>
         </div>
         <p style="color: #6b7280; font-size: 12px; line-height: 20px;">
           If the button doesn't work, copy and paste this link into your browser:<br/>
-          <a href="${activationUrl}" style="color: #16a34a; word-break: break-all;">${activationUrl}</a>
+          <a href="${activationUrl}" style="color: #2563eb; word-break: break-all;">${activationUrl}</a>
         </p>
       </div>
     </div>
