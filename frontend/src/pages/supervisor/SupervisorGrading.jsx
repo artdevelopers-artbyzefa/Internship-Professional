@@ -25,7 +25,7 @@ export default function SupervisorGrading({ user, activePhase }) {
 
     useEffect(() => {
         fetchAssignments();
-        apiRequest('/supervisor/student-grades').then(d => setGradeData(d || [])).catch(() => { });
+        apiRequest('/supervisor/student-grades').then(d => setGradeData(d || [])).catch((err) => { console.error('Faculty grades registry data error:', err); });
     }, []);
 
     const handleDownload = (url, name = 'Submission') => {
@@ -54,7 +54,9 @@ export default function SupervisorGrading({ user, activePhase }) {
                     fetchSubmissions(found._id);
                 }
             }
-        } catch (err) { } finally { setLoading(false); }
+        } catch (err) {
+            console.error('Failed to fetch technical tasks:', err);
+        } finally { setLoading(false); }
     };
 
     const fetchSubmissions = async (assignmentId) => {
@@ -62,7 +64,9 @@ export default function SupervisorGrading({ user, activePhase }) {
         try {
             const data = await apiRequest(`/supervisor/submissions/${assignmentId}`);
             setSubmissions(data);
-        } catch (err) { } finally { setLoading(false); }
+        } catch (err) {
+            console.error('Failed to fetch industrial submissions:', err);
+        } finally { setLoading(false); }
     };
 
     const handleSelectAssignment = (assignment) => {
@@ -110,7 +114,7 @@ export default function SupervisorGrading({ user, activePhase }) {
             showToast.success('Grade recorded successfully.');
             setExpandedId(null);
             fetchSubmissions(selectedAssignment._id); // Refresh
-        } catch (err) { }
+        } catch (err) { console.error('Evaluation record failure:', err); }
     };
 
     return (

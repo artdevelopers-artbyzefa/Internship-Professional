@@ -92,6 +92,8 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
              throw error;
         } else if (!silent) {
             console.error('Issue communicating with the system endpoint:', error.message);
+            const toast = await getToast();
+            toast.error("Network error: Could not connect to the server.");
         }
         throw error;
     }

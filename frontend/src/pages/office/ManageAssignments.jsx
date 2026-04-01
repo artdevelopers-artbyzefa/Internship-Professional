@@ -186,7 +186,9 @@ export default function ManageAssignments({ user }) {
                   });
                   showToast.success('Assignment deleted globally.');
                   fetchData();
-                } catch (err) { }
+                } catch (err) {
+                  console.error('Failed to purge assignment:', err);
+                }
               }
             }}
             className="w-8 h-8 rounded-lg flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer transition-all border-0"

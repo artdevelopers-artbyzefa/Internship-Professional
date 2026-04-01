@@ -30,7 +30,9 @@ export default function SupervisorAssignments({ user }) {
         try {
             const data = await apiRequest('/supervisor/interns');
             setInterns(data);
-        } catch (err) { }
+        } catch (err) {
+            console.error('Failed to load assigned interns:', err);
+        }
     };
 
     const fetchAssignments = async () => {
@@ -38,6 +40,7 @@ export default function SupervisorAssignments({ user }) {
             const data = await apiRequest('/supervisor/assignments');
             setAssignments(data);
         } catch (err) {
+            console.error('Failed to load published assignments:', err);
         } finally {
             setLoading(false);
         }
@@ -73,7 +76,9 @@ export default function SupervisorAssignments({ user }) {
             setNewAssignment({ title: '', description: '', startDate: '', deadline: '', totalMarks: 10, targetStudents: [] });
             setSelectedFile(null);
             fetchAssignments();
-        } catch (err) { }
+        } catch (err) {
+            console.error('Failed to create project assignment:', err);
+        }
     };
 
     const toggleStudent = (id) => {
@@ -276,7 +281,9 @@ export default function SupervisorAssignments({ user }) {
                                                                 await apiRequest(`/supervisor/assignments/${a._id}`, { method: 'DELETE' });
                                                                 showToast.success('Assignment purged successfully.');
                                                                 fetchAssignments();
-                                                            } catch (err) { }
+                                                            } catch (err) {
+                                                                console.error('Failed to remove assignment:', err);
+                                                            }
                                                         }
                                                     }}
                                                     className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center border-0 cursor-pointer"

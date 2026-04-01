@@ -57,14 +57,18 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
     try {
       const data = await apiRequest('/student/assignments');
       setAssignments(data || []);
-    } catch (_) { }
+    } catch (err) {
+      console.error('Failed to load student task data:', err);
+    }
   };
 
   const fetchGrade = async () => {
     try {
       const data = await apiRequest('/student/my-grade');
       setGradeInfo(data);
-    } catch (_) { }
+    } catch (err) {
+      console.error('Failed to load student grade profile:', err);
+    }
   };
 
 
@@ -72,7 +76,9 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
   const [allPhases, setAllPhases] = useState([]);
   useEffect(() => {
     const fetchPhases = () => {
-      apiRequest('/phases').then(d => setAllPhases(d || [])).catch(() => { });
+      apiRequest('/phases').then(d => setAllPhases(d || [])).catch((err) => {
+        console.error('Failed to load academic phases:', err);
+      });
     };
     fetchPhases();
     const interval = setInterval(fetchPhases, 300000); // 5 mins

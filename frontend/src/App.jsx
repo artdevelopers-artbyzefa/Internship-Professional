@@ -78,7 +78,9 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await apiRequest('/auth/logout', { method: 'POST' });
-    } catch (err) { }
+    } catch (err) {
+      console.error('Logout synchronization failure:', err);
+    }
     localStorage.removeItem('token');
     setUser(null);
     navigate('/login', { replace: true });

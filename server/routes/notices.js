@@ -17,10 +17,14 @@ router.post('/', protect, authorize('internship_office'), uploadCloudinary.array
         const { title, content, links, targetType, targetId, attachmentTitles } = req.body;
 
         let parsedLinks = [];
-        try { if (links) parsedLinks = JSON.parse(links); } catch (e) { }
+        try { if (links) parsedLinks = JSON.parse(links); } catch (e) {
+            console.error('Error parsing Links JSON:', e.message);
+        }
 
         let titles = [];
-        try { if (attachmentTitles) titles = JSON.parse(attachmentTitles); } catch (e) { }
+        try { if (attachmentTitles) titles = JSON.parse(attachmentTitles); } catch (e) {
+            console.error('Error parsing Attachment Titles JSON:', e.message);
+        }
 
         const attachments = (req.files || []).map((file, idx) => ({
             title: titles[idx] || file.originalname,
@@ -69,13 +73,19 @@ router.put('/:id', protect, authorize('internship_office'), uploadCloudinary.arr
         if (!notice) return res.status(404).json({ message: 'Notice not found' });
 
         let parsedLinks = [];
-        try { if (links) parsedLinks = JSON.parse(links); } catch (e) { }
+        try { if (links) parsedLinks = JSON.parse(links); } catch (e) {
+            console.error('Error parsing Links JSON during update:', e.message);
+        }
 
         let titles = [];
-        try { if (attachmentTitles) titles = JSON.parse(attachmentTitles); } catch (e) { }
+        try { if (attachmentTitles) titles = JSON.parse(attachmentTitles); } catch (e) {
+            console.error('Error parsing Attachment Titles JSON during update:', e.message);
+        }
 
         let parsedExisting = [];
-        try { if (existingAttachments) parsedExisting = JSON.parse(existingAttachments); } catch (e) { }
+        try { if (existingAttachments) parsedExisting = JSON.parse(existingAttachments); } catch (e) {
+            console.error('Error parsing Existing Attachments JSON during update:', e.message);
+        }
 
         // New files
         const newAttachments = (req.files || []).map((file, idx) => ({

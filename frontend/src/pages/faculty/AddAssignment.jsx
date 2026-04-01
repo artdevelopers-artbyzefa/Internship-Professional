@@ -27,7 +27,9 @@ export default function AddAssignment({ user }) {
     try {
       const data = await apiRequest('/faculty/my-created-assignments');
       setAssignments(data);
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to load task registry:', err);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -76,7 +78,9 @@ export default function AddAssignment({ user }) {
       await apiRequest(`/faculty/delete-assignment/${id}`, { method: 'DELETE' });
       showToast.success('Assignment deleted successfully');
       fetchAssignments();
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to remove task from registry:', err);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -117,6 +121,7 @@ export default function AddAssignment({ user }) {
       resetForm();
       fetchAssignments();
     } catch (err) {
+      console.error('Task regulation synchronization failure:', err);
     } finally {
       setLoading(false);
     }

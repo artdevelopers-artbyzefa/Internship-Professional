@@ -51,11 +51,15 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
     apiRequest('/notifications').then(data => {
       setNotifications(data || []);
       setUnreadCount((data || []).filter(n => !n.read).length);
-    }).catch(() => { });
+    }).catch(err => {
+      console.error('Notification feed synchronization failure:', err);
+    });
   }, []);
 
   useEffect(() => {
-    const fetchPhase = () => apiRequest('/phases/current').then(d => setActivePhase(d)).catch(() => { });
+    const fetchPhase = () => apiRequest('/phases/current').then(d => setActivePhase(d)).catch(err => {
+      console.error('Academic phase state synchronization failure:', err);
+    });
     fetchPhase();
     fetchNotifications();
     
@@ -71,7 +75,9 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
     try {
       await apiRequest('/notifications/mark-read', 'PATCH');
       fetchNotifications();
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to clear notification center:', err);
+    }
   };
 
   const handleNotifClick = async (notif) => {
@@ -82,7 +88,9 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
       }
       if (notif.link) navigate(notif.link);
       setShowNotif(false);
-    } catch (err) { }
+    } catch (err) {
+      console.error('Notification interaction resolution failure:', err);
+    }
   };
 
   const rolePaths = {

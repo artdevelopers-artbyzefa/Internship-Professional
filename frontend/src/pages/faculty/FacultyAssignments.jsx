@@ -22,7 +22,9 @@ export default function FacultyAssignments() {
       if (data.length > 0) {
         setSelectedId(data[0]._id);
       }
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to load created tasks:', err);
+    }
   };
 
   useEffect(() => {
@@ -39,7 +41,9 @@ export default function FacultyAssignments() {
       const data = await apiRequest(`/faculty/assignment-submissions/${selectedId}`);
       setStudents(data);
       setSelectedStudents([]); // Reset selection
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to load student reports:', err);
+    }
     finally {
       setLoading(false);
     }

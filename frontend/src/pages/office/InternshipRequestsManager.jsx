@@ -42,7 +42,9 @@ function CompanyStep({ student, officeId, onRefresh, mouCompanies }) {
             });
             showToast.success('Company assigned.');
             onRefresh();
-        } catch { } finally { setSaving(false); }
+        } catch (err) {
+            console.error('Company mapping synchronization failure:', err);
+        } finally { setSaving(false); }
     };
 
     if (isFreelance) return (
@@ -192,7 +194,9 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
             await apiRequest('/office/assign-site-supervisor', { method: 'POST', body: payload });
             showToast.success('Site supervisor assigned.');
             onRefresh();
-        } catch { } finally { setSaving(false); }
+        } catch (err) {
+            console.error('Site supervisor mapping synchronization failure:', err);
+        } finally { setSaving(false); }
     };
 
     const handleOnboardAndAssign = async () => {
@@ -207,7 +211,9 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
             });
             showToast.success('Site supervisor created and assigned.');
             onRefresh();
-        } catch { } finally { setSaving(false); }
+        } catch (err) {
+            console.error('Site supervisor onboarding synchronization failure:', err);
+        } finally { setSaving(false); }
     };
 
     return (
@@ -368,7 +374,9 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
             });
             showToast.success('Faculty supervisor assigned.');
             onRefresh();
-        } catch { } finally { setAssigning(false); }
+        } catch (err) {
+            console.error('Faculty mapping synchronization failure:', err);
+        } finally { setAssigning(false); }
     };
 
     const handleOnboardAndAssign = async () => {
@@ -380,7 +388,9 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
             });
             showToast.success('Faculty created and assigned. Email invitation sent.');
             onRefresh();
-        } catch { } finally { setAssigning(false); }
+        } catch (err) {
+            console.error('Faculty onboarding synchronization failure:', err);
+        } finally { setAssigning(false); }
     };
 
     return (
@@ -686,7 +696,9 @@ export default function InternshipRequestsManager({ user }) {
                     approved: approved?.total || 0,
                     rejected: rejected?.total || 0,
                 });
-            } catch { }
+            } catch (err) {
+                console.error('Request status metrics synchronization failure:', err);
+            }
         };
         fetchCounts();
     }, []);
@@ -701,7 +713,9 @@ export default function InternshipRequestsManager({ user }) {
             showToast.success(`Request ${decision === 'approve' ? 'approved' : 'rejected'} successfully.`);
             setExpandedId(null);
             fetchRequests();
-        } catch { } finally { setDeciding(false); }
+        } catch (err) {
+            console.error('Request determination synchronization failure:', err);
+        } finally { setDeciding(false); }
     };
 
     const LIMIT = 15;

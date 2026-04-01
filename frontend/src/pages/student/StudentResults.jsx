@@ -26,8 +26,9 @@ export default function StudentResults() {
       setMarks(marksData || []);
       setEvaluations(evalData || []);
       setGradeSummary(summaryData);
-    } catch (_) { }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error('Failed to load student academic records:', err);
+    } finally { setLoading(false); }
   };
 
   const pctColor = (p) => {

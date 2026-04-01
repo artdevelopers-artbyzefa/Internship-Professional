@@ -44,7 +44,9 @@ export default function StudentAssignments({ user }) {
     try {
       const data = await apiRequest('/student/assignments');
       setAssignments(data);
-    } catch (err) { } finally { setLoading(false); }
+    } catch (err) {
+      console.error('Failed to load tasks:', err);
+    } finally { setLoading(false); }
   };
 
   const formatDate = (dateString, includeTime = false) => {
@@ -77,7 +79,9 @@ export default function StudentAssignments({ user }) {
 
       showToast.success('Deliverable submitted successfully.');
       fetchAssignments();
-    } catch (err) { } finally { setUploadingId(null); }
+    } catch (err) {
+      console.error('Submission transmission failed:', err);
+    } finally { setUploadingId(null); }
   };
 
   const handleFreelanceUpload = async (e) => {

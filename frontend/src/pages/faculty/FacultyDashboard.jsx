@@ -62,7 +62,9 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     try {
       const data = await apiRequest('/supervisor/interns');
       setInterns(data);
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to sync intern data:', err);
+    }
   };
 
   const fetchStats = async () => {
@@ -77,7 +79,9 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       } else {
         setStats(data);
       }
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to sync dashboard performance stats:', err);
+    }
   };
 
   const fetchPhase = async () => {
@@ -97,7 +101,9 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     try {
       const phases = await apiRequest('/phases');
       setAllPhases(phases);
-    } catch (err) { }
+    } catch (err) {
+      console.error('Failed to sync academic cycle phases:', err);
+    }
   };
 
   // Lock logic: Full dashboard activates after Phase 2 (order >= 3)
