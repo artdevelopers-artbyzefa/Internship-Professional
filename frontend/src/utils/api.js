@@ -42,11 +42,15 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
         } else {
             if (response.ok) return { success: true };
             if (response.status === 413) {
-                showToast.error("Request payload too large (Max 2MB)!");
-                throw new Error('Payload Too Large');
+                const error = new Error("Request payload too large (Max 2MB)!");
+                error.status = 413;
+                showToast.error(error.message);
+                throw error;
             }
             const nonJsonError = await response.text();
-            throw new Error(nonJsonError || 'Server error - invalid format');
+            const error = new Error(nonJsonError || 'Server error - invalid format');
+            error.status = response.status;
+            throw error;
         }
 
         if (!response.ok) {
@@ -56,14 +60,15 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
                 return;
             }
             if (response.status >= 500 && retryCount < 2) {
-                 // Automated retry for server errors (good for Vercel cold starts)
                  console.warn(`[RETRY] Server error ${response.status}. Retrying ${retryCount + 1}/2...`);
                  return apiRequest(endpoint, options, retryCount + 1);
             }
 
-            const errorMsg = data.message || 'Something went wrong';
-            if (!silent) showToast.error(errorMsg);
-            throw new Error(errorMsg);
+            const error = new Error(data.message || 'Something went wrong');
+            error.status = response.status;
+            error.data = data;
+            if (!silent) showToast.error(error.message);
+            throw error;
         }
 
         return data;
@@ -77,7 +82,7 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
              }
              if (!silent) showToast.error("Network slow. Please try again later.");
         } else if (!silent) {
-            console.error('API Request Error:', error.message);
+            console.error('Issue communicating with the system endpoint.');
         }
         throw error;
     }

@@ -108,6 +108,7 @@ app.use('/api/evaluation', evaluationRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/', (req, res) => res.json({ message: 'DIMS Backend Running on Vercel' }));
 
 app.get('/api/db-test', async (req, res) => {
@@ -133,21 +134,16 @@ app.get('/api/db-test', async (req, res) => {
     }
 });
 
-// ─── Process-Level Crash Guards ───────────────────────────────────────────
-// These MUST NOT call process.exit() — we want the server to keep running
-// on Vercel even if one request throws an unexpected error.
 process.on('uncaughtException', (err) => {
-    console.error('[FATAL] Uncaught Exception — server kept alive:', err.message);
+    console.error('Uncaught Exception server kept alive:', err.message);
     console.error(err.stack);
 });
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[FATAL] Unhandled Promise Rejection — server kept alive:');
+    console.error('Unhandled Promise Rejection server kept alive:');
     console.error('Promise:', promise);
     console.error('Reason:', reason?.stack || reason);
 });
 
-// ─── 404 Catch-All ─────────────────────────────────────────────────────────
-// Must come AFTER all routes. Always returns JSON, never raw HTML.
 app.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -156,10 +152,7 @@ app.use((req, res) => {
     });
 });
 
-// ─── Global Error Handler ──────────────────────────────────────────────────
-// Catches anything that calls next(err) or throws inside async routes.
 app.use((err, req, res, next) => {
-    // Don't send response if headers already sent
     if (res.headersSent) return next(err);
 
     console.error(`[ERROR] ${req.method} ${req.originalUrl}`, {
@@ -168,24 +161,19 @@ app.use((err, req, res, next) => {
         user: req.user?.id || 'unauthenticated'
     });
 
-    // Mongoose Validation Error
     if (err.name === 'ValidationError') {
         const fields = Object.keys(err.errors).join(', ');
         return res.status(400).json({ success: false, status: 400, message: `Validation failed for: ${fields}` });
     }
 
-    // MongoDB Duplicate Key
     if (err.code === 11000) {
         const field = Object.keys(err.keyValue || {})[0] || 'field';
         return res.status(409).json({ success: false, status: 409, message: `Duplicate entry: ${field} already exists.` });
     }
 
-    // MongoDB Cast Error (bad ObjectId)
     if (err.name === 'CastError') {
         return res.status(400).json({ success: false, status: 400, message: `Invalid ID format for field: ${err.path}` });
     }
-
-    // JWT errors
     if (err.name === 'JsonWebTokenError') {
         return res.status(401).json({ success: false, status: 401, message: 'Invalid token. Please log in again.' });
     }

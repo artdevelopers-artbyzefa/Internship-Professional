@@ -25,14 +25,28 @@ export default function App() {
 
   useEffect(() => {
     const initApp = async () => {
+      // Don't even bother the server if we don't have a token locally
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setInitializing(false);
+        return;
+      }
+
       try {
-        // Check if there's a valid session on the server via cookie
         const data = await apiRequest('/auth/me', { silent: true });
         if (data && data.user) {
           setUser(data.user);
         }
       } catch (err) {
-        // Not logged in or token expired - silent fail is fine
+        // Only clear the token if the server specifically tells us the session is invalid (401/403).
+        // For other errors (like 500 or offline), we keep the token so it can be used once recovered.
+        if (err.status === 401 || err.status === 403) {
+          console.warn('Session expired or invalid. Clearing token.');
+          localStorage.removeItem('token');
+          setUser(null);
+        } else {
+          console.error('Session initialization failed:', err.message);
+        }
       } finally {
         setInitializing(false);
       }

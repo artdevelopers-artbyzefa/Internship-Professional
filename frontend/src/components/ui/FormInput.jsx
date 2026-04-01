@@ -1,10 +1,10 @@
 import React from 'react';
 
-export function FormGroup({ label, sublabel, error, children, uppercase = true, labelClassName = '' }) {
+export function FormGroup({ label, sublabel, error, children, uppercase = false, labelClassName = '' }) {
   return (
     <div className="mb-4">
       <div className="flex flex-col mb-1.5">
-        {label && <label className={`block text-xs font-black text-gray-700 ${uppercase ? 'uppercase' : ''} tracking-tight ${labelClassName}`}>{label}</label>}
+        {label && <label className={`block text-[13px] font-semibold text-gray-700 ${uppercase ? 'uppercase' : ''} tracking-tight ${labelClassName}`}>{label}</label>}
         {sublabel && <span className="text-[10px] text-gray-400 font-medium italic">{sublabel}</span>}
       </div>
       {children}
