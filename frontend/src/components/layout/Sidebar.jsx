@@ -35,20 +35,18 @@ export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, 
           </div>
         )}
 
-        {/* Toggle Button for Desktop */}
         <button
           onClick={onToggle}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="ml-auto hidden lg:flex bg-transparent border-0 text-white/70 cursor-pointer flex-shrink-0 p-1 rounded-lg hover:bg-white/10">
-          <i className={`fas ${collapsed ? 'fa-chevron-right' : 'fa-chevron-left'} text-sm`}></i>
+          className="ml-auto hidden lg:flex bg-transparent border-0 text-white cursor-pointer flex-shrink-0 p-1 rounded-lg hover:bg-white/15 transition-colors">
+          <i className={`fas ${collapsed ? 'fa-chevron-right' : 'fa-chevron-left'} text-sm`} aria-hidden="true"></i>
         </button>
 
-        {/* Close Button for Mobile */}
         <button
           onClick={() => setShowMobileSidebar(false)}
           aria-label="Close navigation sidebar"
-          className="ml-auto lg:hidden bg-transparent border-0 text-white/70 cursor-pointer p-1 rounded-lg hover:bg-white/10">
-          <i className="fas fa-times text-lg"></i>
+          className="ml-auto lg:hidden bg-transparent border-0 text-white cursor-pointer p-1 rounded-lg hover:bg-white/15 transition-colors">
+          <i className="fas fa-times text-lg" aria-hidden="true"></i>
         </button>
       </div>
 
@@ -62,19 +60,24 @@ export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, 
           return (
             <div key={item.id} className="mb-px md:mb-1">
               <div
-                title={collapsed ? item.label : ''}
+                role="button"
+                tabIndex={0}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
+                title={collapsed && !showMobileSidebar ? item.label : ''}
                 onClick={() => handleNavClick(item.id, hasChildren)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavClick(item.id, hasChildren); }}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-white/20
                   ${isItemDisabled ? 'opacity-40 cursor-not-allowed group relative' : 'cursor-pointer'}
                   ${isActive
                     ? 'bg-secondary text-white shadow-lg shadow-blue-600/30 font-bold'
-                    : 'text-white/70 ' + (!isItemDisabled ? 'hover:bg-white/10 hover:text-white' : '')}`}>
-                <i className={`fas ${item.icon} text-sm w-5 text-center flex-shrink-0`}></i>
+                    : 'text-white/90 ' + (!isItemDisabled ? 'hover:bg-white/15 hover:text-white' : '')}`}>
+                <i className={`fas ${item.icon} text-sm w-5 text-center flex-shrink-0`} aria-hidden="true"></i>
                 {(!collapsed || showMobileSidebar) && (
                   <>
                     <span className="text-sm font-medium whitespace-nowrap overflow-hidden flex-1">{item.label}</span>
                     {hasChildren && (
-                      <i className={`fas fa-chevron-down text-[10px] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}></i>
+                      <i className={`fas fa-chevron-down text-[10px] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true"></i>
                     )}
                     {isItemDisabled && (
                       <i className="fas fa-lock text-[10px] text-white/40 ml-2 animate-pulse"></i>
@@ -109,9 +112,13 @@ export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, 
       {!hideLogout && (
         <div className="p-2 border-t border-white/10">
           <div
+            role="button"
+            tabIndex={0}
             onClick={onLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-white/70 hover:bg-white/10 hover:text-white transition-all duration-200">
-            <i className="fas fa-right-from-bracket text-sm w-5 text-center flex-shrink-0"></i>
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onLogout(); }}
+            aria-label="Logout"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-white/90 hover:bg-white/15 hover:text-white transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-white/20">
+            <i className="fas fa-right-from-bracket text-sm w-5 text-center flex-shrink-0" aria-hidden="true"></i>
             {(!collapsed || showMobileSidebar) && <span className="text-sm font-medium">Logout</span>}
           </div>
         </div>

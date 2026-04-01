@@ -1,5 +1,3 @@
-// Lazy-loaded toast to avoid pulling sweetalert2 into the initial bundle.
-// notifications.jsx (~135KB sweetalert2) only loads when an error toast is actually needed.
 let _showToast = null;
 const getToast = async () => {
     if (!_showToast) {
@@ -70,7 +68,6 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
                 return;
             }
             if (response.status >= 500 && retryCount < 2) {
-                 console.warn(`[RETRY] Server error ${response.status}. Retrying ${retryCount + 1}/2...`);
                  return apiRequest(endpoint, options, retryCount + 1);
             }
 
@@ -89,12 +86,9 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
         clearTimeout(id);
         
         if (error.name === 'AbortError') {
-             // Only log and retry if OUR internal timeout was reached
              if (controller.signal.aborted && retryCount < 2) {
-                 console.warn(`[TIMEOUT] Request to ${endpoint} timed out after ${timeout}ms. Retrying ${retryCount + 1}/2...`);
                  return apiRequest(endpoint, { ...options, timeout: timeout + 10000 }, retryCount + 1);
              }
-             // For user-initiated or React-cleanup aborts, just rethrow quietly
              throw error;
         } else if (!silent) {
             console.error('Issue communicating with the system endpoint:', error.message);

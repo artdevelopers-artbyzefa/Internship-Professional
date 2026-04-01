@@ -23,11 +23,10 @@ export default function StudentManagement({ user }) {
     const initialForm = { name: '', reg: '', email: '', semester: '7', fatherName: '', whatsappNumber: '', section: '', cgpa: '' };
     const [form, setForm] = useState(initialForm);
 
-    // Debounced fetch
     useEffect(() => {
         const timer = setTimeout(() => {
             fetchStudents();
-        }, search ? 500 : 0); // debounce search
+        }, search ? 500 : 0);
         return () => clearTimeout(timer);
     }, [page, search]);
 
@@ -65,7 +64,7 @@ export default function StudentManagement({ user }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (submitting) return; // double-submit protection
+        if (submitting) return;
         if (!validateForm()) return;
 
         setSubmitting(true);
@@ -80,7 +79,6 @@ export default function StudentManagement({ user }) {
             setPage(1); 
             fetchStudents();
         } catch (err) {
-            // Error is handled by apiRequest (toast)
         } finally {
             setSubmitting(false);
         }
@@ -95,7 +93,6 @@ export default function StudentManagement({ user }) {
             });
             showToast.success('Activation link resent to student.');
         } catch (err) {
-            // toast handled
         } finally {
             setResendingId(null);
         }
@@ -139,8 +136,7 @@ export default function StudentManagement({ user }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-[24px] md:rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-6 md:p-8">
-                {/* Header */}
+            <div className="bg-white rounded-[24px] md:rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-5 md:p-6 lg:p-7">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Student Registry</h2>
@@ -155,9 +151,8 @@ export default function StudentManagement({ user }) {
                     </Button>
                 </div>
 
-                {/* Onboarding Form */}
                 <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showForm ? 'max-h-[1200px] opacity-100 mb-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none'}`}>
-                    <div className="bg-slate-50 rounded-[20px] md:rounded-3xl p-4 sm:p-6 md:p-8 border border-slate-100 shadow-inner">
+                    <div className="bg-slate-50 rounded-[20px] md:rounded-3xl p-4 sm:p-5 md:p-6 border border-slate-100 shadow-inner">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 md:mb-8">
                             <div className="w-10 h-10 md:w-12 md:h-12 bg-primary text-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
                                 <i className="fas fa-id-card-clip text-lg md:text-xl"></i>
@@ -168,7 +163,6 @@ export default function StudentManagement({ user }) {
                             </div>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-8">
-                            {/* Row 1: Core Identity */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <FormGroup label="Full Name" error={errorDictionary.name}>
                                     <TextInput iconLeft="fa-user" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Student's Legal Name" />
@@ -186,7 +180,6 @@ export default function StudentManagement({ user }) {
                                 </FormGroup>
                             </div>
 
-                            {/* Row 2: Eligibility & Contact */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <FormGroup label="Father's Name">
                                     <TextInput iconLeft="fa-user-tie" value={form.fatherName} onChange={e => setForm({ ...form, fatherName: e.target.value })} placeholder="Parent/Guardian Name" />
@@ -216,7 +209,6 @@ export default function StudentManagement({ user }) {
                     </div>
                 </div>
 
-                {/* Search + count */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-primary flex-shrink-0">
@@ -239,7 +231,6 @@ export default function StudentManagement({ user }) {
                     </div>
                 </div>
 
-                {/* Table */}
                 <div className="min-h-[400px]">
                     {loading ? (
                          <div className="py-24 text-center">
@@ -256,7 +247,6 @@ export default function StudentManagement({ user }) {
                     )}
                 </div>
 
-                {/* Pagination */}
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 md:pt-8 mt-6 md:mt-8 border-t border-gray-50">
                     <p className="text-[10px] md:text-xs text-gray-400 font-bold tracking-wider text-center md:text-left">
                         Page <span className="text-gray-900">{page}</span> of {Math.max(1, totalPages)} • Showing {students.length} of {total} records
@@ -270,7 +260,6 @@ export default function StudentManagement({ user }) {
                             <i className="fas fa-chevron-left text-xs"></i>
                         </button>
                         
-                        {/* Simple pagination numbers */}
                         {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1)
                             .filter(p => p === 1 || p === Math.max(1, totalPages) || Math.abs(p - page) <= 1)
                             .map((p, i, arr) => (

@@ -3,10 +3,8 @@ import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import PageErrorBoundary from '../../components/ui/PageErrorBoundary.jsx';
 
-// Eagerly load the dashboard (first paint for office users)
 import OfficeDashboard from './OfficeDashboard.jsx';
 
-// Lazy-load all other pages — each only loads when navigated to
 const StudentRequestVerification  = lazy(() => import('./StudentRequestVerification.jsx'));
 const FacultyManagement           = lazy(() => import('./FacultyManagement.jsx'));
 const CompanyManagement          = lazy(() => import('./CompanyManagement.jsx'));
@@ -45,8 +43,6 @@ const PageLoader = () => (
   </div>
 );
 
-// Helper — wraps any element in an error boundary so ONE page crash
-// never takes down the entire portal.
 const Safe = ({ children }) => (
   <PageErrorBoundary>
     <Suspense fallback={<PageLoader />}>
@@ -79,7 +75,7 @@ export default function InternshipOfficePortal({ user, onLogout }) {
       setActivePage={handlePageChange}
       navItems={officeNav}
     >
-      <div className="p-6">
+      <div>
         <Routes>
           <Route path="dashboard"           element={<Safe><OfficeDashboard user={user} /></Safe>} />
           <Route path="student-registry"    element={<Safe><StudentManagement user={user} /></Safe>} />

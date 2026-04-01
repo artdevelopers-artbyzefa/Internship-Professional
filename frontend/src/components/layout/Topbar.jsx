@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, getInitials } from '../../utils/helpers.js';
 import { apiRequest } from '../../utils/api.js';
+
 function PhaseChip({ activePhase }) {
   const calc = useCallback(() => {
     if (!activePhase?.scheduledEndAt) return null;
@@ -37,7 +38,6 @@ function PhaseChip({ activePhase }) {
   );
 }
 
-// ── Main Topbar ────────────────────────────────────────────────────────────
 export default function Topbar({ user, activePage, navItems, onLogout, showDD, setShowDD, showNotif, setShowNotif, onMenuToggle }) {
   const navigate = useNavigate();
   const initials = getInitials(user.name);
@@ -59,7 +59,6 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
     fetchPhase();
     fetchNotifications();
     
-    // Sync phase status and notifications every 3 minutes
     const interval = setInterval(() => {
         fetchPhase();
         fetchNotifications();
@@ -109,13 +108,12 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
 
   return (
     <div className="bg-white border-b border-gray-100 px-3 md:px-6 h-14 md:h-16 flex items-center justify-between shadow-sm flex-shrink-0 z-[30] gap-3">
-      {/* Left */}
       <div className="flex items-center gap-2 md:gap-3 min-w-0">
         <button
           onClick={onMenuToggle}
           aria-label="Toggle sidebar navigation"
           className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-primary transition-all border-0 cursor-pointer flex-shrink-0">
-          <i className="fas fa-bars text-sm" />
+          <i className="fas fa-bars text-sm" aria-hidden="true" />
         </button>
         <div className="min-w-0">
           <h2 className="text-sm md:text-base font-bold text-primary leading-tight truncate">{pageLabel}</h2>
@@ -123,16 +121,14 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
         </div>
       </div>
 
-      {/* Right */}
       <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
-        {/* Notifications */}
         <div className="relative">
           <button
             onClick={() => { setShowNotif(!showNotif); setShowDD(false); }}
             aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
             aria-expanded={showNotif}
             className="w-9 h-9 rounded-xl bg-gray-50 border-0 cursor-pointer flex items-center justify-center text-gray-600 hover:bg-blue-50 hover:text-secondary transition-all relative">
-            <i className="fas fa-bell text-sm" />
+            <i className="fas fa-bell text-sm" aria-hidden="true" />
             {unreadCount > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             )}
@@ -166,7 +162,7 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
                           n.type === 'assignment_submission' ? 'fa-file-upload' :
                           n.type === 'internship_request' ? 'fa-user-clock' :
                           'fa-bell'
-                        } text-xs`} />
+                        } text-xs`} aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className={`text-xs leading-snug ${!n.read ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>{n.title}</p>
@@ -188,7 +184,6 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
           )}
         </div>
 
-        {/* User dropdown */}
         <div className="relative">
           <button
             onClick={() => { setShowDD(!showDD); setShowNotif(false); }}
@@ -197,29 +192,28 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
             className="flex items-center gap-2 p-1 md:px-2.5 md:py-1.5 bg-gray-50 rounded-xl cursor-pointer border border-gray-100 hover:bg-blue-50 hover:border-blue-100 transition-all">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden flex-shrink-0">
               {user.profilePicture
-                ? <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                ? <img src={user.profilePicture} alt={`${user.name}'s profile`} width={32} height={32} className="w-full h-full object-cover" />
                 : initials}
             </div>
             <div className="text-left hidden sm:block">
               <div className="text-xs font-semibold text-gray-800 leading-tight truncate max-w-28">{user.name}</div>
               <div className="text-[9px] text-gray-400 leading-tight font-medium uppercase tracking-tight">{roleLabel}</div>
             </div>
-            <i className="fas fa-chevron-down text-gray-400 ml-0.5 hidden sm:block" style={{ fontSize: 9 }} />
+            <i className="fas fa-chevron-down text-gray-400 ml-0.5 hidden sm:block" aria-hidden="true" style={{ fontSize: 9 }} />
           </button>
 
           {showDD && (
             <div className="absolute right-0 top-12 bg-white border border-gray-100 rounded-xl p-2 min-w-48 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
-              {/* Mobile name header */}
               <div className="px-3 py-2 sm:hidden border-b border-gray-50 mb-1">
                 <div className="text-xs font-bold text-gray-800">{user.name}</div>
                 <div className="text-[10px] text-gray-400 uppercase">{roleLabel}</div>
               </div>
-              <div onClick={handleProfileClick} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-600 cursor-pointer transition-colors">
-                <i className="fas fa-user-circle w-4 text-primary" /> My Profile
+              <div onClick={handleProfileClick} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-600 cursor-pointer transition-colors" role="menuitem">
+                <i className="fas fa-user-circle w-4 text-primary" aria-hidden="true" /> My Profile
               </div>
               <hr className="my-1 border-gray-100" />
-              <div onClick={onLogout} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-sm text-red-500 cursor-pointer transition-colors">
-                <i className="fas fa-power-off w-4" /> Sign Out
+              <div onClick={onLogout} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-sm text-red-500 cursor-pointer transition-colors" role="menuitem">
+                <i className="fas fa-power-off w-4" aria-hidden="true" /> Sign Out
               </div>
             </div>
           )}

@@ -23,7 +23,6 @@
   }
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -37,7 +36,6 @@
   border-radius: 3px;
 }
 
-/* Sidebar nav scrollbar */
 .sidebar-nav::-webkit-scrollbar {
   width: 4px;
 }
@@ -47,7 +45,6 @@
   border-radius: 2px;
 }
 
-/* SweetAlert2 Toast Close Button */
 .swal2-toast .swal2-close {
   display: flex !important;
   font-size: 1.25rem !important;
@@ -72,4 +69,29 @@
 
 .swal2-toast .swal2-title {
   padding-right: 25px !important;
+}
+
+@layer utilities {
+  .overflow-x-auto table {
+    @apply min-w-[750px] md:min-w-full;
+  }
+
+  .overflow-x-auto th, 
+  .overflow-x-auto td {
+    @apply px-2 md:px-4 py-3 md:py-4;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    @apply scroll-smooth;
+  }
+
+  @media (max-width: 640px) {
+    .overflow-x-auto th {
+      @apply text-[8px] tracking-tight;
+    }
+    .overflow-x-auto td {
+      @apply text-[10px];
+    }
+  }
 }

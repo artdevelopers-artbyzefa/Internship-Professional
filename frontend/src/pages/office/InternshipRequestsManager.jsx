@@ -2,9 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { apiRequest } from '../../utils/api.js';
 import { showToast } from '../../utils/notifications.jsx';
 
-// ─────────────────────────────────────────
-// Skeleton Row
-// ─────────────────────────────────────────
 const SkeletonRow = () => (
     <tr className="animate-pulse border-b border-gray-50">
         <td className="py-5 px-4"><div className="h-5 w-5 bg-slate-100 rounded-lg"></div></td>
@@ -17,9 +14,6 @@ const SkeletonRow = () => (
     </tr>
 );
 
-// ─────────────────────────────────────────
-// Step 1: Company Assignment
-// ─────────────────────────────────────────
 function CompanyStep({ student, officeId, onRefresh, mouCompanies }) {
     const req = student.internshipRequest;
     const isUniversityAssigned = req?.type === 'University Assigned';
@@ -48,7 +42,7 @@ function CompanyStep({ student, officeId, onRefresh, mouCompanies }) {
             });
             showToast.success('Company assigned.');
             onRefresh();
-        } catch { /* handled */ } finally { setSaving(false); }
+        } catch { } finally { setSaving(false); }
     };
 
     if (isFreelance) return (
@@ -92,14 +86,13 @@ function CompanyStep({ student, officeId, onRefresh, mouCompanies }) {
                 <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Select MOU Company</label>
                     <div className="relative">
-                            <select value={selectedMOUId} onChange={e => { 
-                                const id = e.target.value; 
-                                setSelectedMOUId(id); 
-                                // Search both lists for the match
-                                const c = [...mouCompanies.mou, ...mouCompanies.internal].find(c => c._id === id); 
-                                if (c) handleAssign(c.name); 
-                            }}
-                            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-slate-700 bg-white appearance-none">
+                        <select value={selectedMOUId} onChange={e => { 
+                            const id = e.target.value; 
+                            setSelectedMOUId(id); 
+                            const c = [...mouCompanies.mou, ...mouCompanies.internal].find(c => c._id === id); 
+                            if (c) handleAssign(c.name); 
+                        }}
+                        className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium text-slate-700 bg-white appearance-none">
                             <option value="">Select registry company...</option>
                             {(mouCompanies.mou || []).length > 0 && (
                                 <optgroup label="MOU Partners">
@@ -133,10 +126,6 @@ function CompanyStep({ student, officeId, onRefresh, mouCompanies }) {
     );
 }
 
-// ─────────────────────────────────────────
-// Step 2: Site Supervisor Assignment
-// (Only shown if company has linked supervisors OR mode is not freelance)
-// ─────────────────────────────────────────
 function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
     const req = student.internshipRequest;
     const isFreelance = req?.mode === 'Freelance';
@@ -149,7 +138,6 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
     const isAssigned = !!student.assignedCompanySupervisor;
     const [foundSupervisor, setFoundSupervisor] = useState(null);
 
-    // Auto-check proposed email on mount
     useEffect(() => {
         const proposed = student.internshipRequest?.siteSupervisorEmail;
         if (proposed && proposed.includes('@')) {
@@ -164,14 +152,13 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
             const res = await apiRequest(`/office/check-site-supervisor-by-email?email=${em}`);
             if (res.found) {
                 setFoundSupervisor(res.supervisor);
-                // Pre-fill if not already filled
                 if (!sName) setSName(res.supervisor.name);
                 if (!sEmail) setSEmail(res.supervisor.email);
                 if (!sPhone && res.supervisor.whatsappNumber) setSPhone(res.supervisor.whatsappNumber);
             } else {
                 setFoundSupervisor(null);
             }
-            setCheckResult(res); // Keep checkResult for existing UI logic
+            setCheckResult(res);
         } catch (e) {
             console.error('Email check failed', e);
             setCheckResult({ found: false });
@@ -181,7 +168,6 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
         }
     };
 
-    // Get linked supervisors from MOU company if company is assigned
     const flat = [...(mouCompanies.mou || []), ...(mouCompanies.internal || [])];
     const currentCompany = flat.find(c => c.name === student.assignedCompany);
     const linkedSupervisors = currentCompany?.siteSupervisors || [];
@@ -206,7 +192,7 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
             await apiRequest('/office/assign-site-supervisor', { method: 'POST', body: payload });
             showToast.success('Site supervisor assigned.');
             onRefresh();
-        } catch { /* handled */ } finally { setSaving(false); }
+        } catch { } finally { setSaving(false); }
     };
 
     const handleOnboardAndAssign = async () => {
@@ -221,12 +207,11 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
             });
             showToast.success('Site supervisor created and assigned.');
             onRefresh();
-        } catch { /* handled */ } finally { setSaving(false); }
+        } catch { } finally { setSaving(false); }
     };
 
     return (
         <div className="space-y-4">
-            {/* Current assignment badge */}
             {isAssigned && (
                 <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                     <i className="fas fa-circle-check text-emerald-500 text-sm"></i>
@@ -237,7 +222,6 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
                 </div>
             )}
 
-            {/* If company has linked supervisors, show them first */}
             {hasLinkedSupervisors && (
                 <div className="bg-blue-50/60 rounded-2xl p-4 border border-blue-100">
                     <label className="text-[9px] font-black text-blue-600 uppercase tracking-widest block mb-2">
@@ -255,7 +239,6 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
                 </div>
             )}
 
-            {/* Student proposed details */}
             {req?.siteSupervisorName && !isAssigned && (
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-1">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Student Proposed</p>
@@ -265,7 +248,6 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
                 </div>
             )}
 
-            {/* Manual entry */}
             <div className="space-y-2">
                 {[{ label: 'Name', val: sName, set: setSName, ph: 'Supervisor name' },
                   { label: 'Email', val: sEmail, set: setSEmail, ph: 'Email address' },
@@ -280,7 +262,6 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
                 ))}
             </div>
 
-            {/* Email lookup */}
             {sEmail && !isAssigned && (
                 <div>
                     {checking ? (
@@ -330,10 +311,6 @@ function SiteSupervisorStep({ student, officeId, onRefresh, mouCompanies }) {
     );
 }
 
-// ─────────────────────────────────────────
-// Step 3: Faculty Supervisor Assignment
-// Auto-checks if proposed email already exists in DB
-// ─────────────────────────────────────────
 function FacultyStep({ student, officeId, faculties, onRefresh }) {
     const req = student.internshipRequest;
     const [checkResult, setCheckResult] = useState(null);
@@ -348,9 +325,8 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
     const proposedDept = req?.newFacultyDetails?.department || null;
     const [foundFaculty, setFoundFaculty] = useState(null);
 
-    // Auto-check proposed email on mount
     useEffect(() => {
-        const proposed = student.internshipRequest?.newFacultyDetails?.email; // Assuming this is the correct path for proposed faculty email
+        const proposed = student.internshipRequest?.newFacultyDetails?.email;
         if (proposed && proposed.includes('@')) {
             checkEmail(proposed);
         }
@@ -366,7 +342,7 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
             } else {
                 setFoundFaculty(null);
             }
-            setCheckResult(res); // Keep checkResult for existing UI logic
+            setCheckResult(res);
         } catch (e) {
             console.error('Faculty check failed', e);
             setCheckResult({ found: false });
@@ -392,7 +368,7 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
             });
             showToast.success('Faculty supervisor assigned.');
             onRefresh();
-        } catch { /* handled */ } finally { setAssigning(false); }
+        } catch { } finally { setAssigning(false); }
     };
 
     const handleOnboardAndAssign = async () => {
@@ -404,12 +380,11 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
             });
             showToast.success('Faculty created and assigned. Email invitation sent.');
             onRefresh();
-        } catch { /* handled */ } finally { setAssigning(false); }
+        } catch { } finally { setAssigning(false); }
     };
 
     return (
         <div className="space-y-4">
-            {/* Status badge */}
             <div className="flex items-center justify-between">
                 <span className={`px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${fStatusStyle}`}>{fStatus}</span>
                 {isAssigned && (
@@ -419,7 +394,6 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
                 )}
             </div>
 
-            {/* Assigned faculty */}
             {isAssigned && (
                 <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                     <i className="fas fa-circle-check text-emerald-500 text-sm"></i>
@@ -432,7 +406,6 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
                 </div>
             )}
 
-            {/* Proposed faculty details from student */}
             {isNewFaculty && (
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-1">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Student's Proposed Faculty</p>
@@ -442,7 +415,6 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
                 </div>
             )}
 
-            {/* DB check for proposed faculty */}
             {isNewFaculty && proposedEmail && !isAssigned && (
                 <div>
                     {checking ? (
@@ -484,7 +456,6 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
                 </div>
             )}
 
-            {/* Awaiting response from registered faculty */}
             {req?.facultyType === 'Registered' && !isAssigned && (
                 <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
                     <p className="text-xs font-black text-amber-700"><i className="fas fa-hourglass-half mr-1.5"></i>Awaiting Faculty Response</p>
@@ -492,7 +463,6 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
                 </div>
             )}
 
-            {/* Rejected - override */}
             {req?.facultyStatus === 'Rejected' && (
                 <div className="p-3 bg-rose-50 rounded-xl border border-rose-100">
                     <p className="text-xs font-black text-rose-700"><i className="fas fa-times-circle mr-1.5"></i>Faculty Rejected</p>
@@ -500,7 +470,6 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
                 </div>
             )}
 
-            {/* Manual assignment / override dropdown */}
             {(!isAssigned || showOverride) && (
                 <div className={`space-y-2 ${showOverride ? 'pt-2 border-t border-slate-100' : ''}`}>
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{isAssigned ? 'Override Faculty' : 'Manual Assign'}</label>
@@ -523,9 +492,6 @@ function FacultyStep({ student, officeId, faculties, onRefresh }) {
     );
 }
 
-// ─────────────────────────────────────────
-// Expanded Row — Stepwise Layout
-// ─────────────────────────────────────────
 const ExpandedRow = memo(({ student, officeId, onDecide, deciding, onRefresh, faculties, mouCompanies }) => {
     const [activeStep, setActiveStep] = useState(0);
     const [rejectReason, setRejectReason] = useState('');
@@ -539,16 +505,14 @@ const ExpandedRow = memo(({ student, officeId, onDecide, deciding, onRefresh, fa
         ? [{ label: 'Company', icon: 'fa-building' }, { label: 'Faculty', icon: 'fa-chalkboard-user' }]
         : [{ label: 'Company', icon: 'fa-building' }, { label: 'Site Supervisor', icon: 'fa-user-tie' }, { label: 'Faculty', icon: 'fa-chalkboard-user' }];
 
-    // Step completion checks
     const stepDone = isFreelance
-        ? [true, !!student.assignedFaculty]  // Company always done for freelance
+        ? [true, !!student.assignedFaculty]
         : [!!student.assignedCompany, !!student.assignedCompanySupervisor, !!student.assignedFaculty];
 
     return (
         <tr>
             <td colSpan={7} className="px-3 pb-4">
                 <div className="bg-white border border-slate-100 rounded-[28px] overflow-hidden shadow-lg shadow-slate-100/50">
-                    {/* Info bar */}
                     <div className="flex flex-wrap items-center gap-4 px-6 py-3 bg-slate-50/50 border-b border-slate-100 text-xs text-slate-400 font-medium">
                         <span><strong className="text-slate-600">Mode:</strong> {req?.mode || '—'}</span>
                         <span><strong className="text-slate-600">Type:</strong> {req?.type || '—'}</span>
@@ -559,7 +523,6 @@ const ExpandedRow = memo(({ student, officeId, onDecide, deciding, onRefresh, fa
                         {req?.description && <span className="flex-1 truncate"><strong className="text-slate-600">Desc:</strong> {req.description}</span>}
                     </div>
 
-                    {/* Step Tabs */}
                     <div className="flex border-b border-slate-100 bg-white">
                         {steps.map((step, i) => (
                             <button key={i} onClick={() => setActiveStep(i)}
@@ -576,7 +539,6 @@ const ExpandedRow = memo(({ student, officeId, onDecide, deciding, onRefresh, fa
                         ))}
                     </div>
 
-                    {/* Step Content */}
                     <div className="p-6">
                         {activeStep === 0 && (
                             <CompanyStep student={student} officeId={officeId} onRefresh={onRefresh} mouCompanies={mouCompanies} />
@@ -589,7 +551,6 @@ const ExpandedRow = memo(({ student, officeId, onDecide, deciding, onRefresh, fa
                         )}
                     </div>
 
-                    {/* Approve / Reject Footer */}
                     {isPending && (
                         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30">
                             {showRejectBox ? (
@@ -627,7 +588,6 @@ const ExpandedRow = memo(({ student, officeId, onDecide, deciding, onRefresh, fa
                         </div>
                     )}
 
-                    {/* Rejection reason display */}
                     {student.status === 'Internship Rejected' && req?.rejectionReason && (
                         <div className="px-6 py-4 border-t border-rose-100 bg-rose-50/50">
                             <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-1">Rejection Reason</p>
@@ -640,9 +600,6 @@ const ExpandedRow = memo(({ student, officeId, onDecide, deciding, onRefresh, fa
     );
 });
 
-// ─────────────────────────────────────────
-// Status config
-// ─────────────────────────────────────────
 const STATUS_CONFIG = {
     'Internship Request Submitted': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: 'Pending' },
     'Internship Approved': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Approved' },
@@ -654,9 +611,6 @@ const FACULTY_STATUS_CONFIG = {
     'Rejected': { bg: 'bg-rose-50', text: 'text-rose-600' },
 };
 
-// ─────────────────────────────────────────
-// Main Component
-// ─────────────────────────────────────────
 export default function InternshipRequestsManager({ user }) {
     const [students, setStudents] = useState([]);
     const [faculties, setFaculties] = useState([]);
@@ -680,7 +634,6 @@ export default function InternshipRequestsManager({ user }) {
         return { mou, internal };
     }, [companies]);
 
-    // Debounced search
     useEffect(() => {
         const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400);
         return () => clearTimeout(t);
@@ -703,7 +656,6 @@ export default function InternshipRequestsManager({ user }) {
             setFaculties(Array.isArray(fData) ? fData : []);
             setCompanies(Array.isArray(cData) ? cData : []);
 
-            // Compute header counts from total data
             if (filter === 'all' && !debouncedSearch) {
                 setCounts({
                     all: stuResp?.total || 0,
@@ -719,7 +671,6 @@ export default function InternshipRequestsManager({ user }) {
 
     useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
-    // Fetch counts for tabs separately
     useEffect(() => {
         const fetchCounts = async () => {
             try {
@@ -735,7 +686,7 @@ export default function InternshipRequestsManager({ user }) {
                     approved: approved?.total || 0,
                     rejected: rejected?.total || 0,
                 });
-            } catch { /* suppress */ }
+            } catch { }
         };
         fetchCounts();
     }, []);
@@ -750,15 +701,13 @@ export default function InternshipRequestsManager({ user }) {
             showToast.success(`Request ${decision === 'approve' ? 'approved' : 'rejected'} successfully.`);
             setExpandedId(null);
             fetchRequests();
-        } catch { /* handled */ } finally { setDeciding(false); }
+        } catch { } finally { setDeciding(false); }
     };
-
 
     const LIMIT = 15;
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="bg-white rounded-[28px] border border-slate-100 shadow-lg shadow-slate-100/50 p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">Internship Requests</h2>
@@ -780,7 +729,6 @@ export default function InternshipRequestsManager({ user }) {
             </div>
 
             <div className="bg-white rounded-[28px] border border-slate-100 shadow-lg shadow-slate-100/50 p-6">
-                {/* Tabs + Search */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div className="flex gap-1 bg-slate-50 rounded-2xl p-1 w-fit">
                         {[
@@ -805,7 +753,6 @@ export default function InternshipRequestsManager({ user }) {
                     </div>
                 </div>
 
-                {/* Table */}
                 {loading ? (
                     <div className="overflow-x-auto">
                         <table className="w-full">
@@ -846,7 +793,6 @@ export default function InternshipRequestsManager({ user }) {
                                         ? new Date(req.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
                                         : '—';
 
-                                    // Progress indicator: how many steps done
                                     const isFreelance = req?.mode === 'Freelance';
                                     const totalSteps = isFreelance ? 2 : 3;
                                     const doneSteps = [
@@ -894,7 +840,6 @@ export default function InternshipRequestsManager({ user }) {
                                                 <td className="py-4 pr-4">
                                                     <div className="flex flex-col gap-1.5">
                                                         <span className={`text-[9px] font-black px-2.5 py-1 rounded-full border w-fit ${sCfg.bg} ${sCfg.text} ${sCfg.border}`}>{sCfg.label}</span>
-                                                        {/* Step progress */}
                                                         <div className="flex gap-1">
                                                             {[...Array(totalSteps)].map((_, i) => (
                                                                 <div key={i} className={`h-1 flex-1 rounded-full ${i < doneSteps ? 'bg-emerald-400' : 'bg-slate-100'}`}></div>
@@ -923,7 +868,6 @@ export default function InternshipRequestsManager({ user }) {
                     </div>
                 )}
 
-                {/* Pagination */}
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between pt-6 mt-4 border-t border-slate-50">
                         <p className="text-xs text-slate-600 font-medium">

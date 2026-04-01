@@ -2,7 +2,6 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from './utils/api.js';
 
-// ── Eagerly loaded: needed on first paint ───────────────────────────────────
 const LoginPage = lazy(() => import('./components/auth/LoginPage.jsx'));
 import HomePage from './pages/HomePage.jsx';
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
@@ -35,7 +34,6 @@ export default function App() {
 
   useEffect(() => {
     const initApp = async () => {
-      // Don't even bother the server if we don't have a token locally
       const token = localStorage.getItem('token');
       if (!token) {
         setInitializing(false);
@@ -48,14 +46,9 @@ export default function App() {
           setUser(data.user);
         }
       } catch (err) {
-        // Only clear the token if the server specifically tells us the session is invalid (401/403).
-        // For other errors (like 500 or offline), we keep the token so it can be used once recovered.
         if (err.status === 401 || err.status === 403) {
-          console.warn('Session expired or invalid. Clearing token.');
           localStorage.removeItem('token');
           setUser(null);
-        } else {
-          console.error('Session initialization failed:', err.message);
         }
       } finally {
         setInitializing(false);
@@ -72,7 +65,6 @@ export default function App() {
     }
     setUser(userData);
 
-    // Redirect based on role
     const rolePaths = {
       student: '/student',
       internship_office: '/office',
@@ -86,9 +78,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await apiRequest('/auth/logout', { method: 'POST' });
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+    } catch (err) { }
     localStorage.removeItem('token');
     setUser(null);
     navigate('/login', { replace: true });
@@ -98,7 +88,6 @@ export default function App() {
     return <PageLoader />;
   }
 
-  // Force Password Change Flow
   if (user && user.mustChangePassword) {
     return (
       <Suspense fallback={<PageLoader />}>
@@ -119,14 +108,12 @@ export default function App() {
           } replace />
         ) : <HomePage />} />
 
-        {/* Auth Screen Routes */}
         <Route path="/login" element={!user ? <LoginPage onLogin={handleLogin} /> : <Navigate to="/" replace />} />
         <Route path="/forgot-password" element={<ForgotPage onBack={() => navigate('/login')} />} />
         <Route path="/verify-email/:token" element={<VerifyEmail onBack={() => navigate('/login')} />} />
         <Route path="/faculty/activate/:token" element={<FacultyActivation />} />
         <Route path="/supervisor/activate/:token" element={<SupervisorActivation />} />
 
-        {/* Portal Routes with Protection */}
         <Route element={<ProtectedRoute user={user} allowedRoles={['student']} />}>
           <Route path="/student/*" element={<StudentPortal user={user} onLogout={handleLogout} onUpdateUser={(updated) => setUser({ ...user, ...updated })} />} />
         </Route>
@@ -147,10 +134,8 @@ export default function App() {
           <Route path="/supervisor/*" element={<SupervisorPortal user={user} onLogout={handleLogout} />} />
         </Route>
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Suspense>
   );
 }
-
