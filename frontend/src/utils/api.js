@@ -1,4 +1,13 @@
-import { showToast } from './notifications.jsx';
+// Lazy-loaded toast to avoid pulling sweetalert2 into the initial bundle.
+// notifications.jsx (~135KB sweetalert2) only loads when an error toast is actually needed.
+let _showToast = null;
+const getToast = async () => {
+    if (!_showToast) {
+        const mod = await import('./notifications.jsx');
+        _showToast = mod.showToast;
+    }
+    return _showToast;
+};
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
@@ -7,7 +16,7 @@ const API_BASE = VITE_API_URL && VITE_API_URL !== '/api'
     : 'https://api.internshipcscuiatd.artdevelopers.site/api';
 
 export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
-    const { method = 'GET', body, headers = {}, silent = false, timeout = 25000 } = options;
+    const { method = 'GET', body, headers = {}, silent = false, timeout = 60000 } = options;
 
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
@@ -21,8 +30,7 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
             ...headers,
         },
         credentials: 'include',
-        signal: controller.signal,
-        ...options
+        signal: options.signal ? (AbortSignal.any ? AbortSignal.any([controller.signal, options.signal]) : options.signal) : controller.signal,
     };
 
     if (body && body instanceof FormData) {
@@ -44,7 +52,8 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
             if (response.status === 413) {
                 const error = new Error("Request payload too large (Max 2MB)!");
                 error.status = 413;
-                showToast.error(error.message);
+                const toast = await getToast();
+                toast.error(error.message);
                 throw error;
             }
             const nonJsonError = await response.text();
@@ -56,7 +65,8 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
         if (!response.ok) {
             if (response.status === 401 && !silent && window._handleLogout) {
                 window._handleLogout();
-                showToast.error("Session expired. Please login again.");
+                const toast = await getToast();
+                toast.error("Session expired. Please login again.");
                 return;
             }
             if (response.status >= 500 && retryCount < 2) {
@@ -67,7 +77,10 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
             const error = new Error(data.message || 'Something went wrong');
             error.status = response.status;
             error.data = data;
-            if (!silent) showToast.error(error.message);
+            if (!silent) {
+                const toast = await getToast();
+                toast.error(error.message);
+            }
             throw error;
         }
 
@@ -76,13 +89,15 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
         clearTimeout(id);
         
         if (error.name === 'AbortError') {
-             if (retryCount < 2) {
-                 console.warn(`[TIMEOUT] Request to ${endpoint} timed out. Retrying ${retryCount + 1}/2...`);
-                 return apiRequest(endpoint, { ...options, timeout: timeout + 5000 }, retryCount + 1);
+             // Only log and retry if OUR internal timeout was reached
+             if (controller.signal.aborted && retryCount < 2) {
+                 console.warn(`[TIMEOUT] Request to ${endpoint} timed out after ${timeout}ms. Retrying ${retryCount + 1}/2...`);
+                 return apiRequest(endpoint, { ...options, timeout: timeout + 10000 }, retryCount + 1);
              }
-             if (!silent) showToast.error("Network slow. Please try again later.");
+             // For user-initiated or React-cleanup aborts, just rethrow quietly
+             throw error;
         } else if (!silent) {
-            console.error('Issue communicating with the system endpoint.');
+            console.error('Issue communicating with the system endpoint:', error.message);
         }
         throw error;
     }

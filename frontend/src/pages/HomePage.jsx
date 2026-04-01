@@ -9,10 +9,7 @@ import {
   Bell, 
   Mail, 
   Phone, 
-  MapPin, 
-  Info,
   ChevronRight,
-  ExternalLink,
   GraduationCap,
   Menu,
   X
@@ -36,7 +33,11 @@ const HomePage = () => {
       }
     };
 
-    fetchPublicNotices();
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => fetchPublicNotices());
+    } else {
+      setTimeout(fetchPublicNotices, 0);
+    }
   }, []);
 
   const scrollToSection = (id) => {
@@ -55,23 +56,24 @@ const HomePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] font-poppins selection:bg-blue-600/10 selection:text-blue-700 overflow-x-hidden">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-blue-100 shadow-sm">
+    <>
+      <main className="min-h-screen bg-[#fafafa] font-poppins selection:bg-blue-600/10 selection:text-blue-700 overflow-x-hidden">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-blue-100 shadow-sm" role="navigation">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <img src="/cuilogo.png" alt="University Logo" className="h-10 sm:h-12 w-auto" />
+          <a href="/" className="flex items-center gap-3 cursor-pointer" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} aria-label="Go to top of page">
+            <img src="/cuilogo.png" alt="COMSATS University Islamabad Logo" width={48} height={48} loading="eager" decoding="async" className="h-10 sm:h-12 w-auto" />
             <div className="hidden sm:block">
-              <h1 className="text-lg font-black text-[#1e3a8a] leading-tight">CUI Abbottabad</h1>
+              <span className="block text-lg font-black text-[#1e3a8a] leading-tight">CUI Abbottabad</span>
               <p className="text-xs font-bold text-blue-500 tracking-wide">Internship Portal</p>
             </div>
-          </div>
+          </a>
           
           <div className="hidden lg:flex items-center gap-8">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Home</button>
-            <button onClick={() => scrollToSection('about')} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">About Program</button>
-            <button onClick={() => scrollToSection('process')} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Guidelines/Process</button>
-            <button onClick={() => scrollToSection('announcements')} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Announcements</button>
-            <button onClick={() => scrollToSection('contact')} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Contact</button>
+            <a href="/" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Home</a>
+            <a href="#about" onClick={(e) => { e.preventDefault(); scrollToSection('about'); }} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">About Program</a>
+            <a href="#process" onClick={(e) => { e.preventDefault(); scrollToSection('process'); }} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Guidelines/Process</a>
+            <a href="#announcements" onClick={(e) => { e.preventDefault(); scrollToSection('announcements'); }} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Announcements</a>
+            <a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }} className="text-sm font-bold text-gray-600 hover:text-[#1e3a8a] transition-colors">Contact</a>
           </div>
 
           <div className="flex items-center gap-2">
@@ -83,10 +85,12 @@ const HomePage = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
             <button 
-              className="lg:hidden p-2 text-gray-600"
+              className="lg:hidden p-2 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
             </button>
           </div>
         </div>
@@ -115,11 +119,19 @@ const HomePage = () => {
 
       <section className="relative pt-36 pb-24 md:pb-48 overflow-hidden min-h-[85vh] flex items-center">
         <div className="absolute inset-0 z-0">
-          <img 
-            src="/hero.png" 
-            alt="University Campus" 
-            className="w-full h-full object-cover opacity-20 scale-105"
-          />
+          <picture>
+            <source srcSet="/hero.webp" type="image/webp" />
+            <img 
+              src="/hero.png" 
+              alt="Aerial view of COMSATS University Islamabad Abbottabad Campus" 
+              width={1920}
+              height={1080}
+              fetchPriority="high"
+              loading="eager"
+              decoding="sync"
+              className="w-full h-full object-cover opacity-20 scale-105"
+            />
+          </picture>
           <div className="absolute inset-0 bg-gradient-to-b from-[#fafafa] via-transparent to-[#fafafa]"></div>
         </div>
         
@@ -134,19 +146,21 @@ const HomePage = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
-            <button 
-              onClick={() => navigate('/login')}
-              className="w-full sm:w-auto px-12 py-5 bg-[#1e3a8a] text-white text-lg font-black rounded-2xl hover:bg-blue-900 transition-all shadow-2xl shadow-blue-900/20 flex items-center justify-center gap-3 group"
+            <a 
+              href="/login"
+              onClick={(e) => { e.preventDefault(); navigate('/login'); }}
+              className="w-full sm:w-auto px-12 py-5 bg-[#1e3a8a] text-white text-lg font-black rounded-2xl hover:bg-blue-900 transition-all shadow-2xl shadow-blue-900/20 flex items-center justify-center gap-3 group decoration-0"
             >
               Access Portal
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button 
-              onClick={() => scrollToSection('about')}
-              className="w-full sm:w-auto px-12 py-5 bg-white text-gray-700 text-lg font-black rounded-2xl hover:bg-gray-50 transition-all border border-gray-200 shadow-sm"
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </a>
+            <a 
+              href="#about"
+              onClick={(e) => { e.preventDefault(); scrollToSection('about'); }}
+              className="w-full sm:w-auto px-12 py-5 bg-white text-gray-700 text-lg font-black rounded-2xl hover:bg-gray-50 transition-all border border-gray-200 shadow-sm flex items-center justify-center decoration-0"
             >
-              Learn More
-            </button>
+              Learn More About Program
+            </a>
           </div>
         </div>
       </section>
@@ -261,8 +275,11 @@ const HomePage = () => {
                   </div>
                   <h4 className="text-xl font-bold mb-4 line-clamp-2 group-hover:text-blue-400 transition-colors">{notice.title}</h4>
                   <p className="text-gray-400 text-sm leading-relaxed mb-8 line-clamp-3">{notice.content}</p>
-                  <button className="flex items-center gap-2 text-sm font-bold text-white group-hover:gap-4 transition-all">
-                    Read Full Notice <ArrowRight className="w-4 h-4" />
+                  <button 
+                    className="flex items-center gap-2 text-sm font-bold text-white group-hover:gap-4 transition-all focus:outline-none focus:underline"
+                    aria-label={`Read full notice: ${notice.title}`}
+                  >
+                    Read Full Notice <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
               ))
@@ -320,18 +337,18 @@ const HomePage = () => {
         </div>
       </section>
 
-      <footer className="py-12 border-t border-gray-100">
+      <footer className="py-12 border-t border-gray-100" role="contentinfo">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3 opacity-50">
-              <img src="/cuilogo.png" alt="University Logo" className="h-8 w-auto grayscale" />
+              <img src="/cuilogo.png" alt="COMSATS University Islamabad Logo" width={32} height={32} loading="lazy" decoding="async" className="h-8 w-auto grayscale" />
               <div className="text-[10px] font-black text-gray-400 tracking-widest">CUI Internship System</div>
             </div>
-            <div className="text-[10px] font-black text-gray-300 tracking-widest">© 2026 CUI  Abbottabad. All rights reserved.</div>
+            <div className="text-[10px] font-black text-gray-300 tracking-widest">© {new Date().getFullYear()} CUI Abbottabad. All rights reserved.</div>
           </div>
         </div>
       </footer>
-
+    </main>
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes bounce-slow {
           0%, 100% { transform: translateY(-5px); }
@@ -345,7 +362,7 @@ const HomePage = () => {
         .animate-fade-in-down { animation: fade-in-down 0.4s ease-out forwards; }
         .font-poppins { font-family: 'Poppins', sans-serif; }
       ` }} />
-    </div>
+    </>
   );
 };
 

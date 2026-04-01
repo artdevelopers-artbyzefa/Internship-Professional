@@ -1,24 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import PageErrorBoundary from '../../components/ui/PageErrorBoundary.jsx';
+
+// Eagerly load the dashboard (first paint for office users)
 import OfficeDashboard from './OfficeDashboard.jsx';
-import StudentRequestVerification from './StudentRequestVerification.jsx';
-import FacultyManagement from './FacultyManagement.jsx';
-import CompanyManagement from './CompanyManagement.jsx';
-import AssignmentCenter from './AssignmentCenter.jsx';
-import ManageAssignments from './ManageAssignments.jsx';
-import ViewAllResults from './ViewAllResults.jsx';
-import NoticeManagement from './NoticeManagement.jsx';
-import ReportsAnalytics from './ReportsAnalytics.jsx';
-import OfficeReports from './OfficeReports.jsx';
-import StudentManagement from './StudentManagement.jsx';
-import RegisteredStudents from './RegisteredStudents.jsx';
-import SiteSupervisorManagement from './SiteSupervisorManagement.jsx';
-import PhaseManagement from './PhaseManagement.jsx';
-import InternshipRequestsManager from './InternshipRequestsManager.jsx';
-import EmailCenter from './EmailCenter.jsx';
-import HODArchive from '../hod/HODArchive.jsx';
+
+// Lazy-load all other pages — each only loads when navigated to
+const StudentRequestVerification  = lazy(() => import('./StudentRequestVerification.jsx'));
+const FacultyManagement           = lazy(() => import('./FacultyManagement.jsx'));
+const CompanyManagement          = lazy(() => import('./CompanyManagement.jsx'));
+const AssignmentCenter           = lazy(() => import('./AssignmentCenter.jsx'));
+const ManageAssignments          = lazy(() => import('./ManageAssignments.jsx'));
+const ViewAllResults             = lazy(() => import('./ViewAllResults.jsx'));
+const NoticeManagement           = lazy(() => import('./NoticeManagement.jsx'));
+const ReportsAnalytics           = lazy(() => import('./ReportsAnalytics.jsx'));
+const OfficeReports              = lazy(() => import('./OfficeReports.jsx'));
+const StudentManagement          = lazy(() => import('./StudentManagement.jsx'));
+const RegisteredStudents         = lazy(() => import('./RegisteredStudents.jsx'));
+const SiteSupervisorManagement   = lazy(() => import('./SiteSupervisorManagement.jsx'));
+const PhaseManagement            = lazy(() => import('./PhaseManagement.jsx'));
+const InternshipRequestsManager  = lazy(() => import('./InternshipRequestsManager.jsx'));
+const EmailCenter                = lazy(() => import('./EmailCenter.jsx'));
+const HODArchive                 = lazy(() => import('../hod/HODArchive.jsx'));
 
 const officeNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
@@ -34,10 +38,21 @@ const officeNav = [
   { id: 'phase-control', label: 'Phase Control', icon: 'fa-layer-group' }
 ];
 
+const PageLoader = () => (
+  <div className="flex items-center justify-center py-32" role="status" aria-live="polite">
+    <div className="w-10 h-10 border-3 border-gray-100 border-t-primary rounded-full animate-spin" />
+    <span className="sr-only">Loading page...</span>
+  </div>
+);
+
 // Helper — wraps any element in an error boundary so ONE page crash
 // never takes down the entire portal.
 const Safe = ({ children }) => (
-  <PageErrorBoundary>{children}</PageErrorBoundary>
+  <PageErrorBoundary>
+    <Suspense fallback={<PageLoader />}>
+      {children}
+    </Suspense>
+  </PageErrorBoundary>
 );
 
 export default function InternshipOfficePortal({ user, onLogout }) {

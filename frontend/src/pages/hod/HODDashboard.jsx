@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import WelcomeBanner from '../../components/ui/WelcomeBanner.jsx';
 import { apiRequest } from '../../utils/api.js';
 import RegistrationDetails from '../../components/management/RegistrationDetails.jsx';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 const CHART_TOOLTIP_STYLE = {

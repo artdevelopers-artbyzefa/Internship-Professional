@@ -3,10 +3,8 @@ import { apiRequest } from '../../utils/api.js';
 import { gradeFromPct, gradeColor, gradePointsFromPct } from '../../utils/helpers.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis,
-  LineChart, Line, ReferenceLine
+  PieChart, Pie, Cell, ReferenceLine
 } from 'recharts';
-import jsPDF from 'jspdf';
 import { toPng } from 'html-to-image';
 
 // ── Palette ─────────────────────────────────────────────────────────────────
@@ -251,7 +249,7 @@ export default function HODReports() {
         {/* Grade Distribution */}
         <div id="chart-dist" className="md:col-span-2 bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
           <div className="flex items-center justify-between mb-8">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Cohort Grade Distribution</h4>
+            <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">Cohort Grade Distribution</h4>
             <div className="flex items-center gap-1">
               {['A','B','C','D','F'].map(l => (
                   <span key={l} className="w-2 h-2 rounded-full" style={{ backgroundColor: GRADE_COLORS[l] || '#eee'}} />
@@ -275,7 +273,7 @@ export default function HODReports() {
 
         {/* Pass / Fail Pie */}
         <div id="chart-pie" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8 flex flex-col items-center justify-center">
-          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 w-full text-left">Quality Control</h4>
+          <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] mb-4 w-full text-left">Quality Control</h4>
           <div className="relative w-full aspect-square max-w-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -292,7 +290,7 @@ export default function HODReports() {
             </div>
           </div>
           <div className="mt-6 flex flex-col gap-2 w-full">
-            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-600">
                 <span>Pass: {passed}</span>
                 <span>Fail: {failed}</span>
             </div>
@@ -310,7 +308,7 @@ export default function HODReports() {
         {/* Top Performers */}
         <div id="chart-top" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
           <div className="flex items-center justify-between mb-8">
-             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Academic Excellence (Top 8)</h4>
+             <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">Academic Excellence (Top 8)</h4>
              <i className="fas fa-crown text-amber-400" />
           </div>
           <div className="h-[280px]">
@@ -332,7 +330,7 @@ export default function HODReports() {
         {/* Faculty avg performance */}
         <div id="chart-faculty" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
           <div className="flex items-center justify-between mb-8">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Supervisor Efficacy Index</h4>
+            <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">Supervisor Efficacy Index</h4>
             <span className="px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[9px] font-black tracking-widest uppercase">Target 70%+</span>
           </div>
           <div className="h-[280px]">
@@ -376,7 +374,7 @@ export default function HODReports() {
               <thead>
                 <tr className="bg-gray-50/60">
                   {['Reg. #', 'Student', 'Academic Supervisor', 'Site Supervisor', 'Company', 'Mode', 'Tasks', 'Avg / 10', '%', 'GRD', 'Status'].map(h => (
-                    <th key={h} className="px-5 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-5 py-3 text-[9px] font-black text-gray-600 uppercase tracking-widest border-b border-gray-100 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>

@@ -1,14 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
-import HODDashboard from './HODDashboard.jsx';
-import HODApprovals from './HODApprovals.jsx';
-import HODApprovedResults from './HODApprovedResults.jsx';
-import HODReports from './HODReports.jsx';
-import HODArchive from './HODArchive.jsx';
-import RegisteredStudents from '../office/RegisteredStudents.jsx';
-import EmailCenter from '../office/EmailCenter.jsx';
 import { apiRequest } from '../../utils/api.js';
+
+// Eagerly load dashboard for immediate first-paint
+import HODDashboard from './HODDashboard.jsx';
+
+// Lazy-load secondary pages
+const HODApprovals       = lazy(() => import('./HODApprovals.jsx'));
+const HODApprovedResults = lazy(() => import('./HODApprovedResults.jsx'));
+const HODReports         = lazy(() => import('./HODReports.jsx'));
+const HODArchive         = lazy(() => import('./HODArchive.jsx'));
+const RegisteredStudents = lazy(() => import('../office/RegisteredStudents.jsx'));
+const EmailCenter        = lazy(() => import('../office/EmailCenter.jsx'));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center py-32" role="status" aria-live="polite">
+    <div className="w-10 h-10 border-3 border-gray-100 border-t-primary rounded-full animate-spin" />
+    <span className="sr-only">Loading page...</span>
+  </div>
+);
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<PageLoader />}>{children}</Suspense>
+);
 
 const hodNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-shield-halved' },
@@ -70,10 +85,10 @@ export default function HODPortal({ user, onLogout }) {
       <div className="p-6">
         <Routes>
           <Route path="dashboard" element={<HODDashboard />} />
-          <Route path="registered-students" element={<RegisteredStudents user={user} />} />
-          <Route path="reports" element={<HODReports />} />
-          <Route path="email-center" element={<EmailCenter />} />
-          <Route path="archive" element={<HODArchive />} />
+          <Route path="registered-students" element={<LazyWrap><RegisteredStudents user={user} /></LazyWrap>} />
+          <Route path="reports" element={<LazyWrap><HODReports /></LazyWrap>} />
+          <Route path="email-center" element={<LazyWrap><EmailCenter /></LazyWrap>} />
+          <Route path="archive" element={<LazyWrap><HODArchive /></LazyWrap>} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </div>

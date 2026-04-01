@@ -33,7 +33,7 @@ const run = async () => {
             cgpa: '3.5',
             whatsappNumber: '03001234567',
             section: 'A',
-            fatherName: 'Father Name'
+            fatherName: 'Zahid Rathore'
         });
 
         await newUser.save();

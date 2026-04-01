@@ -1,17 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout.jsx';
-import FacultyDashboard from './FacultyDashboard.jsx';
-import FacultyStudents from './FacultyStudents.jsx';
-import FacultyEvaluation from './FacultyEvaluation.jsx';
-import FacultyReports from './FacultyReports.jsx';
-import StudentProfileDetail from './StudentProfileDetail.jsx';
-import RegisteredStudents from '../office/RegisteredStudents.jsx';
-import SupervisionRequests from './SupervisionRequests.jsx';
-import SupervisorProfile from '../../components/supervisor/SupervisorProfile.jsx';
-import AddAssignment from './AddAssignment.jsx';
-import FacultyAssignments from './FacultyAssignments.jsx';
 import { apiRequest } from '../../utils/api.js';
+
+// Eagerly load dashboard (first paint)
+import FacultyDashboard from './FacultyDashboard.jsx';
+
+// Lazy-load all other pages
+const FacultyStudents      = lazy(() => import('./FacultyStudents.jsx'));
+const FacultyEvaluation    = lazy(() => import('./FacultyEvaluation.jsx'));
+const FacultyReports       = lazy(() => import('./FacultyReports.jsx'));
+const StudentProfileDetail = lazy(() => import('./StudentProfileDetail.jsx'));
+const RegisteredStudents   = lazy(() => import('../office/RegisteredStudents.jsx'));
+const SupervisionRequests  = lazy(() => import('./SupervisionRequests.jsx'));
+const SupervisorProfile    = lazy(() => import('../../components/supervisor/SupervisorProfile.jsx'));
+const AddAssignment        = lazy(() => import('./AddAssignment.jsx'));
+const FacultyAssignments   = lazy(() => import('./FacultyAssignments.jsx'));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center py-32" role="status" aria-live="polite">
+    <div className="w-10 h-10 border-3 border-gray-100 border-t-primary rounded-full animate-spin" />
+    <span className="sr-only">Loading page...</span>
+  </div>
+);
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<PageLoader />}>{children}</Suspense>
+);
 
 export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
   const navigate = useNavigate();
@@ -82,15 +97,15 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
         <Routes>
           <Route path="/" element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<FacultyDashboard user={user} activePhase={activePhase} />} />
-          <Route path="requests" element={<SupervisionRequests user={user} />} />
-          <Route path="students" element={<FacultyStudents user={user} />} />
-          <Route path="students/:studentId" element={<StudentProfileDetail />} />
-          <Route path="registered-students" element={<RegisteredStudents user={user} />} />
-          <Route path="grading" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
-          <Route path="add-marks" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
-          <Route path="evaluation" element={<FacultyEvaluation user={user} activePhase={activePhase} />} />
-          <Route path="reports" element={<FacultyReports user={user} />} />
-          <Route path="profile" element={<SupervisorProfile user={user} onUpdate={onUpdateUser} />} />
+          <Route path="requests" element={<LazyWrap><SupervisionRequests user={user} /></LazyWrap>} />
+          <Route path="students" element={<LazyWrap><FacultyStudents user={user} /></LazyWrap>} />
+          <Route path="students/:studentId" element={<LazyWrap><StudentProfileDetail /></LazyWrap>} />
+          <Route path="registered-students" element={<LazyWrap><RegisteredStudents user={user} /></LazyWrap>} />
+          <Route path="grading" element={<LazyWrap><FacultyEvaluation user={user} activePhase={activePhase} /></LazyWrap>} />
+          <Route path="add-marks" element={<LazyWrap><FacultyEvaluation user={user} activePhase={activePhase} /></LazyWrap>} />
+          <Route path="evaluation" element={<LazyWrap><FacultyEvaluation user={user} activePhase={activePhase} /></LazyWrap>} />
+          <Route path="reports" element={<LazyWrap><FacultyReports user={user} /></LazyWrap>} />
+          <Route path="profile" element={<LazyWrap><SupervisorProfile user={user} onUpdate={onUpdateUser} /></LazyWrap>} />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

@@ -113,6 +113,7 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
       <div className="flex items-center gap-2 md:gap-3 min-w-0">
         <button
           onClick={onMenuToggle}
+          aria-label="Toggle sidebar navigation"
           className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-primary transition-all border-0 cursor-pointer flex-shrink-0">
           <i className="fas fa-bars text-sm" />
         </button>
@@ -128,6 +129,8 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
         <div className="relative">
           <button
             onClick={() => { setShowNotif(!showNotif); setShowDD(false); }}
+            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+            aria-expanded={showNotif}
             className="w-9 h-9 rounded-xl bg-gray-50 border-0 cursor-pointer flex items-center justify-center text-gray-600 hover:bg-blue-50 hover:text-secondary transition-all relative">
             <i className="fas fa-bell text-sm" />
             {unreadCount > 0 && (
@@ -189,6 +192,8 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
         <div className="relative">
           <button
             onClick={() => { setShowDD(!showDD); setShowNotif(false); }}
+            aria-label="User menu"
+            aria-expanded={showDD}
             className="flex items-center gap-2 p-1 md:px-2.5 md:py-1.5 bg-gray-50 rounded-xl cursor-pointer border border-gray-100 hover:bg-blue-50 hover:border-blue-100 transition-all">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden flex-shrink-0">
               {user.profilePicture

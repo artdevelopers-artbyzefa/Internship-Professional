@@ -38,6 +38,7 @@ export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, 
         {/* Toggle Button for Desktop */}
         <button
           onClick={onToggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="ml-auto hidden lg:flex bg-transparent border-0 text-white/70 cursor-pointer flex-shrink-0 p-1 rounded-lg hover:bg-white/10">
           <i className={`fas ${collapsed ? 'fa-chevron-right' : 'fa-chevron-left'} text-sm`}></i>
         </button>
@@ -45,6 +46,7 @@ export default function Sidebar({ user, collapsed, onToggle, showMobileSidebar, 
         {/* Close Button for Mobile */}
         <button
           onClick={() => setShowMobileSidebar(false)}
+          aria-label="Close navigation sidebar"
           className="ml-auto lg:hidden bg-transparent border-0 text-white/70 cursor-pointer p-1 rounded-lg hover:bg-white/10">
           <i className="fas fa-times text-lg"></i>
         </button>

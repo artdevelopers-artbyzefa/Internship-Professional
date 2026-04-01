@@ -9,13 +9,11 @@ import {
   Loader2, 
   Eye, 
   EyeOff,
-  ChevronRight,
   LogIn,
-  University,
-  BadgeCheck
+  BadgeCheck,
+  University
 } from 'lucide-react';
-import Button from '../ui/Button.jsx';
-import { FormGroup, TextInput, SelectInput } from '../ui/FormInput.jsx';
+import { FormGroup } from '../ui/FormInput.jsx';
 import Alert from '../ui/Alert.jsx';
 import { apiRequest } from '../../utils/api.js';
 import { validate } from '../../utils/validation.js';
@@ -91,48 +89,42 @@ export default function LoginPage({ onLogin }) {
 
   if (otpMode) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Abstract Background Accents */}
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-200/40 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-200/40 rounded-full blur-[120px]" />
-
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl border border-white relative z-10">
+      <div className="min-h-screen bg-[#1e3a8a] flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl p-10 w-full max-w-md shadow-2xl">
           <div className="text-center mb-10">
-            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-indigo-100/50 shadow-xl border border-indigo-100">
+            <div className="w-20 h-20 bg-blue-50 text-blue-700 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <ShieldCheck className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Security Check</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Security Check</h2>
             <p className="text-sm text-gray-500 mt-3 leading-relaxed">
               We've sent a 6-digit confirmation code to <br />
-              <span className="text-indigo-600 font-semibold">{form.email}</span>
+              <span className="text-blue-700 font-semibold">{form.email}</span>
             </p>
           </div>
 
-          {apiError && <Alert type="warning" className="mb-6 rounded-2xl">{apiError}</Alert>}
+          {apiError && <Alert type="warning" className="mb-6">{apiError}</Alert>}
 
-          <FormGroup label="Verification Code">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="000000"
-                className="w-full bg-white/50 border border-neutral-200 rounded-2xl py-4 px-4 text-center text-3xl tracking-[12px] font-bold text-gray-900 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:tracking-normal placeholder:text-gray-300"
-                value={otp}
-                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              />
-            </div>
+          <FormGroup label="Verification Code" uppercase>
+            <input
+              type="text"
+              placeholder="000000"
+              className="w-full border border-gray-200 rounded-xl py-3.5 px-4 text-center text-3xl tracking-[12px] font-bold text-gray-900 outline-none focus:border-blue-600 transition-all placeholder:tracking-normal placeholder:text-gray-300"
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            />
           </FormGroup>
 
           <button
             onClick={handleVerifySecondary}
             disabled={loading}
-            className="w-full bg-indigo-600 text-white rounded-2xl py-4 font-semibold text-lg hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-6"
+            className="w-full bg-[#1e3a8a] text-white rounded-xl py-4 font-semibold text-base hover:bg-blue-900 transition-all disabled:opacity-70 flex items-center justify-center gap-3 mt-4"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
             Confirm & Continue
           </button>
 
           <button
-            className="mt-8 text-sm font-semibold text-gray-400 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 mx-auto"
+            className="mt-8 text-sm font-semibold text-gray-400 hover:text-blue-700 transition-colors flex items-center justify-center gap-2 mx-auto"
             onClick={() => { setOtpMode(false); setApiError(''); }}
           >
             <ArrowLeft className="w-4 h-4" /> Back to Login
@@ -143,112 +135,113 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Dynamic Mesh Background Elements */}
-      <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-indigo-100/50 rounded-full blur-[140px] animate-pulse" />
-      <div className="absolute bottom-[-15%] left-[-5%] w-[50%] h-[50%] bg-blue-100/40 rounded-full blur-[120px]" />
-      
-      <div className="w-full max-w-[480px] relative z-10">
-        <div className="bg-white/80 backdrop-blur-2xl rounded-[3rem] p-10 md:p-14 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] border border-white">
-          
+    <main className="min-h-screen bg-[#1e3a8a] flex items-center justify-center p-6">
+      <div className="w-full max-w-[480px]">
+        <div className="bg-white rounded-3xl p-10 shadow-2xl">
+
           {/* Back Action */}
-          <button
-            onClick={() => navigate('/')}
-            className="group absolute top-8 left-10 flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-indigo-600 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-            Home
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-blue-700 transition-colors mb-6"
+              aria-label="Back to home page"
+            >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Home
           </button>
 
-          <div className="text-center mb-10 pt-4">
-            <div className="inline-block relative mb-4">
-              <div className="absolute inset-0 bg-indigo-600 blur-2xl opacity-10 rounded-full scale-150" />
-              <img src="/cuilogo.png" alt="CUI Logo" className="h-20 w-auto relative z-10 drop-shadow-xl"
-                onError={(e) => e.target.style.display = 'none'} />
-            </div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight mb-2">CUI Abbottabad</h1>
-            <p className="text-sm font-medium text-gray-500 max-w-[280px] mx-auto leading-relaxed">
-              Digital Internship Management System
-            </p>
+          <div className="text-center mb-8">
+            <img
+              src="/cuilogo.png"
+              alt="COMSATS University Islamabad Logo"
+              width={80}
+              height={80}
+              fetchPriority="high"
+              loading="eager"
+              decoding="sync"
+              className="h-20 w-auto mx-auto mb-4 drop-shadow"
+              onError={(e) => e.target.style.display = 'none'}
+            />
+            <h1 className="text-2xl font-black text-[#1e3a8a] tracking-tight mb-1">CUI Abbottabad</h1>
+            <p className="text-sm font-medium text-gray-500">Digital Internship Management System</p>
           </div>
 
-          {apiError && <Alert type="warning" className="mb-6 rounded-2xl">{apiError}</Alert>}
+          {apiError && <Alert type="warning" className="mb-5">{apiError}</Alert>}
 
-          <div className="space-y-6">
-            <FormGroup label="Select Role">
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors">
-                  <UserCircle className="w-5 h-5" />
+          <form 
+            onSubmit={(e) => { e.preventDefault(); handleLogin(); }}
+            className="space-y-4"
+          >
+            <FormGroup label="Select Role" htmlFor="login-role">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <UserCircle className="w-4 h-4" />
                 </div>
                 <select
+                  id="login-role"
                   value={form.role}
                   onChange={e => {
                     setForm({ ...form, role: e.target.value });
                     setApiError('');
                     setErrors({});
                   }}
-                  className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 pl-12 pr-10 text-sm font-semibold text-gray-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 appearance-none cursor-pointer transition-all"
+                  className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-8 text-sm font-semibold text-gray-700 outline-none focus:border-blue-600 appearance-none cursor-pointer transition-all"
                 >
                   {roles.map(r => (
                     <option key={r.id} value={r.id}>{r.label}</option>
                   ))}
                 </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                  <ChevronRight className="w-4 h-4 rotate-90" />
-                </div>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">-</div>
               </div>
             </FormGroup>
 
-            <FormGroup label="Email Address" error={errors.email}>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors">
-                  <Mail className="w-5 h-5" />
+            <FormGroup label="Email Address" error={errors.email} htmlFor="login-email">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Mail className="w-4 h-4" />
                 </div>
                 <input
+                  id="login-email"
                   type="email"
                   placeholder="Enter your email"
                   value={form.email}
                   onChange={e => setForm({ ...form, email: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+                  className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm font-medium text-gray-700 outline-none focus:border-blue-600 transition-all"
                 />
               </div>
             </FormGroup>
 
-            <FormGroup label="Password" error={errors.password}>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors">
-                  <Lock className="w-5 h-5" />
+            <FormGroup label="Password" error={errors.password} htmlFor="login-password">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Lock className="w-4 h-4" />
                 </div>
                 <input
+                  id="login-password"
                   type={showPw ? 'text' : 'password'}
                   placeholder="Enter your password"
                   value={form.password}
                   onChange={e => setForm({ ...form, password: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 pl-12 pr-12 text-sm font-medium text-gray-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+                  className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-10 text-sm font-medium text-gray-700 outline-none focus:border-blue-600 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(!showPw)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-700 transition-colors"
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
                 >
-                  {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </FormGroup>
 
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 text-sm cursor-pointer group">
-                <div className="relative flex items-center">
-                  <input type="checkbox" className="peer appearance-none w-5 h-5 border border-gray-300 rounded-md checked:bg-indigo-600 checked:border-indigo-600 transition-all" />
-                  <div className="absolute inset-0 flex items-center justify-center text-white opacity-0 peer-checked:opacity-100 transition-opacity">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                  </div>
-                </div>
-                <span className="text-gray-500 font-medium group-hover:text-gray-700 transition-colors">Remember me</span>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 border border-gray-300 rounded accent-blue-700" />
+                <span className="text-gray-500 font-medium">Remember me</span>
               </label>
-              <button 
+              <button
                 onClick={() => navigate('/forgot-password')}
-                className="text-sm text-indigo-600 font-bold hover:text-indigo-700 underline-offset-4 hover:underline transition-all"
+                className="text-sm text-blue-700 font-bold hover:underline transition-all"
               >
                 Forgot Password?
               </button>
@@ -257,7 +250,7 @@ export default function LoginPage({ onLogin }) {
             <button
               onClick={handleLogin}
               disabled={loading}
-              className="w-full bg-indigo-600 text-white rounded-2xl py-4 font-bold text-base hover:bg-indigo-700 active:scale-[0.99] transition-all shadow-xl shadow-indigo-100 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-4"
+              className="w-full bg-[#1e3a8a] text-white rounded-xl py-3.5 font-bold text-base hover:bg-blue-900 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-2"
             >
               {loading ? (
                 <>
@@ -271,21 +264,9 @@ export default function LoginPage({ onLogin }) {
                 </>
               )}
             </button>
-          </div>
+          </form>
         </div>
-
-        <p className="text-center mt-10 text-gray-400 text-sm font-medium">
-          Protected by COMSATS Security System
-        </p>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes pulse {
-          0%, 100% { opacity: 0.5; transform: scale(1); }
-          50% { opacity: 0.8; transform: scale(1.05); }
-        }
-      ` }} />
-    </div>
+    </main>
   );
 }
-

@@ -762,7 +762,7 @@ export default function InternshipRequestsManager({ user }) {
             <div className="bg-white rounded-[28px] border border-slate-100 shadow-lg shadow-slate-100/50 p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">Internship Requests</h2>
-                    <p className="text-sm text-slate-400 font-medium mt-1">Review, assign, and action all student AppEx-A submissions.</p>
+                    <p className="text-sm text-slate-600 font-medium mt-1">Review, assign, and action all student AppEx-A submissions.</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-2xl">
@@ -830,7 +830,7 @@ export default function InternshipRequestsManager({ user }) {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-slate-50">
-                                    <th className="py-4 pr-2 w-8"></th> {/* For expand/collapse icon */}
+                                    <th className="py-4 pr-2 w-8"></th>
                                     <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Info</th>
                                     {['Reg #', 'Company', 'Type', 'Status', 'Submitted'].map((h, i) => (
                                         <th key={i} className="text-left text-[9px] font-black text-slate-400 uppercase tracking-widest pb-4 pr-4">{h}</th>
@@ -926,22 +926,25 @@ export default function InternshipRequestsManager({ user }) {
                 {/* Pagination */}
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between pt-6 mt-4 border-t border-slate-50">
-                        <p className="text-xs text-slate-400 font-medium">
+                        <p className="text-xs text-slate-600 font-medium">
                             Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total} requests
                         </p>
                         <div className="flex gap-1.5">
                             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                                className="w-9 h-9 rounded-xl border border-slate-100 text-slate-400 text-xs font-bold hover:bg-slate-50 disabled:opacity-30 transition-all">
+                                aria-label="Previous Page"
+                                className="w-9 h-9 rounded-xl border border-slate-100 text-slate-500 text-xs font-bold hover:bg-slate-50 disabled:opacity-30 transition-all">
                                 <i className="fas fa-chevron-left"></i>
                             </button>
                             {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map(p => (
                                 <button key={p} onClick={() => setPage(p)}
-                                    className={`w-9 h-9 rounded-xl text-xs font-black transition-all ${p === page ? 'bg-primary text-white shadow-md shadow-primary/20' : 'border border-slate-100 text-slate-400 hover:bg-slate-50'}`}>
+                                    aria-label={`Page ${p}`}
+                                    className={`w-9 h-9 rounded-xl text-xs font-black transition-all ${p === page ? 'bg-primary text-white shadow-md shadow-primary/20' : 'border border-slate-100 text-slate-500 hover:bg-slate-50'}`}>
                                     {p}
                                 </button>
                             ))}
                             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                                className="w-9 h-9 rounded-xl border border-slate-100 text-slate-400 text-xs font-bold hover:bg-slate-50 disabled:opacity-30 transition-all">
+                                aria-label="Next Page"
+                                className="w-9 h-9 rounded-xl border border-slate-100 text-slate-500 text-xs font-bold hover:bg-slate-50 disabled:opacity-30 transition-all">
                                 <i className="fas fa-chevron-right"></i>
                             </button>
                         </div>

@@ -7,13 +7,13 @@ export function DataTable({ columns, children, data }) {
 
   return (
     <div className="w-full">
-      {/* Table view: Visible on desktop; also visible on mobile if manual (with scroll) */}
-      <div className={`${isAutomated ? 'hidden md:block' : 'block'} overflow-x-auto rounded-2xl border border-gray-100 shadow-sm bg-white`}>
-        <table className="w-full border-collapse">
+      {/* Table view: Visible on desktop */}
+      <div className={`${isAutomated ? 'hidden md:block' : 'block'} overflow-hidden rounded-xl md:rounded-2xl border border-gray-100 shadow-sm bg-white w-full`}>
+        <table className="w-full border-collapse table-auto">
           <thead className="bg-gray-50/50">
             <tr>
               {columns.map((col, idx) => (
-                <th key={idx} className="px-6 py-4 text-left text-[10px] font-black text-primary uppercase tracking-[0.15em] whitespace-nowrap border-b border-gray-100">
+                <th key={idx} className="px-4 py-4 text-left text-[10px] font-black text-primary tracking-widest whitespace-nowrap border-b border-gray-100">
                   {typeof col === 'string' ? col : col.label}
                 </th>
               ))}
@@ -25,15 +25,17 @@ export function DataTable({ columns, children, data }) {
                 data.map((row, i) => (
                   <tr key={row._id || i} className="border-t border-gray-50 hover:bg-gray-50/40 transition-colors group">
                     {columns.map((col, idx) => (
-                      <td key={idx} className="px-6 py-5 text-sm text-gray-700">
-                        {col.render ? col.render(row[col.key], row) : row[col.key]}
+                      <td key={idx} className="px-4 py-4 text-xs text-gray-700 align-middle max-w-[120px] md:max-w-[160px] lg:max-w-[220px]">
+                        <div className="truncate" title={typeof row[col.key] === 'string' ? row[col.key] : ''}>
+                          {col.render ? col.render(row[col.key], row) : row[col.key]}
+                        </div>
                       </td>
                     ))}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-400 font-medium italic">
+                  <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-600 font-medium italic">
                     No results found
                   </td>
                 </tr>
@@ -52,9 +54,11 @@ export function DataTable({ columns, children, data }) {
                 <div className="space-y-4">
                   {columns.map((col, idx) => (
                     <div key={idx} className="flex flex-col gap-1">
-                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{typeof col === 'string' ? col : col.label}</span>
-                      <div className="text-sm font-medium text-gray-800">
-                        {col.render ? col.render(row[col.key], row) : row[col.key]}
+                      <span className="text-[9px] font-black text-gray-600 tracking-widest">{typeof col === 'string' ? col : col.label}</span>
+                      <div className="text-sm font-medium text-gray-800 break-words whitespace-normal max-w-full">
+                        <div className="line-clamp-3">
+                          {col.render ? col.render(row[col.key], row) : row[col.key]}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -62,7 +66,7 @@ export function DataTable({ columns, children, data }) {
               </div>
             ))
           ) : (
-            <div className="bg-gray-50 rounded-2xl p-8 text-center text-gray-400 text-sm font-medium italic border border-dashed border-gray-200">
+            <div className="bg-gray-50 rounded-2xl p-8 text-center text-gray-600 text-sm font-medium italic border border-dashed border-gray-200">
               No results found
             </div>
           )}
@@ -82,8 +86,10 @@ export function TableRow({ children }) {
 
 export function TableCell({ children, muted = false, className = '' }) {
   return (
-    <td className={`px-4 py-4 text-sm ${muted ? 'text-gray-400' : 'text-gray-700'} ${className}`}>
-      {children}
+    <td className={`px-4 py-4 text-sm ${muted ? 'text-gray-600' : 'text-gray-700'} break-words whitespace-normal max-w-[150px] md:max-w-[200px] xl:max-w-[300px] ${className}`}>
+      <div className="line-clamp-2">
+        {children}
+      </div>
     </td>
   );
 }

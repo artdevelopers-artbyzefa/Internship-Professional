@@ -11,6 +11,7 @@ export default function AppLayout({ user, onLogout, activePage, setActivePage, n
   return (
     <div className="flex h-screen overflow-hidden relative bg-lightbg selection:bg-secondary/20">
       <Sidebar
+        aria-label="Main navigation"
         user={user}
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
@@ -66,13 +67,15 @@ export default function AppLayout({ user, onLogout, activePage, setActivePage, n
             }
           }}
         />
-        <div
+        <main
+          role="main"
+          aria-label="Page content"
           className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 bg-lightbg scroll-smooth"
           onClick={() => { setShowDD(false); setShowNotif(false); }}>
           <div className="max-w-[1600px] mx-auto w-full">
             {children}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
