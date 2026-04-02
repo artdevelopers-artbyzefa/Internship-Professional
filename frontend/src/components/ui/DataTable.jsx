@@ -12,7 +12,7 @@ export function DataTable({ columns, children, data }) {
               {columns.map((col, idx) => (
                 <th
                   key={idx}
-                  className="text-left text-primary tracking-widest whitespace-nowrap border-b border-gray-100 uppercase"
+                  className={`px-2 md:px-4 py-2 md:py-3 text-left text-primary font-bold whitespace-normal md:whitespace-nowrap border-b border-gray-100 text-[8px] md:text-[11px] ${col.className || ''}`}
                   role="columnheader"
                 >
                   {typeof col === 'string' ? col : col.label}
@@ -28,10 +28,10 @@ export function DataTable({ columns, children, data }) {
                     {columns.map((col, idx) => (
                       <td
                         key={idx}
-                        className="text-gray-700 align-middle max-w-[130px] md:max-w-[200px] lg:max-w-[280px]"
+                        className={`px-1 md:px-4 py-1.5 md:py-4 text-gray-700 align-middle break-all md:break-normal ${col.className || ''}`}
                         role="gridcell"
                       >
-                        <div className="line-clamp-1" title={typeof row[col.key] === 'string' ? row[col.key] : ''}>
+                        <div className="line-clamp-1 text-[8px] md:text-sm font-medium" title={typeof row[col.key] === 'string' ? row[col.key] : ''}>
                           {col.render ? col.render(row[col.key], row) : row[col.key]}
                         </div>
                       </td>

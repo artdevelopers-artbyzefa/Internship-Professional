@@ -73,12 +73,12 @@
 
 @layer utilities {
   .overflow-x-auto table {
-    @apply min-w-[750px] md:min-w-full;
+    @apply w-full md:min-w-full;
   }
 
   .overflow-x-auto th, 
   .overflow-x-auto td {
-    @apply px-2 md:px-4 py-3 md:py-4;
+    @apply px-1 sm:px-2 md:px-4 py-2 md:py-4;
   }
 
   .overflow-x-auto {
@@ -87,11 +87,26 @@
   }
 
   @media (max-width: 640px) {
+    .overflow-x-auto {
+      @apply !overflow-x-hidden;
+      overflow-x: hidden !important;
+    }
+    .overflow-x-auto table {
+      @apply !table-fixed !w-full;
+      table-layout: fixed !important;
+      width: 100% !important;
+      min-width: unset !important;
+    }
     .overflow-x-auto th {
-      @apply text-[8px] tracking-tight;
+      @apply text-[7px] tracking-tighter leading-tight p-1 whitespace-normal break-words;
     }
     .overflow-x-auto td {
-      @apply text-[10px];
+      @apply text-[8px] p-1 leading-tight break-all;
+    }
+    .overflow-x-auto td div,
+    .overflow-x-auto td span {
+      @apply !text-[8px];
+      font-size: 8px !important;
     }
   }
 }

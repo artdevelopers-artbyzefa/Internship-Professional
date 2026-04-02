@@ -19,6 +19,7 @@ const RegisteredStudents         = lazy(() => import('./RegisteredStudents.jsx')
 const SiteSupervisorManagement   = lazy(() => import('./SiteSupervisorManagement.jsx'));
 const PhaseManagement            = lazy(() => import('./PhaseManagement.jsx'));
 const InternshipRequestsManager  = lazy(() => import('./InternshipRequestsManager.jsx'));
+const InternshipRequestDetail   = lazy(() => import('./InternshipRequestDetail.jsx'));
 const EmailCenter                = lazy(() => import('./EmailCenter.jsx'));
 const HODArchive                 = lazy(() => import('../hod/HODArchive.jsx'));
 
@@ -81,6 +82,7 @@ export default function InternshipOfficePortal({ user, onLogout }) {
           <Route path="student-registry"    element={<Safe><StudentManagement user={user} /></Safe>} />
           <Route path="registered-students" element={<Safe><RegisteredStudents user={user} /></Safe>} />
           <Route path="internship-requests" element={<Safe><InternshipRequestsManager user={user} /></Safe>} />
+          <Route path="internship-requests/:studentId" element={<Safe><InternshipRequestDetail user={user} /></Safe>} />
 
           <Route path="verification-dashboard" element={<Safe><StudentRequestVerification user={user} /></Safe>} />
 

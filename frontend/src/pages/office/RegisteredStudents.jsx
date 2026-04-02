@@ -7,8 +7,7 @@ const DataTable = React.lazy(() => import('../../components/ui/DataTable.jsx'));
 const StatusBadge = memo(({ status, isFreelance, hasFaculty, hasSiteSup }) => {
     const isEligible = hasFaculty && hasSiteSup;
     if (!isEligible) return (
-        <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center w-fit gap-1">
-            <svg className="w-2.5 h-2.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        <span className="px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center w-full sm:w-fit gap-1">
             Incomplete
         </span>
     );
@@ -19,12 +18,7 @@ const StatusBadge = memo(({ status, isFreelance, hasFaculty, hasSiteSup }) => {
     };
     const cfg = map[status] || { cls: 'bg-slate-50 text-slate-500 border-slate-100', label: status?.split(' ').slice(-1)[0] || 'Active' };
     return (
-        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${cfg.cls} flex items-center justify-center w-fit gap-1`}>
-            {cfg.label === 'Agreement OK' || cfg.label === 'Approved' ? (
-                <svg className="w-2.5 h-2.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-            ) : cfg.label === 'Placed' ? (
-                <svg className="w-2.5 h-2.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-            ) : null}
+        <span className={`px-1 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[7px] sm:text-[9px] font-black uppercase tracking-tighter border ${cfg.cls} flex items-center justify-center w-full sm:w-fit`}>
             {cfg.label}
         </span>
     );
@@ -102,49 +96,52 @@ const RegisteredStudents = memo(({ user }) => {
     const LIMIT = 15;
 
     const tableColumns = useMemo(() => isSupervisor ? [
-        { key: 'reg', label: 'Registration #' },
-        { key: 'name', label: 'Full Name' },
+        { key: 'reg', label: 'Registration #', className: 'hidden md:table-cell' },
+        { 
+            key: 'name', 
+            label: 'Intern Identity',
+            render: (v, r) => (
+                <div className="flex flex-col gap-0.5">
+                    <span className="font-bold text-slate-800 text-[9px] md:text-sm">{r.name}</span>
+                    <span className="text-[8px] md:hidden font-mono text-slate-400">{r.reg}</span>
+                </div>
+            )
+        },
         { key: 'status', label: 'Status', render: () => <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span> }
     ] : [
-        { key: 'reg', label: 'Registration #' },
+        { 
+            key: 'name', 
+            label: 'Student Identity', 
+            render: (v, r) => (
+                <div className="flex flex-col gap-0.5 py-1">
+                    <span className="font-black text-slate-900 leading-tight text-[10px] md:text-sm">{r.name}</span>
+                    <span className="text-[8px] font-mono text-slate-500">{r.reg}</span>
+                    <span className="text-[8px] text-primary truncate hidden sm:block md:hidden">{r.email}</span>
+                </div>
+            )
+        },
+        { key: 'reg', label: 'Reg #', className: 'hidden md:table-cell' },
+        { key: 'email', label: 'Institutional Email', className: 'hidden lg:table-cell' },
         {
-            key: 'name',
-            label: 'Full Name',
+            key: 'company',
+            label: 'Placement Info',
             render: (v, r) => {
-                const phone = r.whatsappNumber || r.internshipRequest?.whatsappNumber;
+                const company = r.internshipRequest?.mode === 'Freelance' ? `Freelance ${r.internshipRequest?.freelancePlatform ? `(${r.internshipRequest.freelancePlatform})` : ''}` : (r.assignedCompany || 'Unassigned');
+                const sup = r.internshipRequest?.mode === 'Freelance' ? null : (r.assignedSiteSupervisor?.name || r.assignedCompanySupervisor);
                 return (
-                    <div>
-                        <div className="font-bold">{r.name}</div>
-                        {phone && (
-                            <div className="text-[10px] text-emerald-800 font-bold mt-1 tracking-wider inline-flex items-center gap-1">
-                                <svg className="w-3 h-3" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.347.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                                {phone}
-                            </div>
-                        )}
+                    <div className="flex flex-col gap-0.5">
+                        <span className="font-bold text-slate-700 truncate max-w-[80px] md:max-w-none text-[9px] md:text-sm">{company}</span>
+                        {sup && <span className="text-[8px] text-slate-400 italic md:hidden">Sup: {sup}</span>}
+                        {r.internshipRequest?.mode && <span className="text-[8px] font-black text-primary/60 md:hidden uppercase tracking-tighter">{r.internshipRequest.mode}</span>}
                     </div>
                 );
             }
         },
-        { key: 'email', label: 'Institutional Email' },
-        {
-            key: 'company',
-            label: 'Company / Org.',
-            render: (v, r) => r.internshipRequest?.mode === 'Freelance' ? `Freelance ${r.internshipRequest?.freelancePlatform ? `(${r.internshipRequest.freelancePlatform})` : ''}` : (r.assignedCompany || <span className="text-slate-400 italic">Not Assigned</span>)
-        },
         {
             key: 'faculty',
             label: 'Faculty',
-            render: (v, r) => r.assignedFaculty?.name || <span className="text-slate-400 italic">Missing</span>
-        },
-        {
-            key: 'siteSup',
-            label: 'Site Sup.',
-            render: (v, r) => r.internshipRequest?.mode === 'Freelance' ? <span className="text-slate-400 italic">N/A</span> : (r.assignedSiteSupervisor?.name || r.assignedCompanySupervisor || <span className="text-slate-400 italic">Missing</span>)
-        },
-        {
-            key: 'mode',
-            label: 'Mode',
-            render: (v, r) => r.internshipRequest?.mode ? <span className="text-xs font-bold text-slate-500">{r.internshipRequest.mode}</span> : '—'
+            className: 'hidden md:table-cell',
+            render: (v, r) => r.assignedFaculty?.name || 'Missing'
         },
         {
             key: 'status',

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -72,6 +73,7 @@ app.use(cors({
 }));
 app.use(cookieParser());
 app.use(morgan('dev'));
+app.use(compression());
 
 const connectDB = async (req, res, next) => {
     if (mongoose.connection.readyState >= 1) return next();

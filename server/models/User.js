@@ -187,6 +187,8 @@ userSchema.index({ assignedFaculty: 1 });
 userSchema.index({ assignedSiteSupervisor: 1 });
 userSchema.index({ name: 'text', email: 'text' }); // Search optimization
 userSchema.index({ role: 1, createdAt: -1 }); // Registry sorting optimization
+userSchema.index({ 'internshipRequest.submittedAt': 1 }); // FIFO sorting
+userSchema.index({ role: 1, status: 1, 'internshipRequest.submittedAt': 1 }); // Combined requests optimization
 
 // Auto-extract and Enforce Roll Number from Email for Students (only if not manually provided)
 userSchema.pre('save', async function () {

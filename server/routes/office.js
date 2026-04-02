@@ -362,7 +362,7 @@ router.get('/internship-request-students', async (req, res) => {
             User.countDocuments(query),
             User.find(query)
                 .populate('assignedFaculty', 'name email')
-                // FIFO: oldest submitted request comes first
+                .populate('assignedSiteSupervisor', 'name email')
                 .sort({ 'internshipRequest.submittedAt': 1 })
                 .skip(skip)
                 .limit(limit)
@@ -372,6 +372,40 @@ router.get('/internship-request-students', async (req, res) => {
         res.json({ data: students, total, page, pages: Math.ceil(total / limit) });
     } catch (err) {
         console.error('[INTERNSHIP REQUESTS ERROR]', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/office/internship-request/:id
+// @desc    Get full details for a specific internship request
+router.get('/internship-request/:id', async (req, res) => {
+    try {
+        const student = await User.findById(req.params.id)
+            .populate('assignedFaculty', 'name email')
+            .populate('assignedSiteSupervisor', 'name email whatsappNumber')
+            .lean();
+
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+        res.json(student);
+    } catch (err) {
+        console.error('[DETAIL FETCH ERROR]', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET api/office/internship-request-stats
+// @desc    Get counts for all internship request filters in one go
+router.get('/internship-request-stats', async (req, res) => {
+    try {
+        const [all, pending, approved, rejected] = await Promise.all([
+            User.countDocuments({ role: 'student', status: { $in: ['Internship Request Submitted', 'Internship Approved', 'Internship Rejected'] } }),
+            User.countDocuments({ role: 'student', status: 'Internship Request Submitted' }),
+            User.countDocuments({ role: 'student', status: 'Internship Approved' }),
+            User.countDocuments({ role: 'student', status: 'Internship Rejected' })
+        ]);
+        res.json({ all, pending, approved, rejected });
+    } catch (err) {
+        console.error('[STATS ERROR]', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -725,6 +759,14 @@ router.post('/decide-request', async (req, res) => {
 
         const student = await User.findById(studentId);
         if (!student) return res.status(404).json({ message: 'Student not found' });
+
+        // Concurrency Protection: Only process if they are still pending
+        const currentStatus = student.status;
+        if (currentStatus !== 'Internship Request Submitted') {
+            return res.status(409).json({ 
+                message: `The request for ${student.name} was already processed by another administrator (Current Status: ${currentStatus}).` 
+            });
+        }
 
         if (decision === 'approve') {
             student.status = 'Internship Approved';
