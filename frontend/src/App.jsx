@@ -17,6 +17,7 @@ const OfficePortal        = lazy(() => import('./pages/office/InternshipOfficePo
 const FacultyPortal       = lazy(() => import('./pages/faculty/FacultyPortal.jsx'));
 const SupervisorPortal    = lazy(() => import('./pages/supervisor/SupervisorPortal.jsx'));
 const HODPortal           = lazy(() => import('./pages/hod/HODPortal.jsx'));
+const PremiumReportPreview = lazy(() => import('./pages/hod/PremiumReportPreview.jsx'));
 const NotFoundPage        = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 const PageLoader = () => (
@@ -131,6 +132,7 @@ export default function App() {
 
         <Route element={<ProtectedRoute user={user} allowedRoles={['hod']} />}>
           <Route path="/hod/*" element={<HODPortal user={user} onLogout={handleLogout} />} />
+          <Route path="/hod/premium-report-preview" element={<PremiumReportPreview />} />
         </Route>
 
         <Route element={<ProtectedRoute user={user} allowedRoles={['site_supervisor']} />}>

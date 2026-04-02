@@ -93,7 +93,14 @@ const archiveSchema = new mongoose.Schema({
         }
     },
 
-    archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    
+    // ── High-Fidelity Audit Assets ─────────────────────────────────────────
+    excelUrl: String,             // URL to the generated institutional ledger
+    pdfUrl:   String,             // URL to the final performance audit dossier
+    
+    // ── Full System Snapshot ──────────────────────────────────────────────
+    rawSnapshot: mongoose.Schema.Types.Mixed  // Every last bit of data from the cycle
 }, { timestamps: true });
 
 export default mongoose.model('Archive', archiveSchema);

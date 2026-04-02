@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiRequest } from '../../utils/api.js';
 import Button from '../../components/ui/Button.jsx';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
+import Modal, { ModalTitle, ModalSub } from '../../components/ui/Modal.jsx';
+import { DataTable, TableRow, TableCell } from '../../components/ui/DataTable.jsx';
+import Card from '../../components/ui/Card.jsx';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Status config
@@ -86,6 +89,9 @@ export default function PhaseManagement({ user }) {
     const [editNotes, setEditNotes] = useState({});
     const [schedEdit, setSchedEdit] = useState({});   // { [phaseId]: { scheduledStartAt, scheduledEndAt, durationDays } }
     const [expanded, setExpanded] = useState(null);
+    const [previewData, setPreviewData] = useState(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewSearch, setPreviewSearch] = useState('');
 
     useEffect(() => { fetchPhases(); }, []);
 
@@ -182,6 +188,14 @@ export default function PhaseManagement({ user }) {
         } catch { } finally { setActionId(null); }
     };
 
+    const handlePreviewArchive = async () => {
+        setPreviewLoading(true);
+        try {
+            const data = await apiRequest('/reports/archive-preview');
+            setPreviewData(data);
+        } catch { } finally { setPreviewLoading(false); }
+    };
+
     const activePhase = phases.find(p => p.status === 'active');
     const progressCount = phases.filter(p => p.status !== 'pending').length;
     const progress = phases.length ? Math.round((progressCount / phases.length) * 100) : 0;
@@ -246,6 +260,16 @@ export default function PhaseManagement({ user }) {
                             )}
                         </div>
                         <div className="flex flex-wrap gap-3">
+                            {(activePhase.order === 4 || activePhase.order === 5) && (
+                                <Button 
+                                    variant="outline" size="sm" 
+                                    loading={previewLoading}
+                                    onClick={handlePreviewArchive}
+                                    className="bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-black text-[10px] uppercase tracking-widest shadow-sm"
+                                >
+                                    <i className="fas fa-glasses mr-2" />Preview Digital Cycle Snapshot
+                                </Button>
+                            )}
                             {activePhase.scheduledEndAt && (
                                 <Countdown targetDate={activePhase.scheduledEndAt} label="Ends in" colour="amber" />
                             )}
@@ -520,6 +544,16 @@ export default function PhaseManagement({ user }) {
                                                 <i className="fas fa-circle-check" />Phase completed
                                             </span>
                                         )}
+                                        {(phase.order === 4 || phase.order === 5) && (
+                                            <Button 
+                                                variant="outline" size="sm" 
+                                                loading={previewLoading}
+                                                onClick={handlePreviewArchive}
+                                                className="border-primary text-primary hover:bg-primary/5 font-bold"
+                                            >
+                                                <i className="fas fa-glasses mr-2" />Preview Digital Cycle Snapshot
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -538,6 +572,110 @@ export default function PhaseManagement({ user }) {
                 ))}
                 <span className="ml-auto italic hidden sm:block">Select any phase row to expand details and controls</span>
             </div>
+
+            {/* ── Archive Preview Modal ─────────────────────────────────── */}
+            {previewData && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in duration-300">
+                        <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <h3 className="text-2xl font-black text-gray-800 tracking-tight flex items-center gap-3 italic">
+                                    <i className="fas fa-snapshot text-primary" /> Archival Verification Dashboard
+                                </h3>
+                                <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Previewing results for academic cycle: {previewData.year}</p>
+                            </div>
+                            <button 
+                                onClick={() => setPreviewData(null)}
+                                className="w-10 h-10 rounded-full hover:bg-white flex items-center justify-center text-gray-400 transition-colors shadow-sm"
+                            >
+                                <i className="fas fa-times" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                            {/* Summary Metrics */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="p-5 rounded-2xl bg-white border border-gray-100 shadow-sm">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Total cohort</p>
+                                    <p className="text-2xl font-black text-gray-800">{previewData.statistics.totalStudents}</p>
+                                </div>
+                                <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-100 shadow-sm">
+                                    <p className="text-[10px] font-black text-emerald-500 uppercase mb-1">Passed cases</p>
+                                    <p className="text-2xl font-black text-emerald-600">{previewData.statistics.totalPassed}</p>
+                                </div>
+                                <div className="p-5 rounded-2xl bg-rose-50 border border-rose-100 shadow-sm">
+                                    <p className="text-[10px] font-black text-rose-500 uppercase mb-1">Failed cases</p>
+                                    <p className="text-2xl font-black text-rose-600">{previewData.statistics.totalFailed}</p>
+                                </div>
+                                <div className="p-5 rounded-2xl bg-indigo-50 border border-indigo-100 shadow-sm">
+                                    <p className="text-[10px] font-black text-indigo-500 uppercase mb-1">Academic Avg.</p>
+                                    <p className="text-2xl font-black text-indigo-600">{previewData.statistics.averagePercentage}%</p>
+                                </div>
+                            </div>
+
+                            {/* Students Table */}
+                            <Card className="border-0 shadow-none bg-slate-50/30 rounded-3xl p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h4 className="text-sm font-black text-gray-700 uppercase tracking-widest italic">Performance Audit Register</h4>
+                                    <div className="relative">
+                                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Search registrant..." 
+                                            value={previewSearch}
+                                            onChange={e => setPreviewSearch(e.target.value)}
+                                            className="pl-11 pr-4 py-2 bg-white border border-gray-100 rounded-xl text-xs font-bold w-64 focus:ring-4 focus:ring-primary/10 transition-all"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    <DataTable columns={['Reg. #', 'Student name', 'Assigned company', 'Academic Grade', 'Final status', 'Grd At']}>
+                                        {previewData.students
+                                            .filter(s => s.name.toLowerCase().includes(previewSearch.toLowerCase()) || s.reg.toLowerCase().includes(previewSearch.toLowerCase()))
+                                            .map((s, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell muted><span className="font-mono text-[11px]">{s.reg}</span></TableCell>
+                                                <TableCell><strong>{s.name}</strong></TableCell>
+                                                <TableCell><span className="text-slate-400 font-bold uppercase text-[9px]">{s.company}</span></TableCell>
+                                                <TableCell><span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${s.percentage >= 50 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{s.grade}</span></TableCell>
+                                                <TableCell>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${
+                                                        s.finalStatus === 'Pass' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                                                        s.finalStatus === 'Fail' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                                        'bg-slate-100 text-slate-500 border-slate-200'
+                                                    }`}>
+                                                        {s.finalStatus}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell muted><span className="text-[10px] font-bold">{s.marks.length > 0 ? new Date(s.marks[0].gradedAt || Date.now()).toLocaleDateString() : 'N/A'}</span></TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </DataTable>
+                                </div>
+                            </Card>
+                        </div>
+
+                        <div className="p-8 border-t border-gray-100 flex items-center justify-between bg-slate-50/50">
+                            <p className="text-[10px] font-bold text-amber-500 flex items-center gap-2">
+                                <i className="fas fa-exclamation-triangle" />
+                                Verify all grades before activating the final programme reset.
+                            </p>
+                            <div className="flex items-center gap-3">
+                                <Button variant="outline" size="sm" onClick={() => setPreviewData(null)} className="font-bold">Dismiss Preview</Button>
+                                <Button 
+                                    variant="primary" size="sm" className="shadow-lg shadow-primary/20 font-black italic"
+                                    onClick={() => {
+                                        setPreviewData(null);
+                                        handleAction(phases.find(p => p.order === 5)._id, 'start');
+                                    }}
+                                >
+                                    <i className="fas fa-check-double mr-2" /> Confirm & Activate Cycle Closure
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -9,6 +9,8 @@ import Evaluation from '../models/Evaluation.js';
 import AuditLog from '../models/AuditLog.js';
 import Archive from '../models/Archive.js';
 import Submission from '../models/Submission.js';
+import Phase from '../models/Phase.js';
+import { getArchiveSnapshot } from '../utils/archiver.js';
 import {
     sendFacultyNominationEmail,
     sendAssignmentConfirmationEmail,
@@ -795,7 +797,31 @@ router.get('/aggregated-marks', protect, officeAuth, asyncHandler(async (req, re
 
 // @route   GET api/office/archives
 router.get('/archives', protect, officeAuth, asyncHandler(async (req, res) => {
-    res.json(await Archive.find().sort({ createdAt: -1 }));
+    const archives = await Archive.find().sort({ createdAt: -1 }).lean();
+    
+    // Inject Live Snapshot if phase is 4 or 5
+    const activePhase = await Phase.findOne({ status: 'active' }).lean();
+    if (activePhase && (activePhase.order === 4 || activePhase.order === 5)) {
+        try {
+            const snapshot = await getArchiveSnapshot();
+            const liveSnapshot = {
+                _id: 'live-snapshot-id',
+                cycleName: `Live Preview — ${snapshot.cycleName}`,
+                year: snapshot.year,
+                statistics: snapshot.statistics,
+                students: snapshot.students,
+                isLive: true,
+                createdAt: new Date(),
+                pdfUrl: null, // No PDF yet
+                excelUrl: null // No Excel yet
+            };
+            archives.unshift(liveSnapshot);
+        } catch (err) {
+            console.error('Failed to generate live snapshot for archive list:', err);
+        }
+    }
+
+    res.json(archives);
 }));
 
 export default router;

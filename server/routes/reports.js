@@ -11,6 +11,10 @@ import User from '../models/User.js';
 import Mark from '../models/Mark.js';
 import Assignment from '../models/Assignment.js';
 import Company from '../models/Company.js';
+import Phase from '../models/Phase.js';
+import AuditLog from '../models/AuditLog.js';
+import Submission from '../models/Submission.js';
+import { getArchiveSnapshot } from '../utils/archiver.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -30,11 +34,11 @@ const fonts = {
 const printer = new PrinterConstructor(fonts);
 
 // @route   POST api/reports/generate-pdf
-// @desc    Generate a general faculty-list PDF
+// @desc    Generate a premium general-purpose report (e.g. Student List)
 router.post('/generate-pdf', protect, asyncHandler(async (req, res) => {
     const {
         reportTitle = 'Student Report',
-        supervisorName = 'Not Assigned',
+        supervisorName = req.user?.name || 'Not Assigned',
         tableHeader = ['Reg. #', 'Name', 'Company', 'Status'],
         tableData = [],
         columnsLayout = ['auto', '*', '*', 'auto']
@@ -48,85 +52,102 @@ router.post('/generate-pdf', protect, asyncHandler(async (req, res) => {
 
     const docDefinition = {
         pageSize: 'A4',
-        pageMargins: [35, 30, 35, 30],
+        pageMargins: [30, 40, 30, 50],
+        background: (currentPage, pageSize) => ({
+            canvas: [
+                { type: 'rect', x: 0, y: 0, w: pageSize.width, h: 5, color: '#1e3a8a' },
+                { type: 'rect', x: 0, y: pageSize.height - 5, w: pageSize.width, h: 5, color: '#1e3a8a' }
+            ]
+        }),
         content: [
             {
                 columns: [
-                    logoBase64 ? { image: logoBase64, width: 60 } : { text: '', width: 60 },
+                    logoBase64 ? { image: logoBase64, width: 68 } : { text: '', width: 68 },
                     {
                         stack: [
-                            { text: 'COMSATS University Islamabad', style: 'uniName' },
-                            { text: 'Abbottabad Campus', style: 'campusName' },
-                            { text: reportTitle, style: 'reportTitle' },
+                            { text: 'COMSATS UNIVERSITY ISLAMABAD', style: 'uniName' },
+                            { text: 'ABBOTTABAD CAMPUS • DEPARTMENT OF COMPUTER SCIENCE', style: 'campusName' },
+                            { text: reportTitle.toUpperCase(), style: 'reportTitle' },
                         ],
-                        alignment: 'center',
-                        margin: [-60, 0, 0, 0]
+                        alignment: 'right',
+                        margin: [0, 5, 0, 0]
                     }
                 ],
-                margin: [0, 0, 0, 25]
+                margin: [0, 0, 0, 30]
             },
             {
                 stack: [
                     {
                         columns: [
-                            { text: 'Supervisor:', style: 'infoLabel', width: 75 },
-                            { text: supervisorName || 'Dr. Ahmed', style: 'infoValue' }
+                            { text: 'INSTITUTIONAL METADATA', style: 'sectionLabel', width: 140 },
+                            { canvas: [{ type: 'line', x1: 0, y1: 7, x2: 350, y2: 7, lineWidth: 0.5, color: '#e2e8f0' }] }
                         ],
-                        margin: [0, 0, 0, 4]
+                        margin: [0, 0, 0, 12]
                     },
                     {
                         columns: [
-                            { text: 'Subject:', style: 'infoLabel', width: 75 },
-                            { text: 'Field Experience/Internship', style: 'infoValue' }
-                        ],
-                        margin: [0, 0, 0, 4]
-                    },
-                    {
-                        columns: [
-                            { text: 'Subject Code:', style: 'infoLabel', width: 75 },
-                            { text: 'CSC395', style: 'infoValue' }
+                            {
+                                stack: [
+                                    { text: 'PRIMARY SUPERVISOR', style: 'infoLabel' },
+                                    { text: supervisorName || 'Not Assigned', style: 'infoValue' }
+                                ]
+                            },
+                            {
+                                stack: [
+                                    { text: 'REPORT CLASSIFICATION', style: 'infoLabel' },
+                                    { text: 'INTERNAL / DEPT USE ONLY', style: 'infoValue', color: '#1e3a8a' }
+                                ]
+                            },
+                            {
+                                stack: [
+                                    { text: 'GENERATED ON', style: 'infoLabel' },
+                                    { text: `${getPKTDate()} at ${getPKTTime()}`, style: 'infoValue' }
+                                ]
+                            }
                         ]
                     }
                 ],
-                margin: [0, 0, 0, 22]
+                margin: [0, 0, 0, 35]
             },
             {
                 table: {
                     headerRows: 1,
                     widths: columnsLayout,
                     body: [
-                        tableHeader.map(h => ({ text: h, style: 'tableHeader' })),
-                        ...tableData.map(row => row.map(cell => ({
+                        tableHeader.map(h => ({ text: h.toUpperCase(), style: 'tableHeader' })),
+                        ...tableData.map((row, idx) => row.map(cell => ({
                             text: String(cell || 'N/A'),
                             style: 'tableCell',
+                            fillColor: idx % 2 !== 0 ? '#f8fafc' : null,
                             alignment: (cell && (cell.toString().includes('CIIT/') || !isNaN(cell) || cell.toString().length < 5)) ? 'center' : 'left'
                         })))
                     ]
                 },
                 layout: {
-                    hLineWidth: () => 0.5,
-                    vLineWidth: () => 0.5,
-                    hLineColor: () => '#000000',
-                    vLineColor: () => '#000000',
-                    paddingLeft: () => 5, paddingRight: () => 5,
-                    paddingTop: () => 6, paddingBottom: () => 6,
+                    hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1.2 : 0.2,
+                    vLineWidth: () => 0,
+                    hLineColor: (i) => i === 1 ? '#1e3a8a' : '#e2e8f0',
+                    paddingLeft: () => 10, paddingRight: () => 10,
+                    paddingTop: () => 10, paddingBottom: () => 10,
                 }
-            },
-            {
-                text: `Generated from DIMS Portal on: ${getPKTDate()} at ${getPKTTime()}`,
-                style: 'footer',
-                margin: [0, 30, 0, 0]
             }
         ],
+        footer: (currentPage, pageCount) => ({
+            columns: [
+                { text: `DIMS PLATFORM • AUDIT LOG • ${getPKTDate()}`, style: 'footerText', margin: [30, 15] },
+                { text: `PAGE ${currentPage} OF ${pageCount}`, style: 'footerText', alignment: 'right', margin: [30, 15] }
+            ]
+        }),
         styles: {
-            uniName: { fontSize: 16, bold: true, color: '#000080', margin: [0, 0, 0, 2] },
-            campusName: { fontSize: 15, bold: true, color: '#000080', margin: [0, 0, 0, 8] },
-            reportTitle: { fontSize: 14, bold: true, color: '#000080', decoration: 'underline', margin: [0, 2, 0, 0] },
-            infoLabel: { fontSize: 10, bold: true },
-            infoValue: { fontSize: 10, bold: false },
-            tableHeader: { fontSize: 9, bold: true, fillColor: '#f2f2f2', alignment: 'center' },
-            tableCell: { fontSize: 8, margin: [0, 1, 0, 1] },
-            footer: { fontSize: 8, italics: true, color: '#666666' }
+            uniName: { fontSize: 13, bold: true, color: '#1e3a8a', letterSpacing: 1 },
+            campusName: { fontSize: 8, bold: true, color: '#64748b', margin: [0, 2, 0, 4] },
+            reportTitle: { fontSize: 16, bold: true, color: '#0f172a', margin: [0, 2, 0, 0] },
+            sectionLabel: { fontSize: 8, bold: true, color: '#94a3b8', letterSpacing: 1 },
+            infoLabel: { fontSize: 7, bold: true, color: '#94a3b8', margin: [0, 0, 0, 2] },
+            infoValue: { fontSize: 9, bold: true, color: '#334155' },
+            tableHeader: { fontSize: 8, bold: true, fillColor: '#1e3a8a', color: 'white', margin: [0, 4, 0, 4], alignment: 'center' },
+            tableCell: { fontSize: 8, margin: [0, 2, 0, 2], color: '#334155' },
+            footerText: { fontSize: 7, italic: true, color: '#94a3b8', bold: true }
         },
         defaultStyle: { font: 'Roboto' }
     };
@@ -151,35 +172,53 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
 
     const s = (v) => (v == null ? 'N/A' : String(v));
     const statusColor = (st) => st === 'Pass' ? '#059669' : st === 'Fail' ? '#dc2626' : '#64748b';
+    const successRate = Math.round(((stats.passed || 0) / (stats.participating || 1)) * 100);
 
     const docDefinition = {
         pageSize: 'A4',
         pageMargins: [30, 45, 30, 55],
         background: (currentPage, pageSize) => ({
             canvas: [
-                { type: 'rect', x: 0, y: 0, w: pageSize.width, h: 6, color: '#1e3a8a' },
-                { type: 'rect', x: 0, y: pageSize.height - 6, w: pageSize.width, h: 6, color: '#1e3a8a' }
+                { type: 'rect', x: 0, y: 0, w: pageSize.width, h: 8, color: '#1e3a8a' },
+                { type: 'rect', x: 0, y: pageSize.height - 8, w: pageSize.width, h: 8, color: '#1e3a8a' }
             ]
         }),
         content: [
             {
                 columns: [
-                    logoBase64 ? { image: logoBase64, width: 75, margin: [0, 5, 0, 0] } : { text: '', width: 75 },
+                    logoBase64 ? { image: logoBase64, width: 85, margin: [0, 5, 0, 0] } : { text: '', width: 85 },
                     {
                         stack: [
                             { text: 'COMSATS UNIVERSITY ISLAMABAD', style: 'uniName' },
-                            { text: 'ABBOTTABAD CAMPUS — DEPARTMENT OF COMPUTER SCIENCE', style: 'campusName' },
+                            { text: 'ABBOTTABAD CAMPUS • DEPARTMENT OF COMPUTER SCIENCE', style: 'campusName' },
                             { canvas: [{ type: 'line', x1: 0, y1: 2, x2: 400, y2: 2, lineWidth: 2, color: '#1e3a8a' }], margin: [0, 0, 0, 8] },
-                            { text: 'DEPARTMENTAL INTERNSHIP PROGRAMME', style: 'reportTitle' },
-                            { text: 'PERFORMANCE AUDIT & GOVERNANCE DOSSIER', style: 'reportTitle2' },
+                            { text: 'INTERNSHIP PROGRAMME MANAGEMENT OFFICE', style: 'reportTitle' },
+                            { text: 'INSTITUTIONAL PERFORMANCE & AUDIT DOSSIER', style: 'reportTitle2' },
                             { text: `ACADEMIC CYCLE: ${new Date().getFullYear()}   |   CLASSIFICATION: RESTRICTED   |   ${getPKTDate()}`, style: 'reportSubTitle' },
                         ],
-                        margin: [12, 0, 0, 0]
+                        margin: [15, 0, 0, 0]
                     }
                 ],
-                margin: [0, 0, 0, 30]
+                margin: [0, 0, 0, 35]
             },
-            { text: '01 — COHORT PARTICIPATION ANATOMY', style: 'sectionHeader', margin: [0, 0, 0, 10] },
+
+            {
+                stack: [
+                    { text: '01 — EXECUTIVE INSTITUTIONAL SUMMARY', style: 'sectionHeader', margin: [0, 0, 0, 8] },
+                    {
+                        text: [
+                            { text: 'OVERVIEW: ', bold: true, color: '#1e3a8a' },
+                            'This comprehensive performance audit provides a high-fidelity mapping of the current internship cohort within the Department of Computer Science. ',
+                            `With a participation count of ${stats.participating} students and an overall success rate of ${successRate}%, the institutional quality metrics remain within target parameters. `,
+                            'This dossier is classified as RESTRICTED and is intended for departmental oversight and curriculum alignment purposes only.'
+                        ],
+                        style: 'summaryText'
+                    }
+                ],
+                margin: [0, 0, 0, 25]
+            },
+
+            { text: '02 — COHORT PARTICIPATION ANATOMY', style: 'sectionHeader', margin: [0, 0, 0, 10] },
             {
                 table: {
                     widths: ['*', '*', '*', '*', '*'],
@@ -201,16 +240,16 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
                     ]
                 },
                 layout: {
-                    hLineWidth: (i) => (i === 0 || i === 2) ? 1.5 : 0.5,
-                    vLineWidth: () => 0.5,
+                    hLineWidth: (i) => (i === 0 || i === 2) ? 2 : 0,
+                    vLineWidth: () => 0,
                     hLineColor: (i) => (i === 0 || i === 2) ? '#1e3a8a' : '#e2e8f0',
-                    vLineColor: () => '#e2e8f0',
-                    paddingTop: () => 10, paddingBottom: () => 10, paddingLeft: () => 6, paddingRight: () => 6,
+                    paddingTop: () => 12, paddingBottom: () => 12,
                     fillColor: (i) => i === 0 ? '#eff6ff' : null
                 },
-                margin: [0, 0, 0, 22]
+                margin: [0, 0, 0, 25]
             },
-            { text: '02 — ACADEMIC PERFORMANCE OVERVIEW', style: 'sectionHeader', margin: [0, 0, 0, 10] },
+
+            { text: '03 — ACADEMIC PERFORMANCE OVERVIEW', style: 'sectionHeader', margin: [0, 0, 0, 10] },
             {
                 table: {
                     widths: ['*', '*', '*', '*'],
@@ -222,7 +261,7 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
                             { text: 'COHORT AVG SCORE', style: 'kpiLabel' }
                         ],
                         [
-                            { text: `${Math.round(((stats.passed || 0) / (stats.participating || 1)) * 100)}%`, style: 'kpiValue', color: '#059669' },
+                            { text: `${successRate}%`, style: 'kpiValue', color: '#059669' },
                             { text: s(stats.passed), style: 'kpiValue', color: '#059669' },
                             { text: s(stats.failed), style: 'kpiValue', color: '#dc2626' },
                             { text: `${stats.avgPct || 0}%  (${s(stats.avgGrade)})`, style: 'kpiValue', color: '#6366f1' }
@@ -230,48 +269,50 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
                     ]
                 },
                 layout: {
-                    hLineWidth: (i) => (i === 0 || i === 2) ? 1.5 : 0.5,
-                    vLineWidth: () => 0.5,
+                    hLineWidth: (i) => (i === 0 || i === 2) ? 2 : 0,
+                    vLineWidth: () => 0,
                     hLineColor: (i) => (i === 0 || i === 2) ? '#1e3a8a' : '#e2e8f0',
-                    vLineColor: () => '#e2e8f0',
-                    paddingTop: () => 10, paddingBottom: () => 10,
+                    paddingTop: () => 12, paddingBottom: () => 12,
                     fillColor: (i) => i === 0 ? '#eff6ff' : null
                 },
-                margin: [0, 0, 0, 25]
+                margin: [0, 0, 0, 30]
             },
-            { text: '03 — GRADE DISTRIBUTION & TREND ANALYSIS', style: 'sectionHeader', margin: [0, 0, 0, 12] },
+
+            { text: '04 — VISUAL PERFORMANCE ANALYTICS', style: 'sectionHeader', margin: [0, 15, 0, 15], pageBreak: 'before' },
             (charts.chartDist || charts.chartPie) ? {
                 columns: [
-                    charts.chartDist ? { image: charts.chartDist, width: 265, height: 148 } : { text: '' },
-                    charts.chartPie ? { image: charts.chartPie, width: 210, height: 148, margin: [10, 0, 0, 0] } : { text: '' }
+                    charts.chartDist ? { image: charts.chartDist, width: 280, height: 160 } : { text: '' },
+                    charts.chartPie ? { image: charts.chartPie, width: 220, height: 160, margin: [10, 0, 0, 0] } : { text: '' }
                 ],
-                margin: [0, 0, 0, 15]
+                margin: [0, 0, 0, 25]
             } : {},
             (charts.chartTop || charts.chartFaculty) ? {
                 columns: [
-                    charts.chartTop ? { image: charts.chartTop, width: 248, height: 165 } : { text: '' },
-                    charts.chartFaculty ? { image: charts.chartFaculty, width: 248, height: 165, margin: [10, 0, 0, 0] } : { text: '' }
+                    charts.chartTop ? { image: charts.chartTop, width: 260, height: 180 } : { text: '' },
+                    charts.chartFaculty ? { image: charts.chartFaculty, width: 260, height: 180, margin: [10, 0, 0, 0] } : { text: '' }
                 ],
-                margin: [0, 0, 0, 10]
+                margin: [0, 0, 0, 20]
             } : {},
-            { text: '04 — FACULTY SUPERVISOR PERFORMANCE MATRIX', style: 'sectionHeader', margin: [0, 15, 0, 10], pageBreak: 'before' },
+
+            { text: '05 — SUPERVISOR PERFORMANCE MATRIX', style: 'sectionHeader', margin: [0, 25, 0, 12], pageBreak: 'before' },
             {
                 table: {
                     headerRows: 1, widths: ['*', 100, 100, 80],
                     body: [
                         [{ text: 'FACULTY SUPERVISOR NAME', style: 'tableHeader' }, { text: 'STUDENTS ASSIGNED', style: 'tableHeader' }, { text: 'COHORT AVG SCORE', style: 'tableHeader' }, { text: 'AVG GRADE', style: 'tableHeader' }],
-                        ...(tables.faculty && tables.faculty.length > 0 ? tables.faculty.map((row, idx) => [{ text: s(row[0]), style: 'tableCell', bold: true, fillColor: idx % 2 !== 0 ? '#f8fafc' : null }, { text: s(row[1]), style: 'tableCell', alignment: 'center', fillColor: idx % 2 !== 0 ? '#f8fafc' : null }, { text: s(row[2]), style: 'tableCell', alignment: 'center', bold: true, color: '#1e40af', fillColor: idx % 2 !== 0 ? '#f8fafc' : null }, { text: s(row[3]), style: 'tableCell', alignment: 'center', bold: true, color: '#1e40af', fillColor: idx % 2 !== 0 ? '#f8fafc' : null }]) : [[{ text: 'No faculty data.', colSpan: 4, style: 'tableCell', alignment: 'center', italics: true }, {}, {}, {}]])
+                        ...(tables.faculty && tables.faculty.length > 0 ? tables.faculty.map((row, idx) => [{ text: s(row[0]).toUpperCase(), style: 'tableCell', bold: true, fillColor: idx % 2 !== 0 ? '#f8fafc' : null }, { text: s(row[1]), style: 'tableCell', alignment: 'center', fillColor: idx % 2 !== 0 ? '#f8fafc' : null }, { text: s(row[2]), style: 'tableCell', alignment: 'center', bold: true, color: '#1e40af', fillColor: idx % 2 !== 0 ? '#f8fafc' : null }, { text: s(row[3]), style: 'tableCell', alignment: 'center', bold: true, color: '#1e40af', fillColor: idx % 2 !== 0 ? '#f8fafc' : null }]) : [[{ text: 'No faculty data.', colSpan: 4, style: 'tableCell', alignment: 'center', italics: true }, {}, {}, {}]])
                     ]
                 },
-                layout: { hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1.5 : 0.5, vLineWidth: () => 0, hLineColor: (i) => i === 1 ? '#1e3a8a' : '#e2e8f0', paddingTop: () => 9, paddingBottom: () => 9, paddingLeft: () => 8, paddingRight: () => 8 },
-                margin: [0, 0, 0, 20]
+                layout: { hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1.5 : 0.2, vLineWidth: () => 0, hLineColor: (i) => i === 1 ? '#1e3a8a' : '#e2e8f0', paddingTop: () => 11, paddingBottom: () => 11, paddingLeft: () => 10, paddingRight: () => 10 },
+                margin: [0, 0, 0, 25]
             },
-            { text: '05 — FULL STUDENT REGISTRY — INSTITUTIONAL GRADE LEDGER', style: 'sectionHeader', margin: [0, 15, 0, 8], pageBreak: 'before' },
+
+            { text: '06 — INSTITUTIONAL STUDENT REGISTRY (COMPREHENSIVE LEDGER)', style: 'sectionHeader', margin: [0, 20, 0, 10], pageBreak: 'before' },
             {
                 table: {
                     headerRows: 1, widths: [48, 65, 45, 55, 60, 60, 48, 32, 22, 18, 18, 30],
                     body: [
-                        [{ text: 'REG. NO', style: 'tableHeader' }, { text: 'NAME', style: 'tableHeader' }, { text: 'PHONE', style: 'tableHeader' }, { text: 'EMAIL (SEC)', style: 'tableHeader' }, { text: 'ACADEMIC SUP.', style: 'tableHeader' }, { text: 'SITE SUP.', style: 'tableHeader' }, { text: 'COMPANY', style: 'tableHeader' }, { text: 'MODE', style: 'tableHeader' }, { text: 'AVG', style: 'tableHeader' }, { text: '%', style: 'tableHeader' }, { text: 'GRD', style: 'tableHeader' }, { text: 'STATUS', style: 'tableHeader' }],
+                        [{ text: 'REG. NO', style: 'tableHeader' }, { text: 'NAME', style: 'tableHeader' }, { text: 'PHONE', style: 'tableHeader' }, { text: 'EMAIL (SEC)', style: 'tableHeader' }, { text: 'ACAD SUP.', style: 'tableHeader' }, { text: 'SITE SUP.', style: 'tableHeader' }, { text: 'COMPANY', style: 'tableHeader' }, { text: 'MODE', style: 'tableHeader' }, { text: 'AVG', style: 'tableHeader' }, { text: '%', style: 'tableHeader' }, { text: 'GRDS', style: 'tableHeader' }, { text: 'STATUS', style: 'tableHeader' }],
                         ...(tables.students && tables.students.length > 0 ? tables.students.map((row, idx) => {
                             const bg = idx % 2 !== 0 ? '#f8fafc' : null;
                             return [
@@ -291,35 +332,43 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
                         }) : [[{ text: 'No student data available.', colSpan: 12, style: 'tableCell', alignment: 'center', italics: true }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]])
                     ]
                 },
-                layout: { hLineWidth: (i) => (i === 0 || i === 1) ? 2 : 0.3, vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 0.5 : 0.2, hLineColor: (i) => i === 1 ? '#1e3a8a' : '#e2e8f0', vLineColor: () => '#e2e8f0', paddingTop: () => 5, paddingBottom: () => 5, paddingLeft: () => 4, paddingRight: () => 4 },
-                margin: [0, 0, 0, 20]
+                layout: { 
+                    hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1.5 : 0.1, 
+                    vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? 0.3 : 0.1, 
+                    hLineColor: (i) => i === 1 ? '#1e3a8a' : '#cbd5e1', 
+                    vLineColor: () => '#cbd5e1', 
+                    paddingTop: () => 6, paddingBottom: () => 6, 
+                    paddingLeft: () => 4, paddingRight: () => 4 
+                },
+                margin: [0, 0, 0, 30]
             }
         ],
         footer: (currentPage, pageCount) => ({
             columns: [
-                { text: `CLASSIFICATION: RESTRICTED  ·  DIMS — CUI Abbottabad  ·  Generated: ${getPKTDate()} ${getPKTTime()}`, style: 'footerText', margin: [30, 18] },
+                { text: `SYSTEM CLASSIFICATION: RESTRICTED PROTECTED  •  DIMS — CUI Abbottabad  •  Audit ID: ${Date.now().toString(36).toUpperCase()}`, style: 'footerText', margin: [30, 18] },
                 { text: `PAGE ${currentPage} / ${pageCount}`, style: 'footerText', alignment: 'right', margin: [30, 18] }
             ]
         }),
         styles: {
-            uniName: { fontSize: 14, bold: true, color: '#1e3a8a' },
-            campusName: { fontSize: 8, bold: true, color: '#475569', margin: [0, 2, 0, 6] },
-            reportTitle: { fontSize: 13, bold: true, color: '#1e293b', margin: [0, 3, 0, 0] },
-            reportTitle2: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 2, 0, 4] },
-            reportSubTitle: { fontSize: 7.5, bold: true, color: '#94a3b8' },
-            sectionHeader: { fontSize: 9.5, bold: true, color: '#1e3a8a', decoration: 'underline' },
-            kpiLabel: { fontSize: 6.5, bold: true, color: '#64748b', alignment: 'center' },
-            kpiValue: { fontSize: 22, bold: true, color: '#1e293b', alignment: 'center', margin: [0, 5, 0, 5] },
-            tableHeader: { fontSize: 7.5, bold: true, fillColor: '#1e3a8a', color: 'white', alignment: 'center', margin: [0, 3, 0, 3] },
-            tableCell: { fontSize: 7.5, margin: [0, 2, 0, 2], color: '#1e293b' },
-            footerText: { fontSize: 6.5, color: '#94a3b8', italics: true }
+            uniName: { fontSize: 13, bold: true, color: '#1e3a8a', letterSpacing: 1 },
+            campusName: { fontSize: 7, bold: true, color: '#64748b', margin: [0, 2, 0, 6] },
+            reportTitle: { fontSize: 12, bold: true, color: '#1e293b', margin: [0, 4, 0, 0], letterSpacing: 0.5 },
+            reportTitle2: { fontSize: 10, bold: true, color: '#1e40af', margin: [0, 2, 0, 5] },
+            reportSubTitle: { fontSize: 7, bold: true, color: '#94a3b8', letterSpacing: 0.5 },
+            sectionHeader: { fontSize: 9, bold: true, color: '#1e3a8a', letterSpacing: 1, margin: [0, 5, 0, 5] },
+            summaryText: { fontSize: 8.5, color: '#475569', lineHeight: 1.4 },
+            kpiLabel: { fontSize: 7, bold: true, color: '#94a3b8', alignment: 'center', letterSpacing: 0.5 },
+            kpiValue: { fontSize: 24, bold: true, color: '#1e293b', alignment: 'center', margin: [0, 6, 0, 6] },
+            tableHeader: { fontSize: 7.5, bold: true, fillColor: '#1e3a8a', color: 'white', alignment: 'center', margin: [0, 4, 0, 4] },
+            tableCell: { fontSize: 7.5, margin: [0, 3, 0, 3], color: '#1e293b' },
+            footerText: { fontSize: 6.5, color: '#94a3b8', italics: true, bold: true }
         },
         defaultStyle: { font: 'Roboto' }
     };
 
     const pdfDoc = await printer.createPdfKitDocument(docDefinition);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="HOD_Internship_Performance_Dossier.pdf"');
+    res.setHeader('Content-Disposition', 'attachment; filename="HOD_Institutional_Audit_Dossier.pdf"');
     pdfDoc.pipe(res);
     pdfDoc.end();
 }));
@@ -549,6 +598,144 @@ router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="Institutional_Audit_Dossier.xlsx"');
     await workbook.xlsx.write(res);
     res.end();
+}));
+
+// @route   GET api/reports/hod-premium-stats
+// @desc    Get comprehensive institutional data for high-fidelity HEC-standard reports
+router.get('/hod-premium-stats', protect, asyncHandler(async (req, res) => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [phases, students, allMarks, assignments, submissions, auditLogs, companies, supervisors] = await Promise.all([
+        Phase.find({}).sort({ order: 1 }).lean(),
+        User.find({ role: 'student' }).populate('assignedFaculty assignedSiteSupervisor').lean(),
+        Mark.find({}).lean(),
+        Assignment.find({}).lean(),
+        Submission.find({}).lean(),
+        AuditLog.find({ timestamp: { $gt: thirtyDaysAgo } }).populate('performedBy').lean(),
+        Company.find({}).lean(),
+        User.find({ role: { $in: ['faculty_supervisor', 'site_supervisor', 'internship_office', 'hod'] } }).lean()
+    ]);
+
+    // 1. Process Student Performance & Buckets
+    const processedStudents = students.map(s => {
+        const marks = allMarks.filter(m => m.student?.toString() === s._id.toString());
+        const free = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+        const scores = marks.map(m => free ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2);
+        const avg = marks.length > 0 ? (scores.reduce((a, b) => a + b, 0) / marks.length) : 0;
+        const pct = Math.round((avg / 10) * 100);
+
+        return {
+            _id: s._id,
+            reg: s.reg,
+            name: s.name,
+            email: s.email,
+            company: s.assignedCompany || 'N/A',
+            faculty: s.assignedFaculty?.name || 'N/A',
+            siteSupervisor: s.assignedSiteSupervisor?.name || s.siteSupervisorName || 'N/A',
+            percentage: pct,
+            status: s.status,
+            assignmentsCount: marks.length
+        };
+    }).filter(s => s.status !== 'Ineligible');
+
+    const sorted = [...processedStudents].sort((a, b) => b.percentage - a.percentage);
+    const top = sorted.slice(0, 5);
+    const bottom = [...sorted].reverse().slice(0, 5).filter(s => !top.some(t => t.reg === s.reg));
+    const midIdx = Math.floor(sorted.length / 2);
+    const middle = sorted.slice(Math.max(0, midIdx - 2), midIdx + 3).filter(s => !top.some(t => t.reg === s.reg) && !bottom.some(b => b.reg === s.reg));
+
+    // 2. Completion Statistics
+    const compStats = {
+        total: students.length,
+        completed: processedStudents.filter(s => s.status === 'Graduated').length,
+        inProgress: processedStudents.filter(s => s.status === 'Active').length,
+        overdue: processedStudents.filter(s => {
+            const marks = allMarks.filter(m => m.student?.toString() === s._id.toString());
+            if (marks.length === 0) return true;
+            const lastMark = marks.sort((a, b) => b.createdAt - a.createdAt)[0];
+            return (new Date() - new Date(lastMark.createdAt)) > (14 * 24 * 60 * 60 * 1000);
+        }).length,
+        withdrawn: students.filter(s => s.status === 'Withdrawn').length
+    };
+
+    // 3. Role-Wise Activity Log (Last 30 Days) - Simplified for HEC
+    const roleStats = {
+        'Site Supervisor': auditLogs.filter(log => log.performedBy?.role === 'site_supervisor').length,
+        'Faculty Supervisor': auditLogs.filter(log => log.performedBy?.role === 'faculty_supervisor').length,
+        'Internship Office': auditLogs.filter(log => log.performedBy?.role === 'internship_office').length,
+        'HOD': auditLogs.filter(log => log.performedBy?.role === 'hod').length
+    };
+
+    // 4. Detailed Faculty Performance Activity
+    const facultyPerformance = supervisors.filter(s => s.role === 'faculty_supervisor').map(f => {
+        const assigned = processedStudents.filter(s => s.faculty === f.name);
+        const graded = allMarks.filter(m => m.facultyId?.toString() === f._id.toString() && m.isFacultyGraded).length;
+        const totalPossible = assigned.length * assignments.length;
+        
+        return {
+            name: f.name,
+            students: assigned.length,
+            gradedCount: graded,
+            completionPct: totalPossible > 0 ? Math.round((graded / totalPossible) * 100) : 0,
+            avgScoreGiven: assigned.length > 0 ? Math.round(assigned.reduce((a, b) => a + b.percentage, 0) / assigned.length) : 'N/A'
+        };
+    }).sort((a, b) => b.students - a.students);
+
+    // 5. Detailed Site Supervisor Activity
+    const siteSupervisorPerformance = supervisors.filter(s => s.role === 'site_supervisor').map(ss => {
+        const assigned = processedStudents.filter(s => s.siteSupervisor === ss.name);
+        const graded = allMarks.filter(m => m.siteSupervisorId?.toString() === ss._id.toString() && m.isSiteSupervisorGraded).length;
+        
+        return {
+            name: ss.name,
+            company: ss.company || 'N/A',
+            students: assigned.length,
+            evalsCompleted: graded,
+            lastActivity: auditLogs.find(l => l.performedBy?._id?.toString() === ss._id.toString())?.timestamp || 'N/A'
+        };
+    }).sort((a, b) => b.students - a.students);
+
+    // 6. Company Participation Report
+    const companyReports = companies.slice(0, 10).map(c => {
+        const interns = processedStudents.filter(s => s.company === c.name);
+        return {
+            name: c.name,
+            interns: interns.length,
+            supervisors: supervisors.filter(sup => sup.role === 'site_supervisor' && sup.company === c.name).length || 1,
+            avgGrade: interns.length > 0 ? (interns.reduce((a, b) => a + b.percentage, 0) / interns.length).toFixed(1) + '%' : 'N/A'
+        };
+    });
+
+    // 7. Grade Distribution
+    const grades = { 'A+': 0, 'A': 0, 'B+': 0, 'B': 0, 'C': 0, 'F': 0 };
+    processedStudents.forEach(s => {
+        if (s.percentage >= 90) grades['A+']++;
+        else if (s.percentage >= 80) grades['A']++;
+        else if (s.percentage >= 70) grades['B+']++;
+        else if (s.percentage >= 60) grades['B']++;
+        else if (s.percentage >= 50) grades['C']++;
+        else grades['F']++;
+    });
+
+    res.json({
+        phases,
+        compStats,
+        roleStats,
+        facultyPerformance,
+        siteSupervisorPerformance,
+        companyReports,
+        gradeDist: Object.entries(grades).map(([g, c]) => ({ grade: g, count: c, pct: processedStudents.length > 0 ? ((c / processedStudents.length) * 100).toFixed(1) + '%' : '0%' })),
+        buckets: { top, middle, bottom },
+        generatedAt: { date: getPKTDate(), time: getPKTTime() }
+    });
+}));
+
+// @route   GET api/reports/archive-preview
+// @desc    Get a real-time snapshot of the current cycle as it would be archived
+router.get('/archive-preview', protect, asyncHandler(async (req, res) => {
+    const snapshot = await getArchiveSnapshot();
+    res.json(snapshot);
 }));
 
 export default router;

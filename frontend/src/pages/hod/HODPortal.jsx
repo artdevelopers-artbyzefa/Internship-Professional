@@ -30,7 +30,7 @@ const hodNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-shield-halved' },
   { id: 'registered-students', label: 'Student Records', icon: 'fa-users' },
   { id: 'reports', label: 'Internship Analysis', icon: 'fa-file-export' },
-  { id: 'email-center', label: 'Institutional Sync', icon: 'fa-envelope-open-text' },
+  { id: 'email-center', label: 'Email Center', icon: 'fa-envelope-open-text' },
   { id: 'archive', label: 'Previous Cycles', icon: 'fa-database' },
 ];
 
