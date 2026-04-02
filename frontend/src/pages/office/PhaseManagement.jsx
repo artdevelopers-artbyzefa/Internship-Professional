@@ -104,7 +104,9 @@ export default function PhaseManagement({ user }) {
             });
             setEditNotes(notes);
             setSchedEdit(sched);
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            // Error handled by apiRequest
+        }
         finally { setLoading(false); }
     };
 

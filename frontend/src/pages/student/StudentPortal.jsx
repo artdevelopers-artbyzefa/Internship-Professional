@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import NotFoundPage from '../NotFoundPage.jsx';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import { apiRequest } from '../../utils/api.js';
 
@@ -43,7 +44,8 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
           setActivePhase(phase);
           setEligibility(eligData);
         })
-        .catch(() => {
+        .catch((err) => {
+          // Error handled by apiRequest
           setActivePhase(null);
           setEligibility({ eligible: true, hardCriteriaMet: true });
         });
@@ -195,7 +197,7 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
             isProfileComplete && showPhase3Nav ? <LazyWrap><StudentResults user={user} /></LazyWrap> : <Navigate to="../dashboard" replace />
           } />
 
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
     </AppLayout>

@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import NotFoundPage from '../NotFoundPage.jsx';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import { apiRequest } from '../../utils/api.js';
 
@@ -36,7 +37,10 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
   useEffect(() => {
     apiRequest('/phases/current')
       .then(phase => setActivePhase(phase))
-      .catch(() => setActivePhase(null));
+      .catch((err) => { 
+        // Error handled by apiRequest
+        setActivePhase(null);
+      });
   }, []);
 
   const currentPhaseOrder = activePhase ? activePhase.order : 1;
@@ -107,7 +111,7 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
           <Route path="reports" element={<LazyWrap><FacultyReports user={user} /></LazyWrap>} />
           <Route path="profile" element={<LazyWrap><SupervisorProfile user={user} onUpdate={onUpdateUser} /></LazyWrap>} />
 
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
     </AppLayout>

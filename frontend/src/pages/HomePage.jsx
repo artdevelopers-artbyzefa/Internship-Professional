@@ -126,7 +126,7 @@ const HomePage = () => {
               alt="Aerial view of COMSATS University Islamabad Abbottabad Campus" 
               width={1920}
               height={1080}
-              fetchPriority="high"
+              fetchpriority="high"
               loading="eager"
               decoding="sync"
               className="w-full h-full object-cover opacity-20 scale-105"

@@ -27,7 +27,7 @@ export default function OfficeDashboard({ user }) {
           setReqStats(reqData);
         }
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        // Error handled by apiRequest
       } finally {
         setLoading(false);
       }

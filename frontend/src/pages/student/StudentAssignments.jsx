@@ -33,11 +33,26 @@ export default function StudentAssignments({ user }) {
     fetchAssignments();
   }, []);
 
-  const handleDownload = (url, name = 'Document') => {
+  const handleDownload = async (url, name = 'Document') => {
     if (!url) return;
-    const cleanName = name.replace(/[^a-z0-9]/gi, '_');
-    const proxyUrl = `${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(url)}&filename=${cleanName}.pdf`;
-    window.location.assign(proxyUrl);
+    try {
+      const cleanName = name.replace(/[^a-z0-9]/gi, '_');
+      const filename = `${cleanName}.pdf`;
+      const blob = await apiRequest('/auth/download-proxy', {
+        params: { url, filename },
+        responseType: 'blob'
+      });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
   const fetchAssignments = async () => {
@@ -45,7 +60,7 @@ export default function StudentAssignments({ user }) {
       const data = await apiRequest('/student/assignments');
       setAssignments(data);
     } catch (err) {
-      console.error('Failed to load tasks:', err);
+      // Error handled by apiRequest
     } finally { setLoading(false); }
   };
 
@@ -80,7 +95,7 @@ export default function StudentAssignments({ user }) {
       showToast.success('Deliverable submitted successfully.');
       fetchAssignments();
     } catch (err) {
-      console.error('Submission transmission failed:', err);
+      // Error handled by apiRequest
     } finally { setUploadingId(null); }
   };
 
@@ -156,7 +171,7 @@ export default function StudentAssignments({ user }) {
             
             <div className="relative z-10 text-center max-w-sm">
               <h3 className="text-2xl font-black text-gray-800 mb-2 tracking-tight">
-                {uploadingWeekly ? 'Transmitting Data...' : 'Upload Weekly Report'}
+                {uploadingWeekly ? 'Sending Data...' : 'Upload Weekly Report'}
               </h3>
               <p className="text-sm font-bold text-gray-400 leading-relaxed">
                 {uploadingWeekly ? 'Please stay on this page while we process your submission.' : 'Drag your report here or tap to browse. Your weekly summary helps us track your progress.'}

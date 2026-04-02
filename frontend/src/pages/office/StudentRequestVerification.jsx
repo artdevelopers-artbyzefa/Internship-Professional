@@ -38,7 +38,7 @@ export default function StudentRequestVerification() {
 
     const handleDecision = async (studentId, decision, type) => {
         if (decision === 'reject' && !comment) {
-            alert('Please add a rejection reason in the comment box.');
+            showToast.error('Please add a rejection reason in the comment box.');
             return;
         }
 
@@ -53,7 +53,7 @@ export default function StudentRequestVerification() {
             setSelectedItem(null);
             fetchData();
         } catch (err) {
-            alert(err.message);
+            // Error handled by apiRequest
         } finally {
             setDeciding(null);
         }

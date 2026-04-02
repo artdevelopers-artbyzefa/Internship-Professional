@@ -35,7 +35,7 @@ export default function RegistrationDetails() {
                 setRegSummary(stats);
             }
         } catch (error) {
-            console.error('Failed to fetch registration details:', error);
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -200,8 +200,8 @@ export default function RegistrationDetails() {
                             </p>
                         </div>
 
-                        <div className="h-[240px] relative w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-[240px] relative w-full" style={{ minHeight: 200 }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                                 {activeTab === 'students' ? (
                                     <BarChart data={eligibilityData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />

@@ -12,6 +12,8 @@ export default function SupervisorProfile({ user, onUpdate }) {
         newPassword: '',
         confirmPassword: ''
     });
+    const [showNew, setShowNew] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleSave = async () => {
@@ -67,8 +69,10 @@ export default function SupervisorProfile({ user, onUpdate }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormGroup label="Change Password">
                                 <TextInput
-                                    type="password"
+                                    type={showNew ? "text" : "password"}
                                     iconLeft="fa-lock"
+                                    iconRight={showNew ? "fa-eye-slash" : "fa-eye"}
+                                    onToggleRight={() => setShowNew(!showNew)}
                                     placeholder="New Password"
                                     value={form.newPassword}
                                     onChange={e => setForm({ ...form, newPassword: e.target.value })}
@@ -76,8 +80,10 @@ export default function SupervisorProfile({ user, onUpdate }) {
                             </FormGroup>
                             <FormGroup label="Confirm New Password">
                                 <TextInput
-                                    type="password"
+                                    type={showConfirm ? "text" : "password"}
                                     iconLeft="fa-shield"
+                                    iconRight={showConfirm ? "fa-eye-slash" : "fa-eye"}
+                                    onToggleRight={() => setShowConfirm(!showConfirm)}
                                     placeholder="Confirm Password"
                                     value={form.confirmPassword}
                                     onChange={e => setForm({ ...form, confirmPassword: e.target.value })}

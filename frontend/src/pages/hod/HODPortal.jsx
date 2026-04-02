@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import NotFoundPage from '../NotFoundPage.jsx';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import { apiRequest } from '../../utils/api.js';
 
@@ -42,7 +43,9 @@ export default function HODPortal({ user, onLogout }) {
   useEffect(() => {
     apiRequest('/phases/current')
       .then(data => setActivePhase(data))
-      .catch(err => console.error(err))
+      .catch(err => {
+        // Error handled by apiRequest
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -89,7 +92,7 @@ export default function HODPortal({ user, onLogout }) {
           <Route path="reports" element={<LazyWrap><HODReports /></LazyWrap>} />
           <Route path="email-center" element={<LazyWrap><EmailCenter /></LazyWrap>} />
           <Route path="archive" element={<LazyWrap><HODArchive /></LazyWrap>} />
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
     </AppLayout>

@@ -63,7 +63,7 @@ export function TableRow({ children }) {
 
 export function TableCell({ children, muted = false, className = '' }) {
   return (
-    <td className={`px-4 py-4 text-sm ${muted ? 'text-gray-600' : 'text-gray-700'} break-words whitespace-normal min-w-[120px] max-w-[200px] md:max-w-[250px] xl:max-w-[400px] ${className}`}>
+    <td className={`px-2 md:px-4 py-2 md:py-4 text-[9px] md:text-sm ${muted ? 'text-gray-600' : 'text-gray-700'} break-words whitespace-normal min-w-[50px] md:min-w-[120px] max-w-[200px] md:max-w-[250px] xl:max-w-[400px] ${className}`}>
       <div className="line-clamp-2">
         {children}
       </div>

@@ -12,7 +12,9 @@ export default function HODArchive() {
     useEffect(() => {
         apiRequest('/office/archives')
             .then(data => setArchives(data || []))
-            .catch(err => console.error(err))
+            .catch(err => {
+                // Error handled by apiRequest
+            })
             .finally(() => setLoading(false));
     }, []);
 

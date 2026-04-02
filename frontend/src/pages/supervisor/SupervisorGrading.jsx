@@ -37,18 +37,40 @@ export default function SupervisorGrading({ user, activePhase }) {
     const [expandedId, setExpandedId] = useState(null);
     const [gradeForm, setGradeForm] = useState({ marks: '', remarks: '', criteria: {} });
     const [gradeData, setGradeData] = useState([]);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const location = useLocation();
 
     useEffect(() => {
         fetchAssignments();
-        apiRequest('/supervisor/student-grades').then(d => setGradeData(d || [])).catch((err) => { console.error('Error:', err); });
     }, []);
 
-    const handleDownload = (url, name = 'Submission') => {
+    useEffect(() => {
+        apiRequest(`/supervisor/student-grades?page=${page}&limit=5`).then(res => {
+            setGradeData(res.data || []);
+            setTotalPages(res.pages || 1);
+        }).catch((err) => { /* Error handled by apiRequest */ });
+    }, [page]);
+
+    const handleDownload = async (url, name = 'Submission') => {
         if (!url) return;
-        const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}`;
-        const proxyUrl = `${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(url)}&filename=${cleanName}.pdf`;
-        window.location.assign(proxyUrl);
+        try {
+            const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}`;
+            const blob = await apiRequest(`${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(url)}&filename=${cleanName}.pdf`, {
+                responseType: 'blob'
+            });
+
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `${cleanName}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            // Error handled by apiRequest
+        }
     };
 
     const fetchAssignments = async () => {
@@ -66,7 +88,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                 }
             }
         } catch (err) {
-            console.error('Error:', err);
+            // Error managed by apiRequest
         } finally { setLoading(false); }
     };
 
@@ -76,7 +98,7 @@ export default function SupervisorGrading({ user, activePhase }) {
             const data = await apiRequest(`/supervisor/submissions/${assignmentId}`);
             setSubmissions(data);
         } catch (err) {
-            console.error('Error:', err);
+            // Error managed by apiRequest
         } finally { setLoading(false); }
     };
 
@@ -125,7 +147,7 @@ export default function SupervisorGrading({ user, activePhase }) {
             showToast.success('Grade recorded.');
             setExpandedId(null);
             fetchSubmissions(selectedAssignment._id);
-        } catch (err) { console.error('Error:', err); }
+        } catch (err) { /* Error handled by apiRequest */ }
     };
 
     return (
@@ -140,11 +162,11 @@ export default function SupervisorGrading({ user, activePhase }) {
                         <span className="text-[10px] font-bold bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full border border-indigo-100 w-fit">{isPhase4 ? 'Acquired Metrics' : 'Assigned by Faculty'}</span>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left min-w-[600px]">
+                        <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-slate-50/60">
-                                    {['Student', 'Reg. No.', 'Weeks', 'Avg /10', '%', 'Grade', 'Status'].map(h => (
-                                        <th key={h} className="px-6 py-3 text-[11px] font-bold text-slate-400 border-b border-slate-100 whitespace-nowrap">{h}</th>
+                                    {['Student', 'Reg. No.', 'Weeks', 'Avg /10', '%', 'Grade', 'Status'].map((h, i) => (
+                                        <th key={h} className={`px-2 sm:px-6 py-3 text-[9px] sm:text-[11px] font-black text-slate-400 border-b border-slate-100 uppercase tracking-tighter sm:whitespace-nowrap ${i > 1 ? 'text-center' : 'text-left'}`}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
@@ -153,19 +175,44 @@ export default function SupervisorGrading({ user, activePhase }) {
                                     const gc = r.grade && r.grade !== 'N/A' ? gradeColor(r.grade) : null;
                                     return (
                                         <tr key={i} className="hover:bg-slate-50/50">
-                                            <td className="px-6 py-4 font-bold text-slate-800 text-sm whitespace-nowrap">{r.student.name}</td>
-                                            <td className="px-6 py-4 text-[10px] font-bold text-slate-400 font-mono whitespace-nowrap">{r.student.reg}</td>
-                                            <td className="px-6 py-4 text-center"><span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold border border-indigo-100">{r.assignmentsCount}</span></td>
-                                            <td className="px-6 py-4 font-black text-slate-800 text-sm">{r.averageMarks || '—'}</td>
-                                            <td className="px-6 py-4"><span className={`text-sm font-black ${r.percentage >= 75 ? 'text-emerald-600' : r.percentage >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{r.percentage !== null ? `${r.percentage}%` : '—'}</span></td>
-                                            <td className="px-6 py-4">{gc ? <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold border ${gc.bg} ${gc.text} ${gc.border}`}>{r.grade}</span> : <span className="text-slate-300 font-bold text-xs">—</span>}</td>
-                                            <td className="px-6 py-4"><span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${r.status === 'Pass' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : r.status === 'Fail' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>{r.status || 'Pending'}</span></td>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 font-black text-slate-800 text-[10px] sm:text-sm whitespace-nowrap">{r.student.name}</td>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 text-[8px] sm:text-[10px] font-black text-slate-400 font-mono whitespace-nowrap">{r.student.reg}</td>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 text-center"><span className="px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-indigo-50 text-indigo-600 rounded-full text-[8px] sm:text-[10px] font-black border border-indigo-100">{r.assignmentsCount}</span></td>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 font-black text-slate-800 text-[10px] sm:text-sm text-center">{r.averageMarks || '—'}</td>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 text-center"><span className={`text-[10px] sm:text-sm font-black ${r.percentage >= 75 ? 'text-emerald-600' : r.percentage >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{r.percentage !== null ? `${r.percentage}%` : '—'}</span></td>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 text-center">{gc ? <span className={`inline-block px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded lg text-[8px] sm:text-[11px] font-black border ${gc.bg} ${gc.text} ${gc.border}`}>{r.grade}</span> : <span className="text-slate-300 font-black text-[10px]">—</span>}</td>
+                                            <td className="px-2 sm:px-6 py-3 sm:py-4 text-center"><span className={`inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded lg text-[8px] sm:text-[10px] font-black border ${r.status === 'Pass' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : r.status === 'Fail' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>{r.status || 'Pnd'}</span></td>
                                         </tr>
                                     );
                                 })}
                             </tbody>
                         </table>
                     </div>
+                    
+                    {/* Pagination for Summary Table */}
+                    {totalPages > 1 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between gap-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                                Page <span className="text-slate-900">{page}</span> of {totalPages}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                                <button 
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-100 text-slate-400 hover:border-primary hover:text-primary disabled:opacity-20 transition-all bg-white cursor-pointer"
+                                >
+                                    <i className="fas fa-chevron-left text-[10px]" />
+                                </button>
+                                <button 
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-100 text-slate-400 hover:border-primary hover:text-primary disabled:opacity-20 transition-all bg-white cursor-pointer"
+                                >
+                                    <i className="fas fa-chevron-right text-[10px]" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -301,11 +348,11 @@ export default function SupervisorGrading({ user, activePhase }) {
                                 </div>
 
                                 <div className="hidden md:block overflow-x-auto">
-                                    <table className="w-full text-left min-w-[700px]">
+                                    <table className="w-full text-left">
                                         <thead>
                                             <tr className="bg-slate-50/50">
                                                 {['Intern Information', 'Submission', 'Site Grade', 'Faculty', 'Actions'].map((h, i) => (
-                                                    <th key={h} className={`px-6 py-4 text-[11px] font-bold text-slate-400 border-b border-slate-100 ${i === 4 ? 'text-right' : ''}`}>{h}</th>
+                                                    <th key={h} className={`px-2 sm:px-6 py-4 text-[9px] sm:text-[11px] font-bold text-slate-400 border-b border-slate-100 ${i === 4 ? 'text-right' : ''}`}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>

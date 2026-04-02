@@ -30,7 +30,7 @@ export default function AddMarks({ user }) {
       const data = await apiRequest('/faculty/assignments');
       setAssignments(data || []);
     } catch (err) {
-      // Handled by apiRequest toast
+      // Error handled by apiRequest
     } finally {
       setLoading(false);
     }
@@ -42,7 +42,7 @@ export default function AddMarks({ user }) {
       const data = await apiRequest(`/faculty/assignment-students/${selectedAssignmentId}`);
       setStudents(data || []);
     } catch (err) {
-      // Handled by apiRequest
+      // Error handled by apiRequest
     } finally {
       setLoading(false);
     }
@@ -99,7 +99,7 @@ export default function AddMarks({ user }) {
         showToast.success('Marks updated successfully for all students.');
         fetchStudents();
     } catch (err) {
-        // Handled by apiRequest
+        // Error handled by apiRequest
     } finally {
         setSubmitting(false);
     }

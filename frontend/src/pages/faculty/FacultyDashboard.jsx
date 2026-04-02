@@ -63,7 +63,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       const data = await apiRequest('/supervisor/interns');
       setInterns(data);
     } catch (err) {
-      console.error('Failed to sync intern data:', err);
+      // Error handled by apiRequest
     }
   };
 
@@ -80,7 +80,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
         setStats(data);
       }
     } catch (err) {
-      console.error('Failed to sync dashboard performance stats:', err);
+      // Error handled by apiRequest
     }
   };
 
@@ -102,7 +102,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       const phases = await apiRequest('/phases');
       setAllPhases(phases);
     } catch (err) {
-      console.error('Failed to sync academic cycle phases:', err);
+      // Error handled by apiRequest
     }
   };
 

@@ -1,10 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, Shield, Zap, Menu, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Shield, Zap, Menu, X, Bell, ExternalLink, Download } from 'lucide-react';
+import { apiRequest } from '../utils/api.js';
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notices, setNotices] = useState([]);
+  const [loadingNotices, setLoadingNotices] = useState(true);
+
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const data = await apiRequest('/notices/public');
+        // Prioritize system_landing notices
+        setNotices(data);
+      } catch (err) {
+        // Handled by apiRequest
+      } finally {
+        setLoadingNotices(false);
+      }
+    };
+    fetchNotices();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#fafafa] text-[#1a1a1a] selection:bg-indigo-100 selection:text-indigo-900 font-sans overflow-x-hidden">
@@ -99,6 +117,63 @@ const LandingPage = () => {
                 Learn more about the platform
               </button>
             </div>
+
+            {/* System Announcements (Bulletins) */}
+            {!loadingNotices && notices.some(n => n.targetType === 'system_landing') && (
+              <div className="mt-16 sm:mt-24 space-y-6 animate-fade-in">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-red-600" />
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Important Updates</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  {notices.filter(n => n.targetType === 'system_landing').map((notice, idx) => (
+                    <div key={notice._id} className="p-6 sm:p-8 rounded-3xl bg-white border border-red-50 hover:border-red-100 transition-all shadow-sm">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <h3 className="text-lg font-bold text-gray-900">{notice.title}</h3>
+                        <span className="text-[10px] sm:text-xs font-semibold text-gray-400 bg-gray-50 px-3 py-1 rounded-full uppercase tracking-widest">
+                          Posted: {new Date(notice.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-sm sm:text-base leading-relaxed whitespace-pre-wrap mb-6">
+                        {notice.content}
+                      </p>
+                      
+                      {(notice.links.length > 0 || notice.attachments.length > 0) && (
+                        <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">
+                          {notice.links.map((link, i) => (
+                            <a 
+                              key={i} 
+                              href={link.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold text-sm group"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              {link.title}
+                            </a>
+                          ))}
+                          {notice.attachments.map((att, i) => (
+                            <a 
+                              key={i} 
+                              href={`${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(att.path)}&filename=${encodeURIComponent(att.title || att.filename)}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-semibold text-sm group"
+                            >
+                              <Download className="w-4 h-4" />
+                              {att.title || att.filename}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mt-20 sm:mt-32">

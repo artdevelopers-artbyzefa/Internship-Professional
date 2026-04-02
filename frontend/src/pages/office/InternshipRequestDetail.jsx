@@ -31,7 +31,9 @@ function CompanySection({ student, officeId, onUpdate, mouCompanies }) {
             });
             onUpdate({ assignedCompany: finalName });
             showToast.success('Updated');
-        } catch (err) { console.error(err); } finally { setSaving(false); }
+        } catch (err) {
+            // Error handled by apiRequest
+        } finally { setSaving(false); }
     };
 
     return (
@@ -82,7 +84,9 @@ function SiteSupervisorSection({ student, officeId, onUpdate }) {
             });
             onUpdate({ assignedCompanySupervisor: sName.trim(), assignedCompanySupervisorEmail: sEmail.trim() });
             showToast.success('Updated');
-        } catch (err) { console.error(err); } finally { setSaving(false); }
+        } catch (err) { 
+            // Error handled by apiRequest
+        } finally { setSaving(false); }
     };
 
     return (
@@ -109,7 +113,9 @@ function FacultySection({ student, officeId, faculties, onUpdate }) {
             await apiRequest('/office/assign-faculty-override', { method: 'POST', body: { studentId: student._id, facultyId: id, officeId } });
             onUpdate({ assignedFaculty: faculties.find(f => f._id === id) || id });
             showToast.success('Updated');
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            // Error handled by apiRequest
+        }
     };
 
     return (
@@ -168,9 +174,11 @@ export default function InternshipRequestDetail({ user }) {
                 method: 'POST',
                 body: { studentId, decision, comment: rejectReason, officeId }
             });
-            showToast.success(decision.toUpperCase());
+            showToast.success(`Request ${decision}d successfully`);
             navigate('/office/internship-requests');
-        } catch (err) { console.error(err); }
+        } catch (err) { 
+            // Error handled by apiRequest
+        }
     };
 
     if (loading) return <div className="p-20 text-center font-black text-blue-600 text-[10px]">Loading</div>;
@@ -181,74 +189,80 @@ export default function InternshipRequestDetail({ user }) {
         <div className="max-w-4xl mx-auto py-10 px-4">
             <button
                 onClick={() => navigate('/office/internship-requests')}
-                className="mb-6 flex items-center gap-2 text-[11px] font-black text-slate-400  tracking-widest hover:text-blue-600 transition-colors"
+                className="mb-6 flex items-center gap-2 text-[11px] font-black text-slate-400 tracking-widest hover:text-slate-900 transition-colors"
             >
                 <i className="fas fa-arrow-left"></i>
                 Back to Requests
             </button>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
                 {/* Left Side: Student Info */}
-                <div className="md:col-span-7 bg-white border border-slate-100 rounded-xl overflow-hidden shadow-sm">
-                    <div className="p-8 bg-blue-600 text-white">
-                        <div className="flex items-center gap-6">
-                            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-2xl font-black">{student.name?.charAt(0)}</div>
-                            <div>
-                                <h1 className="text-2xl font-black tracking-tight leading-none">{student.name}</h1>
-                                <p className="text-[10px] font-bold opacity-70 tracking-widest uppercase mt-2">{student.reg} // SEM-{student.semester}</p>
-                            </div>
+                <div className="md:col-span-7 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="p-8 bg-slate-900 text-white">
+                        <div className="flex flex-col">
+                            <h1 className="text-2xl font-black tracking-tight leading-none">{student.name}</h1>
+                            <p className="text-[10px] font-bold opacity-70 tracking-widest uppercase mt-2">{student.reg} // SEM-{student.semester}</p>
                         </div>
                     </div>
 
                     <div className="p-8 grid grid-cols-2 gap-6">
                         <div>
-                            <p className="text-[9px] font-black text-slate-400  tracking-widest mb-1">Internship Type</p>
-                            <p className="text-sm font-black text-blue-900 ">{req?.mode || 'TBD'}</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Internship Type</p>
+                            <p className="text-sm font-black text-slate-900 ">{req?.mode || 'TBD'}</p>
                         </div>
                         <div>
-                            <p className="text-[9px] font-black text-slate-400  tracking-widest mb-1">Start Date</p>
-                            <p className="text-sm font-black text-blue-900">{req?.startDate ? new Date(req.startDate).toLocaleDateString() : 'TBD'}</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Start Date</p>
+                            <p className="text-sm font-black text-slate-900">{req?.startDate ? new Date(req.startDate).toLocaleDateString() : 'TBD'}</p>
                         </div>
                         <div>
-                            <p className="text-[9px] font-black text-slate-400  tracking-widest mb-1">Internship Title</p>
-                            <p className="text-sm font-black text-blue-900 uppercase">{req?.companyName || 'WAITING'}</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Internship Title</p>
+                            <p className="text-sm font-black text-slate-900 uppercase">{req?.companyName || 'WAITING'}</p>
                         </div>
                         <div>
-                            <p className="text-[9px] font-black text-slate-400  tracking-widest mb-1">Status</p>
-                            <p className="text-sm font-black text-blue-900 ">{student.status?.split(' ').pop()}</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Status</p>
+                            <p className="text-sm font-black text-slate-900 ">{student.status?.split(' ').pop()}</p>
                         </div>
-                    </div>
-
-                    <div className="px-8 pb-8 flex items-center justify-between border-t border-slate-50 pt-8">
-                        <button onClick={() => navigate('/office/internship-requests')} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-blue-600">Back to Requests</button>
                     </div>
                 </div>
 
                 {/* Right Side: Small Vertical Stack */}
                 <div className="md:col-span-5 space-y-6">
-                    <div className="bg-white border border-slate-100 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <CompanySection student={student} officeId={officeId} mouCompanies={mouCompanies} onUpdate={u => setStudent({ ...student, ...u })} />
                         <SiteSupervisorSection student={student} officeId={officeId} onUpdate={u => setStudent({ ...student, ...u })} />
                         <FacultySection student={student} officeId={officeId} faculties={faculties} onUpdate={u => setStudent({ ...student, ...u })} />
                     </div>
 
-                    {/* Authorization Panel: Small static buttons */}
-                    <div className="bg-white border border-slate-100 rounded-xl p-6 shadow-sm">
-                        {showReject ? (
-                            <div className="space-y-4">
-                                <textarea autoFocus value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection..."
-                                    className="w-full bg-slate-50 border border-slate-100 p-4 text-[11px] font-bold text-blue-900 focus:outline-none rounded-lg" />
-                                <div className="flex gap-2">
-                                    <button onClick={() => setShowReject(false)} className="px-4 py-2 text-[10px] font-black text-slate-400">Cancel</button>
-                                    <button disabled={!rejectReason.trim()} onClick={() => handleDecide('reject')} className="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg">Execute Rejection</button>
+                    {/* Authorization Panel */}
+                    {student.status === 'Internship Request Submitted' ? (
+                        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                            {showReject ? (
+                                <div className="space-y-4">
+                                    <textarea autoFocus value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection..."
+                                        className="w-full bg-slate-50 border border-slate-200 p-4 text-[11px] font-bold text-slate-900 focus:outline-none focus:border-slate-400 rounded-lg" />
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setShowReject(false)} className="px-4 py-3 border border-slate-200 rounded-lg text-[10px] font-black text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-colors uppercase">Cancel</button>
+                                        <button disabled={!rejectReason.trim()} onClick={() => handleDecide('reject')} className="flex-1 py-3 bg-slate-900 text-white text-[10px] font-black uppercase rounded-lg disabled:opacity-50">Execute Rejection</button>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="flex gap-4">
-                                <button onClick={() => setShowReject(true)} className="flex-1 py-4 border border-blue-100 text-blue-600 text-[10px] font-black uppercase rounded-xl hover:bg-blue-50 transition-all">Reject</button>
-                                <button onClick={() => handleDecide('approve')} className="flex-1 py-4 bg-blue-600 text-white text-[10px] font-black uppercase rounded-xl shadow-lg shadow-blue-100 active:scale-95 transition-all">Approve</button>
-                            </div>
-                        )}
-                    </div>
+                            ) : (
+                                <div className="flex gap-4">
+                                    <button onClick={() => setShowReject(true)} className="flex-1 py-4 border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-900 hover:bg-slate-50 text-[10px] font-black uppercase rounded-xl transition-all">Reject</button>
+                                    <button onClick={() => handleDecide('approve')} className="flex-1 py-4 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl shadow-lg active:scale-95 transition-all">Approve</button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm text-center">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                                Process Completed<br/>
+                                <span className={`mt-2 inline-block px-3 py-1 rounded border ${
+                                    student.status.includes('Approved') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                                }`}>
+                                    {student.status.split(' ').pop()}
+                                </span>
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

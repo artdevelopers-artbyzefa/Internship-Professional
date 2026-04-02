@@ -23,7 +23,7 @@ export default function FacultyAssignments() {
         setSelectedId(data[0]._id);
       }
     } catch (err) {
-      console.error('Failed to load created tasks:', err);
+      // Error handled by apiRequest
     }
   };
 
@@ -42,7 +42,7 @@ export default function FacultyAssignments() {
       setStudents(data);
       setSelectedStudents([]); // Reset selection
     } catch (err) {
-      console.error('Failed to load student reports:', err);
+      // Error handled by apiRequest
     }
     finally {
       setLoading(false);
@@ -72,11 +72,10 @@ export default function FacultyAssignments() {
       const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
       const targetUrl = isFullUrl ? fileUrl : `${baseUrl}${fileUrl}`;
 
-      const response = await fetch(targetUrl, {
-        credentials: 'include'
+      const blob = await apiRequest(targetUrl, { 
+        responseType: 'blob'
       });
-      if (!response.ok) throw new Error('Download failed');
-      const blob = await response.blob();
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -87,7 +86,7 @@ export default function FacultyAssignments() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      showToast.error('Failed to download file');
+      // Error handled by apiRequest
     }
   };
 
@@ -98,18 +97,12 @@ export default function FacultyAssignments() {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/faculty/bulk-download-submissions`, {
+      const blob = await apiRequest('/faculty/bulk-download-submissions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ submissionIds: selectedStudents }),
+        body: { submissionIds: selectedStudents },
+        responseType: 'blob'
       });
 
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -117,8 +110,9 @@ export default function FacultyAssignments() {
       document.body.appendChild(a);
       a.click();
       a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
-      showToast.error('Failed to download submissions');
+      // Error handled by apiRequest
     }
   };
 

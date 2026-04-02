@@ -25,7 +25,9 @@ export default function FacultyStudents({ user }) {
           (d?.tableData || []).forEach(row => { map[row[0]] = { grade: row[5], pct: row[4], status: row[6] }; });
           setGradeMap(map);
         })
-        .catch(() => { });
+        .catch((err) => { 
+          // Error handled by apiRequest
+        });
     }
   }, []);
 
@@ -36,7 +38,7 @@ export default function FacultyStudents({ user }) {
       const data = await apiRequest(endpoint);
       setStudents(data);
     } catch (error) {
-      console.error('Error fetching students:', error);
+      // Error handled by apiRequest
     } finally {
       setLoading(false);
     }

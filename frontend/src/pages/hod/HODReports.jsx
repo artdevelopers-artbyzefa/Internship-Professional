@@ -39,7 +39,9 @@ export default function HODReports() {
   useEffect(() => {
     apiRequest('/office/aggregated-marks')
       .then(d => setResults(d || []))
-      .catch(console.error)
+      .catch(err => {
+        // Error handled by apiRequest
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -108,7 +110,7 @@ export default function HODReports() {
           includeQueryParams: false
         });
       } catch (err) {
-        console.warn(`Chart capture failed for #${id}:`, err.message);
+        // Suppress warn but handle failure
         return null;
       }
     };
@@ -168,14 +170,11 @@ export default function HODReports() {
       const payload = await prepareExportData();
       const endpoint = type === 'pdf' ? '/reports/hod-full-report' : '/reports/hod-excel-report';
       
-      const res = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
+      const blob = await apiRequest(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'include'
+        body: payload,
+        responseType: 'blob'
       });
-
-      const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -185,7 +184,7 @@ export default function HODReports() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      console.error(e);
+      // Error handled by apiRequest
     } finally {
       setLoadingExport(false);
     }

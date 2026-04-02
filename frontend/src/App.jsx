@@ -17,6 +17,7 @@ const OfficePortal        = lazy(() => import('./pages/office/InternshipOfficePo
 const FacultyPortal       = lazy(() => import('./pages/faculty/FacultyPortal.jsx'));
 const SupervisorPortal    = lazy(() => import('./pages/supervisor/SupervisorPortal.jsx'));
 const HODPortal           = lazy(() => import('./pages/hod/HODPortal.jsx'));
+const NotFoundPage        = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 const PageLoader = () => (
   <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }} role="status" aria-live="polite">
@@ -79,7 +80,7 @@ export default function App() {
     try {
       await apiRequest('/auth/logout', { method: 'POST' });
     } catch (err) {
-      console.error('Logout synchronization failure:', err);
+      // Error handled by apiRequest or silent
     }
     localStorage.removeItem('token');
     setUser(null);
@@ -136,7 +137,7 @@ export default function App() {
           <Route path="/supervisor/*" element={<SupervisorPortal user={user} onLogout={handleLogout} />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   );

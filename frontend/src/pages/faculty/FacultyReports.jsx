@@ -54,7 +54,9 @@ export default function FacultyReports({ user }) {
   useEffect(() => {
     apiRequest('/faculty/report-data/evaluation')
       .then(d => setEvalData(d?.tableData || []))
-      .catch(() => { })
+      .catch((err) => { 
+        // Error handled by apiRequest
+      })
       .finally(() => setLoadingLive(false));
   }, []);
 
@@ -63,15 +65,12 @@ export default function FacultyReports({ user }) {
     setLoading(type);
     try {
       const payload = await apiRequest(`/faculty/report-data/${type}`);
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/reports/generate-pdf`, {
+      const blob = await apiRequest('/reports/generate-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'include'
+        body: payload,
+        responseType: 'blob'
       });
-      if (!response.ok) throw new Error('Failed to generate PDF');
 
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -82,8 +81,7 @@ export default function FacultyReports({ user }) {
       window.URL.revokeObjectURL(url);
       showToast.success('Report downloaded successfully!');
     } catch (err) {
-      console.error(err);
-      showToast.error('Failed to generate report. Check if students have been evaluated.');
+      // Error handled by apiRequest
     } finally {
       setLoading(null);
     }

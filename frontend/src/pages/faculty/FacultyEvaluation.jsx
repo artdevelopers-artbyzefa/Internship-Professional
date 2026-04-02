@@ -52,15 +52,32 @@ export default function FacultyEvaluation({ user, activePhase }) {
 
   const fetchStudents = async () => {
     try { setStudents((await apiRequest('/faculty/my-students')) || []); }
-    catch { } finally { setLoading(false); }
+    catch (err) {
+      // Error handled by apiRequest
+    } finally { setLoading(false); }
   };
 
-  const handleDownload = (mark) => {
+  const handleDownload = async (mark) => {
     if (!mark.submission?.fileUrl) return;
-    const name = mark.assignment?.title || 'Report';
-    const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}_Report`;
-    const proxyUrl = `${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(mark.submission.fileUrl)}&filename=${cleanName}.pdf`;
-    window.location.assign(proxyUrl);
+    try {
+      const name = mark.assignment?.title || 'Report';
+      const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}_Report`;
+      
+      const blob = await apiRequest(`${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(mark.submission.fileUrl)}&filename=${cleanName}.pdf`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${cleanName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
   const handleSelect = async (s) => {
@@ -71,7 +88,9 @@ export default function FacultyEvaluation({ user, activePhase }) {
       const init = {};
       data.forEach(m => { init[m._id] = m.facultyMarks !== null && m.facultyMarks !== undefined ? m.facultyMarks : ''; });
       setScores(init);
-    } catch { } finally { setFetchingEval(false); }
+    } catch (err) {
+      // Error handled by apiRequest
+    } finally { setFetchingEval(false); }
   };
 
   const handleScoreChange = (id, val) => {

@@ -58,7 +58,7 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
       const data = await apiRequest('/student/assignments');
       setAssignments(data || []);
     } catch (err) {
-      console.error('Failed to load student task data:', err);
+      // Error handled by apiRequest
     }
   };
 
@@ -67,7 +67,7 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
       const data = await apiRequest('/student/my-grade');
       setGradeInfo(data);
     } catch (err) {
-      console.error('Failed to load student grade profile:', err);
+      // Error handled by apiRequest
     }
   };
 
@@ -77,7 +77,7 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
   useEffect(() => {
     const fetchPhases = () => {
       apiRequest('/phases').then(d => setAllPhases(d || [])).catch((err) => {
-        console.error('Failed to load academic phases:', err);
+        // Error handled by apiRequest
       });
     };
     fetchPhases();
@@ -261,7 +261,7 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
 
           <div className="text-right flex-1 lg:flex-none ml-4">
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Phase Progress</p>
-            <p className="text-xs md:text-sm font-black text-primary truncate max-w-[120px]">{activePhase?.label || 'Active'}</p>
+            <p className="text-xs md:text-sm font-black text-primary">{activePhase?.label || 'Active'}</p>
             <div className="mt-2 w-full lg:w-36 bg-gray-200 h-1.5 rounded-full overflow-hidden">
               <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${(phaseOrder / 5) * 100}%` }} />
             </div>

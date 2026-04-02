@@ -187,7 +187,7 @@ export default function ManageAssignments({ user }) {
                   showToast.success('Assignment deleted globally.');
                   fetchData();
                 } catch (err) {
-                  console.error('Failed to purge assignment:', err);
+                  // Error handled by apiRequest
                 }
               }
             }}

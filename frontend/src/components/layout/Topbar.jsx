@@ -28,7 +28,7 @@ function PhaseChip({ activePhase }) {
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
       </span>
-      <span className="truncate max-w-32">{activePhase.label}</span>
+      <span>{activePhase.label}</span>
       {rem && (
         <span className="text-emerald-500 font-bold">
           · {rem.days > 0 ? `${rem.days}d ` : ''}{rem.hours}h {rem.mins}m left
@@ -52,14 +52,12 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
       setNotifications(data || []);
       setUnreadCount((data || []).filter(n => !n.read).length);
     }).catch(err => {
-      console.error('Notification feed failure:', err);
+      //handeled by API 
     });
   }, []);
 
   useEffect(() => {
-    const fetchPhase = () => apiRequest('/phases/current').then(d => setActivePhase(d)).catch(err => {
-      console.error('Phase fetch failure:', err);
-    });
+    const fetchPhase = () => apiRequest('/phases/current').then(d => setActivePhase(d)).catch(() => {});
     fetchPhase();
     fetchNotifications();
     
@@ -73,23 +71,23 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
 
   const handleMarkAllRead = async () => {
     try {
-      await apiRequest('/notifications/mark-read', 'PATCH');
+      await apiRequest('/notifications/mark-read', { method: 'PATCH' });
       fetchNotifications();
     } catch (err) {
-      console.error('Failed to mark all read:', err);
+      // Handled by apiRequest
     }
   };
 
   const handleNotifClick = async (notif) => {
     try {
       if (!notif.read) {
-        await apiRequest(`/notifications/${notif._id}/read`, 'PATCH');
+        await apiRequest(`/notifications/${notif._id}/read`, { method: 'PATCH' });
         fetchNotifications();
       }
       if (notif.link) navigate(notif.link);
       setShowNotif(false);
     } catch (err) {
-      console.error('Notification click failure:', err);
+      // Handled by apiRequest
     }
   };
 

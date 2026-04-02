@@ -155,7 +155,7 @@ export default function LoginPage({ onLogin }) {
               alt="COMSATS University Islamabad Logo"
               width={80}
               height={80}
-              fetchPriority="high"
+              fetchpriority="high"
               loading="eager"
               decoding="sync"
               className="h-20 w-auto mx-auto mb-4 drop-shadow"

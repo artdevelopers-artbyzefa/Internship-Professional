@@ -92,7 +92,7 @@ export default function ReportsAnalytics() {
         setCriteriaData(crit);
         setCompanyData(compDist);
       } catch (err) {
-        console.error('Analytics fetch failed', err);
+        // Error handled by apiRequest
       } finally {
         setLoadingGlobal(false);
       }
@@ -130,7 +130,7 @@ export default function ReportsAnalytics() {
         });
         setProgramData(Object.values(byProgram));
       } catch (err) {
-        console.error('Analysis fetch failed', err);
+        // Error handled by apiRequest
       } finally {
         setLoadingAnalysis(false);
       }
@@ -155,7 +155,7 @@ export default function ReportsAnalytics() {
         setReportData({ type: 'supervisors', supervisors: data });
       }
     } catch (err) {
-      console.error('Report generation failed', err);
+      // Error handled by apiRequest
     } finally {
       setLoadingReport(false);
     }

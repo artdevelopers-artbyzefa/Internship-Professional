@@ -19,6 +19,7 @@ const ProtectedRoute = ({ user, allowedRoles, redirectTo = "/login" }) => {
       student: '/student',
       internship_office: '/office',
       faculty_supervisor: '/faculty',
+      site_supervisor: '/supervisor',
       hod: '/hod'
     };
     return <Navigate to={rolePaths[user.role] || '/'} replace />;

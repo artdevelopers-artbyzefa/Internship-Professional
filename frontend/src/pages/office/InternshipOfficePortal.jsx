@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import NotFoundPage from '../NotFoundPage.jsx';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import PageErrorBoundary from '../../components/ui/PageErrorBoundary.jsx';
 
@@ -20,8 +21,10 @@ const SiteSupervisorManagement   = lazy(() => import('./SiteSupervisorManagement
 const PhaseManagement            = lazy(() => import('./PhaseManagement.jsx'));
 const InternshipRequestsManager  = lazy(() => import('./InternshipRequestsManager.jsx'));
 const InternshipRequestDetail   = lazy(() => import('./InternshipRequestDetail.jsx'));
+const RosterDetail              = lazy(() => import('./RosterDetail.jsx'));
 const EmailCenter                = lazy(() => import('./EmailCenter.jsx'));
 const HODArchive                 = lazy(() => import('../hod/HODArchive.jsx'));
+const SystemMonitoring            = lazy(() => import('./SystemMonitoring.jsx'));
 
 const officeNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
@@ -34,7 +37,8 @@ const officeNav = [
   { id: 'notice-board', label: 'Notice Board', icon: 'fa-bullhorn' },
   { id: 'archive', label: 'Historical Archives', icon: 'fa-database' },
   { id: 'email-center', label: 'Email Center', icon: 'fa-envelope-open-text' },
-  { id: 'phase-control', label: 'Phase Control', icon: 'fa-layer-group' }
+  { id: 'phase-control', label: 'Phase Control', icon: 'fa-layer-group' },
+  { id: 'system-monitoring', label: 'System Health', icon: 'fa-shield-halved' }
 ];
 
 const PageLoader = () => (
@@ -87,7 +91,11 @@ export default function InternshipOfficePortal({ user, onLogout }) {
           <Route path="verification-dashboard" element={<Safe><StudentRequestVerification user={user} /></Safe>} />
 
           <Route path="faculty-management"   element={<Safe><FacultyManagement user={user} /></Safe>} />
+          <Route path="faculty-management/:id/students" element={<Safe><RosterDetail /></Safe>} />
+          
           <Route path="supervisor-management" element={<Safe><SiteSupervisorManagement user={user} /></Safe>} />
+          <Route path="supervisor-management/:id/students" element={<Safe><RosterDetail /></Safe>} />
+          
           <Route path="company-registry"     element={<Safe><CompanyManagement user={user} /></Safe>} />
           <Route path="assignment-center"    element={<Safe><AssignmentCenter user={user} /></Safe>} />
 
@@ -100,8 +108,9 @@ export default function InternshipOfficePortal({ user, onLogout }) {
           <Route path="archive"            element={<Safe><HODArchive /></Safe>} />
           <Route path="email-center"       element={<Safe><EmailCenter /></Safe>} />
           <Route path="phase-control"      element={<Safe><PhaseManagement user={user} /></Safe>} />
+          <Route path="system-monitoring"  element={<Safe><SystemMonitoring user={user} /></Safe>} />
 
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
     </AppLayout>

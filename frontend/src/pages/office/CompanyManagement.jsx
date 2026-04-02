@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../utils/api.js';
 import Button from '../../components/ui/Button.jsx';
 import Alert from '../../components/ui/Alert.jsx';
@@ -9,15 +10,13 @@ import { validate } from '../../utils/validation.js';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
 
 export default function CompanyManagement({ view, user }) {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorDictionary, setErrorDictionary] = useState({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState(null);
-  const [showStudentsModal, setShowStudentsModal] = useState(false);
-  const [selectedSupervisorForStudents, setSelectedSupervisorForStudents] = useState(null);
   const [studentsList, setStudentsList] = useState([]);
-  const [fetchingStudents, setFetchingStudents] = useState(false);
 
   // Pagination & Search State
   const [page, setPage] = useState(1);
@@ -40,6 +39,26 @@ export default function CompanyManagement({ view, user }) {
 
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
+
+  const autofillData = () => {
+    setForm({
+      name: `Test Corp ${Math.floor(Math.random() * 1000)}`,
+      address: '123 Test Street, Innovation Hub, Peshawar',
+      regNo: `REG-${Math.floor(Math.random() * 999999)}`,
+      scope: 'Software Engineering & AI',
+      hrEmail: 'hr@testcorp.com',
+      mouSignedDate: new Date().toISOString().split('T')[0],
+      isMOUSigned: true,
+      siteSupervisors: [
+        { 
+          name: 'Test Supervisor', 
+          email: `sup${Math.floor(Math.random() * 1000)}@testcorp.com`, 
+          whatsappNumber: '+923315821144' 
+        }
+      ]
+    });
+    showToast.info('Form autofilled with test data');
+  };
 
   // Debounce Search
   useEffect(() => {
@@ -110,28 +129,30 @@ export default function CompanyManagement({ view, user }) {
 
   const handleEditInit = (company) => {
     setEditingCompanyId(company._id);
+    const mouDate = company.mouSignedDate ? new Date(company.mouSignedDate) : null;
+    const dateStr = (mouDate && !isNaN(mouDate.getTime())) ? mouDate.toISOString().split('T')[0] : '';
     setForm({
       ...company,
-      mouSignedDate: company.mouSignedDate ? new Date(company.mouSignedDate).toISOString().split('T')[0] : ''
+      mouSignedDate: dateStr
     });
     setShowAddForm(true);
     setErrorDictionary({});
   };
 
-  const handleViewStudents = async (companyName, supervisorName, email) => {
-    setSelectedSupervisorForStudents({ company: companyName, name: supervisorName });
-    setShowStudentsModal(true);
-    setFetchingStudents(true);
-    try {
-      let url = `/office/supervisor-students?company=${encodeURIComponent(companyName)}&supervisor=${encodeURIComponent(supervisorName)}`;
-      if (email) url += `&email=${encodeURIComponent(email)}`;
-      const data = await apiRequest(url);
-      setStudentsList(data || []);
-    } catch (err) {
-      // handled
-    } finally {
-      setFetchingStudents(false);
-    }
+  const handleViewStudents = (companyName, supervisorName, email) => {
+    const params = new URLSearchParams();
+    if (email) params.append('email', email);
+    if (supervisorName) params.append('name', supervisorName);
+    if (companyName) params.append('company', companyName);
+    params.append('type', 'site');
+    navigate(`/office/supervisor-management/details/students?${params.toString()}`, { 
+      state: { 
+        supervisor: { 
+          name: supervisorName, 
+          companies: [{ name: companyName }] 
+        } 
+      } 
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -415,6 +436,14 @@ export default function CompanyManagement({ view, user }) {
                   Discard
                 </button>
                 <button
+                  type="button"
+                  onClick={autofillData}
+                  className="px-4 py-3 rounded-xl font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all text-xs border border-amber-200"
+                >
+                  <i className="fas fa-magic mr-2"></i>
+                  Power Autofill
+                </button>
+                <button
                   type="submit"
                   disabled={submitting}
                   className="px-8 py-3 rounded-xl font-bold bg-primary text-white hover:bg-blue-800 transition-all text-sm shadow-lg shadow-blue-600/20 disabled:opacity-50"
@@ -453,64 +482,6 @@ export default function CompanyManagement({ view, user }) {
             </button>
           </div>
         </div>
-      )}
-      {showStudentsModal && (
-        <Modal onClose={() => setShowStudentsModal(false)} size="lg">
-          <ModalTitle>Assigned Students: {selectedSupervisorForStudents?.name}</ModalTitle>
-          <ModalSub>{selectedSupervisorForStudents?.company} · Technical Placement List</ModalSub>
-
-          <div className="mt-8 max-h-[60vh] overflow-y-auto pr-2">
-            {fetchingStudents ? (
-              <div className="text-center py-10">
-                <i className="fas fa-circle-notch fa-spin text-2xl text-primary mb-2 block"></i>
-                <span className="text-xs text-gray-400 font-medium tracking-tight">Accessing company records...</span>
-              </div>
-            ) : studentsList.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Info</th>
-                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Registration</th>
-                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Email</th>
-                      <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {studentsList.map((s, idx) => (
-                      <tr key={idx} className="border-b border-gray-50/50 hover:bg-gray-50 transition-colors">
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">
-                              {s.name?.charAt(0)}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[11px] font-bold text-gray-800">{s.name}</span>
-                              <span className="text-[9px] text-gray-400 font-medium whitespace-nowrap">Semester {s.semester}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-[10px] text-gray-600 font-bold">{s.reg}</td>
-                        <td className="px-3 py-3 text-[10px] text-gray-500 font-medium">{s.email}</td>
-                        <td className="px-3 py-3">
-                          <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded-full font-black text-[8px] uppercase tracking-wider whitespace-nowrap">Active Intern</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="p-12 text-center rounded-3xl border-2 border-dashed border-gray-100 bg-gray-50/30">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-gray-200 text-3xl mx-auto mb-4 border border-gray-100 shadow-sm">
-                  <i className="fas fa-user-slash"></i>
-                </div>
-                <p className="text-sm font-black text-gray-400">Registry Entry Empty</p>
-                <p className="text-[10px] text-gray-300 font-medium mt-1">No students have been officially assigned to this supervisor yet.</p>
-              </div>
-            )}
-          </div>
-        </Modal>
       )}
     </div>
   );

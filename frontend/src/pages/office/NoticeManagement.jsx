@@ -55,7 +55,7 @@ export default function NoticeManagement({ user }) {
             const data = await apiRequest('/notices/supervisors');
             setSupervisors(data);
         } catch (err) {
-            console.error(err);
+            // Error handled by apiRequest
         }
     };
 
@@ -64,7 +64,7 @@ export default function NoticeManagement({ user }) {
             const data = await apiRequest(`/notices/students/${supId}`);
             setStudents(data);
         } catch (err) {
-            console.error(err);
+            // Error handled by apiRequest
         }
     };
 
@@ -115,22 +115,17 @@ export default function NoticeManagement({ user }) {
             const url = editingId ? `/notices/${editingId}` : '/notices';
             const method = editingId ? 'PUT' : 'POST';
 
-            // Raw fetch for FormData
-            const response = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+            await apiRequest(url, {
                 method,
-                body: formData,
-                credentials: 'include'
+                body: formData
             });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Action failed');
 
             showToast.success(editingId ? 'Notice updated' : 'Notice posted');
             resetForm();
             setShowAddForm(false);
             fetchNotices();
         } catch (err) {
-            setError(err.message);
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -240,6 +235,7 @@ export default function NoticeManagement({ user }) {
                                             <option value="all_supervisors">All Faculty Supervisors</option>
                                             <option value="specific_supervisor">Specific Supervisor</option>
                                             <option value="specific_student">Specific Student</option>
+                                            <option value="system_landing"> Landing Page (Public)</option>
                                         </SelectInput>
                                     </FormGroup>
 

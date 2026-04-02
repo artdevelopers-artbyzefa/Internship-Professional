@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import NotFoundPage from '../NotFoundPage.jsx';
 import AppLayout from '../../components/layout/AppLayout.jsx';
 import { apiRequest } from '../../utils/api.js';
 
@@ -80,7 +81,7 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
                     <Route path="grading" element={<LazyWrap><SupervisorGrading user={user} activePhase={activePhase} /></LazyWrap>} />
                     <Route path="profile" element={<LazyWrap><SupervisorProfile user={user} onUpdate={onUpdateUser} /></LazyWrap>} />
 
-                    <Route path="*" element={<Navigate to="dashboard" replace />} />
+                    <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </div>
         </AppLayout>

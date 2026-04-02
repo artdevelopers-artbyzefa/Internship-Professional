@@ -54,7 +54,9 @@ export default function SupervisorDashboard({ user, activePhase }) {
         ]).then(([profileData, assignmentData]) => {
             setProfile(profileData);
             setAssignments(assignmentData || []);
-        }).catch(console.error)
+        }).catch((err) => {
+            // Error handled by apiRequest
+        })
             .finally(() => setLoading(false));
     }, [isPhase2OrLower]);
 

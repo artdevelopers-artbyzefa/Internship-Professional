@@ -3,6 +3,7 @@ import Button from '../../components/ui/Button.jsx';
 import { FormGroup, TextInput, SelectInput, TextareaInput } from '../../components/ui/FormInput.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import { apiRequest } from '../../utils/api.js';
+import SearchInput from '../../components/ui/SearchInput.jsx';
 
 export default function InternshipRequestForm({ user, activePhase }) {
   const [loading, setLoading] = useState(false);
@@ -42,13 +43,19 @@ export default function InternshipRequestForm({ user, activePhase }) {
     freelanceProfileLink: user.internshipRequest?.freelanceProfileLink || ''
   });
 
+  const [manualOverrides, setManualOverrides] = useState({
+    faculty: false,
+    company: false,
+    mentor: false
+  });
+
   useEffect(() => {
     const fetchFaculty = async () => {
       try {
         const data = await apiRequest('/student/available-supervisors');
         if (data) setFacultyList(data);
       } catch (err) {
-        console.error('Faculty Fetch Error:', err);
+        // Error handled by apiRequest
       }
     };
     fetchFaculty();
@@ -366,11 +373,23 @@ export default function InternshipRequestForm({ user, activePhase }) {
           {(form.internshipType === 'Self' || form.mode === 'Freelance') && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 animate-in fade-in duration-500">
               <FormGroup label={form.mode === 'Freelance' ? 'Project / Client Name' : 'Organization / Project Name'}>
-                <TextInput
+                <SearchInput
                   placeholder={form.mode === 'Freelance' ? 'e.g. Upwork Project, Fiverr Client' : 'e.g. Google, Private Venture'}
                   value={form.companyName}
                   disabled={isLocked || hasOfficialCompany}
-                  onChange={e => setForm({ ...form, companyName: e.target.value })}
+                  onChange={v => setForm({ ...form, companyName: v })}
+                  onSelect={item => {
+                    const updates = { 
+                      companyName: item.name,
+                      siteSupervisorName: item.siteSupervisors?.[0]?.name || form.siteSupervisorName,
+                      siteSupervisorEmail: item.siteSupervisors?.[0]?.email || form.siteSupervisorEmail,
+                      siteSupervisorPhone: item.siteSupervisors?.[0]?.whatsappNumber || form.siteSupervisorPhone
+                    };
+                    setForm({ ...form, ...updates });
+                    setManualOverrides(prev => ({ ...prev, company: false }));
+                  }}
+                  autoSnap={!manualOverrides.company}
+                  endpoint="/entities/search-company"
                   iconLeft={form.mode === 'Freelance' ? 'fa-laptop-code' : 'fa-building'}
                   required
                 />
@@ -380,11 +399,23 @@ export default function InternshipRequestForm({ user, activePhase }) {
               {form.mode !== 'Freelance' ? (
                 <>
                   <FormGroup label="External Mentor Name">
-                    <TextInput
+                    <SearchInput
                       placeholder="Supervisor Name"
                       value={form.siteSupervisorName}
                       disabled={isLocked || hasOfficialSupervisor}
-                      onChange={e => setForm({ ...form, siteSupervisorName: e.target.value })}
+                      onChange={v => setForm({ ...form, siteSupervisorName: v })}
+                      onSelect={item => {
+                        setForm({ 
+                          ...form, 
+                          siteSupervisorName: item.name, 
+                          siteSupervisorEmail: item.email || form.siteSupervisorEmail,
+                          siteSupervisorPhone: item.phone || form.siteSupervisorPhone,
+                          companyName: item.company || form.companyName
+                        });
+                        setManualOverrides(prev => ({ ...prev, mentor: false }));
+                      }}
+                      autoSnap={!manualOverrides.mentor}
+                      endpoint="/entities/search-mentor"
                       iconLeft="fa-user-tie"
                       required
                     />
@@ -396,14 +427,20 @@ export default function InternshipRequestForm({ user, activePhase }) {
                         placeholder="Email Address"
                         value={form.siteSupervisorEmail}
                         disabled={isLocked || hasOfficialSupervisor}
-                        onChange={e => setForm({ ...form, siteSupervisorEmail: e.target.value })}
+                        onChange={e => {
+                            setForm({ ...form, siteSupervisorEmail: e.target.value });
+                            setManualOverrides(prev => ({ ...prev, mentor: true }));
+                        }}
                         required
                       />
                       <TextInput
                         placeholder="Phone/WhatsApp"
                         value={form.siteSupervisorPhone}
                         disabled={isLocked || hasOfficialSupervisor}
-                        onChange={e => setForm({ ...form, siteSupervisorPhone: e.target.value })}
+                        onChange={e => {
+                            setForm({ ...form, siteSupervisorPhone: e.target.value });
+                            setManualOverrides(prev => ({ ...prev, mentor: true }));
+                        }}
                         required
                       />
                     </div>
@@ -521,10 +558,23 @@ export default function InternshipRequestForm({ user, activePhase }) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-2 duration-500 bg-gray-50/30 p-6 rounded-2xl border border-dashed border-gray-200">
               <FormGroup label="Faculty Full Name">
-                <TextInput
+                <SearchInput
                   placeholder="Proposed Supervisor Name"
                   value={form.newFacultyDetails.name}
-                  onChange={e => setForm({ ...form, newFacultyDetails: { ...form.newFacultyDetails, name: e.target.value } })}
+                  onChange={v => setForm({ ...form, newFacultyDetails: { ...form.newFacultyDetails, name: v } })}
+                  onSelect={item => {
+                    setForm({ 
+                      ...form, 
+                      newFacultyDetails: { 
+                        ...form.newFacultyDetails, 
+                        name: item.name, 
+                        email: item.email 
+                      } 
+                    });
+                    setManualOverrides(prev => ({ ...prev, faculty: false }));
+                  }}
+                  autoSnap={!manualOverrides.faculty}
+                  endpoint="/entities/search-faculty"
                   iconLeft="fa-user"
                   required
                 />
@@ -534,7 +584,10 @@ export default function InternshipRequestForm({ user, activePhase }) {
                   type="email"
                   placeholder="f.name@cuiatd.edu.pk"
                   value={form.newFacultyDetails.email}
-                  onChange={e => setForm({ ...form, newFacultyDetails: { ...form.newFacultyDetails, email: e.target.value } })}
+                  onChange={e => {
+                    setForm({ ...form, newFacultyDetails: { ...form.newFacultyDetails, email: e.target.value } });
+                    setManualOverrides(prev => ({ ...prev, faculty: true }));
+                  }}
                   iconLeft="fa-envelope"
                   required
                 />
@@ -554,7 +607,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
               <div className="md:col-span-3 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-center gap-3">
                 <i className="fas fa-circle-exclamation text-amber-500"></i>
                 <p className="text-[10px] text-amber-800 font-bold tracking-tight">
-                  Note: If the identified faculty is not in the system, a formal invitation will be transmitted. Approval remains pending until they log in and accept your request.
+                  Note: If the identified faculty is not in the system, a formal invitation will be Sent. Approval remains pending until they log in and accept your request.
                 </p>
               </div>
             </div>
@@ -622,7 +675,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
 
         <div className="flex justify-center md:justify-end pt-8 border-t border-gray-100">
           <Button type="submit" variant="primary" loading={loading} className="w-full md:w-auto px-12 py-5 rounded-2xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.2em] border-0 cursor-pointer">
-            Transmit Approval Form <i className="fas fa-paper-plane ml-2"></i>
+            Send Approval Form <i className="fas fa-paper-plane ml-2"></i>
           </Button>
         </div>
       </form>

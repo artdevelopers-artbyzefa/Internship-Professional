@@ -40,8 +40,7 @@ export default function StudentManagement({ user }) {
                 setTotalPages(data.pages);
             }
         } catch (err) {
-            console.error('[FETCH_REGISTRY_ERROR]', err);
-            showToast.error('Failed to load student records.');
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }

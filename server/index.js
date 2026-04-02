@@ -18,35 +18,32 @@ import phasesRoutes from './routes/phases.js';
 import supervisorRoutes from './routes/supervisor.js';
 import evaluationRoutes from './routes/evaluation.js';
 import notificationRoutes from './routes/notifications.js';
+import entitiesRoutes from './routes/entities.js';
+import monitoringRoutes from './routes/monitoring.js';
 import { getPKTTime } from './utils/time.js';
 import { seedPhases } from './routes/phases.js';
+import { logError } from './utils/logger.js';
 
 dotenv.config();
 
 const initDB = async () => {
     try {
-        console.log('[DB] Attempting connection...');
         await mongoose.connect(process.env.MONGODB_URI);
-        console.log('[DB] Connected successfully at startup.');
         await seedPhases();
     } catch (err) {
-        console.error('[DB] Startup Connection Error:', err);
+        await logError(err, null, 'Database Startup Connection Failure');
     }
 };
 
 initDB();
 
-// Auto-reconnect if MongoDB drops mid-session (common on free Atlas tier)
 mongoose.connection.on('disconnected', () => {
-    console.warn('[DB] Disconnected. Attempting auto-reconnect in 3s...');
     setTimeout(() => {
-        mongoose.connect(process.env.MONGODB_URI).catch(e =>
-            console.error('[DB] Auto-reconnect failed:', e.message)
-        );
+        mongoose.connect(process.env.MONGODB_URI).catch(async (e) => await logError(e, null, 'DB Auto-reconnect Failure'));
     }, 3000);
 });
-mongoose.connection.on('error', (err) => {
-    console.error('[DB] Connection error:', err.message);
+mongoose.connection.on('error', async (err) => {
+    await logError(err, null, 'MongoDB Persistent Connection Error');
 });
 
 const app = express();
@@ -68,11 +65,11 @@ app.use(cors({
         }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 app.use(cookieParser());
-app.use(morgan('dev'));
+// Morgan removed for production log silence. All tracking is in System Monitoring.
 app.use(compression());
 
 const connectDB = async (req, res, next) => {
@@ -108,6 +105,8 @@ app.use('/api/phases', phasesRoutes);
 app.use('/api/supervisor', supervisorRoutes);
 app.use('/api/evaluation', evaluationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/entities', entitiesRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 app.use('/health', (req, res) => res.send('DIMS Server is Running'));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -136,14 +135,13 @@ app.get('/api/db-test', async (req, res) => {
     }
 });
 
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception server kept alive:', err.message);
-    console.error(err.stack);
+process.on('uncaughtException', async (err) => {
+    await logError(err, null, 'CRITICAL: Uncaught Exception (Process Exit Path)');
+    setTimeout(() => process.exit(1), 1000);
 });
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Promise Rejection server kept alive:');
-    console.error('Promise:', promise);
-    console.error('Reason:', reason?.stack || reason);
+process.on('unhandledRejection', async (reason) => {
+    const error = reason instanceof Error ? reason : new Error(String(reason));
+    await logError(error, null, 'CRITICAL: Unhandled Promise Rejection');
 });
 
 app.use((req, res) => {
@@ -154,15 +152,13 @@ app.use((req, res) => {
     });
 });
 
-app.use((err, req, res, next) => {
+app.use(async (err, req, res, next) => {
     if (res.headersSent) return next(err);
 
-    console.error(`[ERROR] ${req.method} ${req.originalUrl}`, {
-        message: err.message,
-        code: err.code,
-        user: req.user?.id || 'unauthenticated'
-    });
+    // 1. Log the error to DB
+    await logError(err, req);
 
+    // 2. Classify and handle the response
     if (err.name === 'ValidationError') {
         const fields = Object.keys(err.errors).join(', ');
         return res.status(400).json({ success: false, status: 400, message: `Validation failed for: ${fields}` });
@@ -187,7 +183,7 @@ app.use((err, req, res, next) => {
     res.status(status).json({
         success: false,
         status,
-        message: status >= 500 ? 'Internal server error. Our team has been notified.' : (err.message || 'An error occurred.')
+        message: status >= 500 ? 'Internal server error. Our system monitors have been notified.' : (err.message || 'An error occurred.')
     });
 });
 

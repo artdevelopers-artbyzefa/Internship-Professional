@@ -97,8 +97,8 @@ const RegisteredStudents = memo(({ user }) => {
 
     const tableColumns = useMemo(() => isSupervisor ? [
         { key: 'reg', label: 'Registration #', className: 'hidden md:table-cell' },
-        { 
-            key: 'name', 
+        {
+            key: 'name',
             label: 'Intern Identity',
             render: (v, r) => (
                 <div className="flex flex-col gap-0.5">
@@ -109,9 +109,9 @@ const RegisteredStudents = memo(({ user }) => {
         },
         { key: 'status', label: 'Status', render: () => <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span> }
     ] : [
-        { 
-            key: 'name', 
-            label: 'Student Identity', 
+        {
+            key: 'name',
+            label: 'Student Identity',
             render: (v, r) => (
                 <div className="flex flex-col gap-0.5 py-1">
                     <span className="font-black text-slate-900 leading-tight text-[10px] md:text-sm">{r.name}</span>
@@ -165,8 +165,8 @@ const RegisteredStudents = memo(({ user }) => {
                         </h2>
                         <p className="text-xs sm:text-sm text-slate-600 font-medium mt-0.5">
                             {isSupervisor ? 'Active student placements'
-                                : isFaculty ? 'Faculty supervision roster'
-                                : 'Institutional student registry'}
+                                : isFaculty ? 'Faculty supervision Student'
+                                    : 'Institutional student registry'}
                         </p>
                         {totalResults > 0 && (
                             <div className="flex items-center gap-2 mt-1 sm:mt-2">
@@ -187,8 +187,8 @@ const RegisteredStudents = memo(({ user }) => {
                             placeholder="Search by name or reg..."
                             className="pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 w-full sm:w-64 lg:w-72 transition-all min-h-[44px]" />
                     </div>
-                    <button 
-                        onClick={() => fetchStudents(new AbortController().signal)} 
+                    <button
+                        onClick={() => fetchStudents(new AbortController().signal)}
                         aria-label="Refresh student data"
                         className="min-h-[44px] min-w-[44px] rounded-xl sm:rounded-2xl border border-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors flex-shrink-0">
                         <svg className="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>

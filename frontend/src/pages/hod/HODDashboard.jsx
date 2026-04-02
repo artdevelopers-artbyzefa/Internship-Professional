@@ -43,7 +43,7 @@ export default function HODDashboard() {
           setComStats(commencementData);
         }
       } catch (error) {
-        console.error('HOD Dashboard Error:', error);
+        // Error handled by apiRequest
       } finally {
         setLoading(false);
       }

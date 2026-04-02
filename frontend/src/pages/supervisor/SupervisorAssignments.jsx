@@ -31,7 +31,7 @@ export default function SupervisorAssignments({ user }) {
             const data = await apiRequest('/supervisor/interns');
             setInterns(data);
         } catch (err) {
-            console.error('Failed to load assigned interns:', err);
+            // Error handled by apiRequest
         }
     };
 
@@ -40,7 +40,7 @@ export default function SupervisorAssignments({ user }) {
             const data = await apiRequest('/supervisor/assignments');
             setAssignments(data);
         } catch (err) {
-            console.error('Failed to load published assignments:', err);
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -77,7 +77,7 @@ export default function SupervisorAssignments({ user }) {
             setSelectedFile(null);
             fetchAssignments();
         } catch (err) {
-            console.error('Failed to create project assignment:', err);
+            // Error handled by apiRequest
         }
     };
 
@@ -282,7 +282,7 @@ export default function SupervisorAssignments({ user }) {
                                                                 showToast.success('Assignment purged successfully.');
                                                                 fetchAssignments();
                                                             } catch (err) {
-                                                                console.error('Failed to remove assignment:', err);
+                                                                // Error handled by apiRequest
                                                             }
                                                         }
                                                     }}
