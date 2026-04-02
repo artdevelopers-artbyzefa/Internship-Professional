@@ -44,6 +44,10 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
   const [stats, setStats] = useState({ assignedStudents: 0, pendingRequests: 0 });
   const [interns, setInterns] = useState([]);
   const [selectedInternId, setSelectedInternId] = useState('');
+  const [pendingData, setPendingData] = useState([]);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [loadingPending, setLoadingPending] = useState(false);
   const navigate = useNavigate();
 
   const isSupervisorPortal = user.role === 'site_supervisor';
@@ -56,7 +60,22 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
     else fetchAllPhases();
     fetchStats();
     if (isSupervisorPortal) fetchInterns();
-  }, [propPhase]);
+    if (activePhase?.order >= 3) fetchPending(1);
+  }, [propPhase, activePhase?.order]);
+
+  const fetchPending = async (p = 1) => {
+    setLoadingPending(true);
+    try {
+      const data = await apiRequest(`${basePath}/pending-grading?page=${p}&limit=5`);
+      setPendingData(data.data || []);
+      setPendingTotal(data.total || 0);
+      setPendingPage(p);
+    } catch (err) {
+      setPendingData([]);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
 
   const fetchInterns = async () => {
     try {
@@ -117,11 +136,11 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">
-            {isSupervisorPortal ? 'Industrial Mentor Dashboard' : 'Academic Supervisor Dashboard'}
+            {isSupervisorPortal ? ' Mentor Dashboard' : 'Academic Supervisor Dashboard'}
           </h2>
           <p className="text-sm text-gray-500 font-medium mt-1">
             {isSupervisorPortal
-              ? 'Institutional partnership and industrial mentorship management.'
+              ? 'Institutional partnership and  mentorship management.'
               : 'Academic oversight and evaluation management for assigned interns.'}
           </p>
         </div>
@@ -157,7 +176,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
       <NoticeModal />
 
       {/* ── Quick Access Actions ── */}
-      {!isSupervisorPortal ? (
+      {!isSupervisorPortal && activePhase?.order < 3 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div
             onClick={() => navigate(`${basePath}/${requestPath}`)}
@@ -191,7 +210,7 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
             <i className="fas fa-arrow-right text-gray-200 group-hover:text-indigo-500 transition-colors"></i>
           </div>
         </div>
-      ) : (
+      ) : isSupervisorPortal && (
         <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -363,7 +382,89 @@ export default function FacultyDashboard({ user, activePhase: propPhase }) {
         </div>
       )}
 
-      {!isLocked && (
+      {(!isLocked && activePhase?.order >= 3) && (
+        <Card className="!rounded-[2.5rem] p-8 border-gray-100 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center">
+                <i className="fas fa-clock" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-800">Tasks Awaiting Your Evaluation</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{pendingTotal} Submissions Pending</p>
+              </div>
+            </div>
+            {pendingTotal > 5 && (
+              <div className="flex items-center gap-2">
+                <button 
+                   disabled={pendingPage === 1 || loadingPending}
+                   onClick={() => fetchPending(pendingPage - 1)}
+                   className="w-8 h-8 rounded-lg border border-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-50 disabled:opacity-30"
+                >
+                  <i className="fas fa-chevron-left text-[10px]" />
+                </button>
+                <span className="text-[10px] font-black text-gray-400 mx-2">{pendingPage} / {Math.ceil(pendingTotal / 5)}</span>
+                <button 
+                   disabled={pendingPage >= Math.ceil(pendingTotal / 5) || loadingPending}
+                   onClick={() => fetchPending(pendingPage + 1)}
+                   className="w-8 h-8 rounded-lg border border-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-50 disabled:opacity-30"
+                >
+                  <i className="fas fa-chevron-right text-[10px]" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            {loadingPending ? (
+              <div className="py-12 flex justify-center"><div className="w-6 h-6 border-2 border-gray-100 border-t-orange-500 rounded-full animate-spin" /></div>
+            ) : pendingData.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <i className="fas fa-check" />
+                </div>
+                <h4 className="text-sm font-black text-gray-800">All caught up!</h4>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">No unmarked submissions found</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-50">
+                    <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student</th>
+                    <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Assignment</th>
+                    <th className="pb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingData.map((mark) => (
+                    <tr key={mark._id} className="group transition-all hover:bg-gray-50">
+                      <td className="py-4">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-gray-800">{mark.student?.name}</span>
+                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{mark.student?.reg}</span>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <span className="text-xs font-semibold text-gray-600">{mark.assignment?.title}</span>
+                      </td>
+                      <td className="py-4 text-right">
+                        <button 
+                          onClick={() => navigate(`${basePath}/evaluation?studentId=${mark.student?._id}`)}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all border-0 cursor-pointer"
+                        >
+                          Grade Now
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {(!isLocked && activePhase?.order < 3) && (
         <div className="opacity-60 transition-opacity hover:opacity-100">
           <StatsGrid stats={[
             { icon: 'fa-users', cls: 'blue', val: stats.assignedStudents, label: 'Assigned Students' },

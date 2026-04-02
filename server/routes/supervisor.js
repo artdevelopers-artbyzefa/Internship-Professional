@@ -19,6 +19,51 @@ const isSiteSupervisor = (req, res, next) => {
     next();
 };
 
+// @route   GET api/supervisor/pending-grading
+router.get('/pending-grading', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
+
+    const userEmail = req.user.email.toLowerCase();
+    const escapeRegex = (s) => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+    const nameRegex = new RegExp(escapeRegex(req.user.name.trim()), 'i');
+
+    const students = await User.find({
+        role: 'student',
+        $or: [
+            { assignedSiteSupervisor: req.user._id },
+            { assignedCompanySupervisorEmail: userEmail },
+            { 'internshipRequest.siteSupervisorEmail': userEmail },
+            { 'internshipAgreement.companySupervisorEmail': userEmail },
+            { assignedCompanySupervisor: { $regex: nameRegex } }
+        ]
+    }).select('_id').lean();
+
+    const studentIds = students.map(s => s._id);
+
+    const query = { 
+        student: { $in: studentIds },
+        isSiteSupervisorGraded: false 
+    };
+
+    const count = await Mark.countDocuments(query);
+    const marks = await Mark.find(query)
+        .populate('student', 'name reg')
+        .populate('assignment', 'title')
+        .limit(limit)
+        .skip(skip)
+        .sort({ createdAt: -1 })
+        .lean();
+
+    res.json({
+        data: marks,
+        total: count,
+        page,
+        pages: Math.ceil(count / limit)
+    });
+}));
+
 // @route   GET api/supervisor/profile
 router.get('/profile', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id);
@@ -128,13 +173,13 @@ router.post('/assignments', protect, isSiteSupervisor, uploadCloudinary.single('
     const assignment = new Assignment({
         title, description, startDate, deadline, totalMarks: 10,
         targetStudents: students, fileUrl: req.file ? req.file.path : null,
-        createdBy: req.user.id, courseTitle: 'Industrial Task'
+        createdBy: req.user.id, courseTitle: '  Task'
     });
 
     await assignment.save();
 
     for (const sId of students) {
-        await createNotification({ recipient: sId, sender: req.user.id, type: 'assignment_submission', title: 'New Industrial Task', message: `${req.user.name} posted: "${title}".`, link: '/student/assignments' });
+        await createNotification({ recipient: sId, sender: req.user.id, type: 'assignment_submission', title: 'New   Task', message: `${req.user.name} posted: "${title}".`, link: '/student/assignments' });
     }
     res.status(201).json(assignment);
 }));
@@ -171,7 +216,7 @@ router.post('/grade', protect, isSiteSupervisor, asyncHandler(async (req, res) =
     await mark.save();
 
     const assignment = await Assignment.findById(assignmentId);
-    await createNotification({ recipient: studentId, sender: req.user.id, type: 'assignment_submission', title: 'Task Graded (Industrial)', message: `Your site supervisor graded "${assignment?.title || 'task'}".`, link: '/student/marks' });
+    await createNotification({ recipient: studentId, sender: req.user.id, type: 'assignment_submission', title: 'Task Graded ( )', message: `Your site supervisor graded "${assignment?.title || 'task'}".`, link: '/student/marks' });
     res.json(mark);
 }));
 
@@ -234,14 +279,14 @@ router.get('/student-grades', protect, isSiteSupervisor, asyncHandler(async (req
         else if (pct >= 54) grade = 'D+';
         else if (pct >= 50) grade = 'D';
 
-        results.push({ 
-            student: { id: s._id, name: s.name, reg: s.reg }, 
-            company: s.assignedCompany || 'N/A', 
-            assignmentsCount: marks.length, 
-            averageMarks: avg.toFixed(2), 
-            percentage: pct, 
-            grade, 
-            status: pct >= 50 ? 'Pass' : 'Fail' 
+        results.push({
+            student: { id: s._id, name: s.name, reg: s.reg },
+            company: s.assignedCompany || 'N/A',
+            assignmentsCount: marks.length,
+            averageMarks: avg.toFixed(2),
+            percentage: pct,
+            grade,
+            status: pct >= 50 ? 'Pass' : 'Fail'
         });
     }
 
@@ -251,6 +296,82 @@ router.get('/student-grades', protect, isSiteSupervisor, asyncHandler(async (req
         page,
         pages: Math.ceil(total / limit)
     });
+}));
+
+// @route   GET api/supervisor/weekly-evaluations/:studentId
+router.get('/weekly-evaluations/:studentId', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    // Ensure this student is assigned to this supervisor
+    const userEmail = req.user.email.toLowerCase().trim();
+    const escapeRegex = (s) => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+    const nameRegex = new RegExp(escapeRegex(req.user.name.trim()), 'i');
+    
+    const isAssigned = await User.exists({
+        _id: req.params.studentId,
+        $or: [
+            { assignedSiteSupervisor: req.user.id },
+            { assignedCompanySupervisorEmail: userEmail },
+            { 'internshipRequest.siteSupervisorEmail': userEmail },
+            { 'internshipAgreement.companySupervisorEmail': userEmail },
+            { assignedCompanySupervisor: { $regex: nameRegex } }
+        ]
+    });
+
+    if (!isAssigned) return res.status(403).json({ message: 'Access denied. Student not assigned to you.' });
+
+    const [marks, submissions] = await Promise.all([
+        Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline fileUrl'),
+        Submission.find({ student: req.params.studentId }).select('assignment fileUrl fileName')
+    ]);
+
+    const consolidated = marks
+        .filter(m => m.assignment)
+        .map(m => {
+            const sub = submissions.find(s => s.assignment.toString() === m.assignment._id.toString());
+            return {
+                ...m.toObject(),
+                submission: sub ? { fileUrl: sub.fileUrl, fileName: sub.fileName } : null
+            };
+        });
+
+    res.json(consolidated);
+}));
+
+// @route   POST api/supervisor/weekly-evaluations/:studentId
+router.post('/weekly-evaluations/:studentId', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    const { grades } = req.body;
+
+    for (const grade of grades) {
+        if (!grade.markId || grade.siteSupervisorMarks === null || grade.siteSupervisorMarks === undefined || grade.siteSupervisorMarks === '') continue;
+
+        const mark = await Mark.findById(grade.markId);
+        if (mark && mark.student.toString() === req.params.studentId) {
+            // Sites supervisor can always update their marks unless finalized by faculty? 
+            // Usually site supervisor marks are the first step.
+            
+            mark.siteSupervisorMarks = Number(grade.siteSupervisorMarks);
+            mark.siteSupervisorRemarks = grade.remarks || mark.siteSupervisorRemarks;
+            mark.isSiteSupervisorGraded = true;
+            mark.siteSupervisorId = req.user.id;
+            mark.history.push({
+                marks: Number(grade.siteSupervisorMarks),
+                remarks: grade.remarks,
+                role: 'site_supervisor',
+                updatedBy: req.user.id
+            });
+            await mark.save();
+
+            await createNotification({
+                recipient: req.params.studentId,
+                sender: req.user.id,
+                type: 'assignment_submission',
+                title: 'Task Evaluated (Mentor)',
+                message: `Your task performance has been evaluated by your site supervisor ${req.user.name}.`,
+                link: '/student/marks'
+            });
+        }
+    }
+
+    res.json({ message: 'Grades updated successfully' });
 }));
 
 export default router;

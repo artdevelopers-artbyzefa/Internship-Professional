@@ -46,7 +46,14 @@ export default function FacultyPortal({ user, onLogout, onUpdateUser }) {
   const currentPhaseOrder = activePhase ? activePhase.order : 1;
   const isPhase4 = currentPhaseOrder >= 4;
 
-  const currentPath = location.pathname.split('/').pop() || 'dashboard';
+  const rawPath = location.pathname.split('/').filter(Boolean).pop() || 'dashboard';
+  const cleanPath = rawPath.split('?')[0];
+
+  // Map aliases to sidebar IDs
+  const currentPath = 
+    ['add-marks', 'evaluation', 'grading', 'evaluations'].includes(cleanPath) ? 'grading' :
+    ['students', 'registered-students', 'assignment-students'].includes(cleanPath) ? 'students' : 
+    cleanPath;
 
   const handlePageChange = (newPageId) => {
     navigate(`/faculty/${newPageId}`);

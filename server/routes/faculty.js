@@ -1,4 +1,5 @@
 import express from 'express';
+import ExcelJS from 'exceljs';
 import path from 'path';
 import archiver from 'archiver';
 import User from '../models/User.js';
@@ -100,6 +101,37 @@ router.post('/handle-request', protect, isFaculty, asyncHandler(async (req, res)
     }).save();
 
     res.json({ message: `Request ${action.toLowerCase()}ed successfully` });
+}));
+
+// @route   GET api/faculty/pending-grading
+router.get('/pending-grading', protect, asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
+
+    const students = await User.find({ assignedFaculty: req.user.id }).select('_id').lean();
+    const studentIds = students.map(s => s._id);
+
+    const query = { 
+        student: { $in: studentIds },
+        isFacultyGraded: false 
+    };
+
+    const count = await Mark.countDocuments(query);
+    const marks = await Mark.find(query)
+        .populate('student', 'name reg')
+        .populate('assignment', 'title')
+        .limit(limit)
+        .skip(skip)
+        .sort({ createdAt: -1 })
+        .lean();
+
+    res.json({
+        data: marks,
+        total: count,
+        page,
+        pages: Math.ceil(count / limit)
+    });
 }));
 
 // @route   GET api/faculty/assignments
@@ -489,7 +521,7 @@ router.get('/student-profile/:id', protect, isFaculty, asyncHandler(async (req, 
 
 router.get('/weekly-evaluations/:studentId', protect, isFaculty, asyncHandler(async (req, res) => {
     const [marks, submissions] = await Promise.all([
-        Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline'),
+        Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline fileUrl'),
         Submission.find({ student: req.params.studentId }).select('assignment fileUrl fileName')
     ]);
 
@@ -516,15 +548,14 @@ router.post('/weekly-evaluations/:studentId', protect, isFaculty, asyncHandler(a
 
         const mark = await Mark.findById(grade.markId);
         if (mark && mark.student.toString() === req.params.studentId) {
-            if (mark.isFacultyGraded) continue;
-
             mark.facultyMarks = Number(grade.facultyMarks);
             mark.isFacultyGraded = true;
             mark.facultyId = req.user.id;
             mark.history.push({
                 marks: Number(grade.facultyMarks),
                 role: 'faculty_supervisor',
-                updatedBy: req.user.id
+                updatedBy: req.user.id,
+                updatedAt: new Date()
             });
             await mark.save();
 
@@ -619,6 +650,173 @@ router.get('/report-data/:type', protect, isFaculty, asyncHandler(async (req, re
     }
 
     res.json(payload);
+}));
+
+// @route   GET api/faculty/mark-sheet/bulk
+router.get('/mark-sheet/bulk', protect, asyncHandler(async (req, res) => {
+    let query = {};
+    if (req.user.role === 'faculty_supervisor') {
+        query = { assignedFaculty: req.user.id };
+    } else if (req.user.role === 'site_supervisor') {
+        const sup = await SiteSupervisor.findOne({ user: req.user.id });
+        if (!sup) return res.status(404).json({ message: 'Supervisor profile not found' });
+        query = { assignedSiteSupervisor: sup._id };
+    } else if (['internship_office', 'hod'].includes(req.user.role)) {
+        query = { role: 'student' }; // Only students
+    } else {
+        return res.status(403).json({ message: 'Access denied.' });
+    }
+
+    const students = await User.find(query).select('_id').lean();
+    const studentIds = students.map(s => s._id);
+
+    // Set headers for download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Internal_Master_MarkSheet.xlsx"`);
+
+    // Use Streaming WorkbookWriter for huge datasets
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+        stream: res,
+        useStyles: true,
+        useSharedStrings: true
+    });
+
+    const worksheet = workbook.addWorksheet('Master Ledger');
+
+    worksheet.columns = [
+        { header: 'Student Name', key: 'name', width: 25 },
+        { header: 'Registration #', key: 'reg', width: 20 },
+        { header: 'Task Title', key: 'title', width: 35 },
+        { header: 'Site Marks', key: 'site', width: 15 },
+        { header: 'Faculty Marks', key: 'faculty', width: 15 },
+        { header: 'Combined (/10)', key: 'combined', width: 15 }
+    ];
+
+    // Style the header row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+    headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '003366' } };
+        cell.alignment = { horizontal: 'center' };
+    });
+    headerRow.commit(); // Commit header row
+
+    // Use a Cursor for memory efficiency
+    const markCursor = Mark.find({ student: { $in: studentIds } })
+        .populate('assignment', 'title')
+        .populate('student', 'name reg internshipRequest assignedCompanySupervisor')
+        .lean()
+        .cursor();
+
+    for (let m = await markCursor.next(); m != null; m = await markCursor.next()) {
+        if (!m.assignment || !m.student) continue;
+
+        const student = m.student;
+        const isFreelance = student.internshipRequest?.mode === 'Freelance' || !student.assignedCompanySupervisor;
+        const sScore = m.siteSupervisorMarks || 0;
+        const fScore = m.facultyMarks || 0;
+        const combined = isFreelance ? fScore : (sScore + fScore) / 2;
+
+        const row = worksheet.addRow({
+            name: student.name,
+            reg: student.reg,
+            title: m.assignment.title,
+            site: isFreelance ? 'FREELANCE' : sScore,
+            faculty: fScore,
+            combined: combined.toFixed(1)
+        });
+
+        row.eachCell((cell, colNumber) => {
+            if (colNumber > 2) cell.alignment = { horizontal: 'center' };
+        });
+        row.commit(); // Commit row to stream immediately
+    }
+
+    await workbook.commit(); // Finalize workbook
+    res.end();
+}));
+
+// @route   GET api/faculty/mark-sheet/:studentId
+router.get('/mark-sheet/:studentId', protect, asyncHandler(async (req, res) => {
+    // Roles allowed to download mark sheets
+    if (!['faculty_supervisor', 'site_supervisor', 'internship_office', 'hod'].includes(req.user.role)) {
+        return res.status(403).json({ message: 'Access denied.' });
+    }
+
+    const student = await User.findById(req.params.studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    const marks = await Mark.find({ student: req.params.studentId }).populate('assignment');
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Mark Sheet');
+
+    // Headers with Styling
+    worksheet.columns = [
+        { header: 'Task Title', key: 'title', width: 35 },
+        { header: 'Site Supervisor Marks', key: 'site', width: 25 },
+        { header: 'Faculty Marks', key: 'faculty', width: 25 },
+        { header: 'Combined Score (/10)', key: 'combined', width: 25 }
+    ];
+
+    // Info rows
+    worksheet.spliceRows(1, 0, 
+        [`Professional Internship Performance Ledger - ${student.name}`],
+        [`Registration Number: ${student.reg}`],
+        [`Current Status: ${student.status}`],
+        []
+    );
+
+    // Styling the header
+    worksheet.mergeCells('A1:D1');
+    worksheet.getCell('A1').font = { bold: true, size: 16, color: { argb: '003366' } };
+    worksheet.getCell('A1').alignment = { horizontal: 'center' };
+
+    // Styling table headers (now at row 5)
+    worksheet.getRow(5).font = { bold: true, color: { argb: 'FFFFFF' } };
+    worksheet.getRow(5).eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+        cell.alignment = { horizontal: 'center' };
+    });
+
+    let totalObtained = 0;
+    let validCount = 0;
+
+    marks.filter(m => m.assignment).forEach(m => {
+        const isFreelance = student.internshipRequest?.mode === 'Freelance' || !student.assignedCompanySupervisor;
+        const sScore = m.siteSupervisorMarks || 0;
+        const fScore = m.facultyMarks || 0;
+        const combined = isFreelance ? fScore : (sScore + fScore) / 2;
+
+        const row = worksheet.addRow({
+            title: m.assignment.title,
+            site: isFreelance ? 'FREELANCE' : sScore,
+            faculty: fScore,
+            combined: combined.toFixed(1)
+        });
+
+        row.eachCell((cell, colNumber) => {
+            if (colNumber > 1) cell.alignment = { horizontal: 'center' };
+        });
+
+        totalObtained += combined;
+        validCount++;
+    });
+
+    worksheet.addRow([]);
+    const avg = validCount > 0 ? totalObtained / validCount : 0;
+    const pct = Math.round((avg / 10) * 100);
+
+    const summaryRow = worksheet.addRow(['', '', 'Total Ongoing Grade', `${pct}%`]);
+    summaryRow.font = { bold: true, size: 12 };
+    summaryRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EBF1DE' } };
+    summaryRow.getCell(4).alignment = { horizontal: 'center' };
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${student.reg}_MarkSheet.xlsx"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
 }));
 
 export default router;

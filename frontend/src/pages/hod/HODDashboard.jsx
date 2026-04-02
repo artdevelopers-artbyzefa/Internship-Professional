@@ -287,7 +287,7 @@ export default function HODDashboard() {
             </div>
             <div>
               <h3 className="text-base md:text-lg font-black text-gray-800">Internship Commencement Analytics</h3>
-              <p className="text-[10px] md:text-sm text-gray-400 font-medium tracking-tight">Active tracking of industrial engagement and evaluation progress.</p>
+              <p className="text-[10px] md:text-sm text-gray-400 font-medium tracking-tight">Active tracking of   engagement and evaluation progress.</p>
             </div>
           </div>
 

@@ -38,13 +38,13 @@ function SupervisorRow({ sup, onEdit, onDelete }) {
             <td className="px-6 py-6">
                 <div className="flex flex-col gap-1">
                     <span className="text-[11px] text-slate-600 font-bold flex items-center gap-2">
-                         <i className="fas fa-envelope text-primary/40 text-[9px]"></i>
-                         {sup.email || 'No email provided'}
+                        <i className="fas fa-envelope text-primary/40 text-[9px]"></i>
+                        {sup.email || 'No email provided'}
                     </span>
                     {sup.whatsappNumber && (
                         <span className="text-[10px] text-slate-400 font-black tracking-tight flex items-center gap-2">
-                           <i className="fab fa-whatsapp text-emerald-400 text-[10px]"></i>
-                           {sup.whatsappNumber}
+                            <i className="fab fa-whatsapp text-emerald-400 text-[10px]"></i>
+                            {sup.whatsappNumber}
                         </span>
                     )}
                 </div>
@@ -231,7 +231,7 @@ export default function SiteSupervisorManagement({ user }) {
                         </div>
                         <div>
                             <h2 className="text-3xl font-black text-slate-800 tracking-tight">Site Supervisors</h2>
-                            <p className="text-xs text-slate-400 font-bold mt-1">Industrial Mentors & Institutional Partners</p>
+                            <p className="text-xs text-slate-400 font-bold mt-1">  Mentors & Institutional Partners</p>
                         </div>
                     </div>
                 </div>

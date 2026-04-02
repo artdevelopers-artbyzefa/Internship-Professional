@@ -276,11 +276,23 @@ router.post('/supervisor-set-password', asyncHandler(async (req, res) => {
 // @route   GET api/auth/download-proxy
 router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
     const { url, filename } = req.query;
-    if (!url) return res.status(400).json({ message: 'URL required' });
-    let target = decodeURIComponent(url);
+    if (!url) {
+        console.error('Download Proxy Error: Missing URL');
+        return res.status(400).json({ message: 'URL required' });
+    }
 
-    let response = await fetch(target);
-    if (!response.ok && target.includes('cloudinary.com/dos6h3v5l')) {
+    let target = url; // Standard fetch usually prefers the encoded URL anyway
+    let response;
+    
+    try {
+        response = await fetch(target);
+    } catch (fetchErr) {
+        console.error('Download Proxy Fetch Failure:', fetchErr.message);
+        return res.redirect(target);
+    }
+
+    if (!response.ok && target.includes('cloudinary.com')) {
+        // Cloudinary Fallback Logic
         const parts = target.split('/');
         const uploadIdx = parts.indexOf('upload');
         if (uploadIdx > -1) {
@@ -296,6 +308,7 @@ router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
                     response = await fetch(target);
                 }
             } catch (e) {
+                // Secondary fallback: Convert /image/ to /raw/ if it ends with .pdf
                 if (resType === 'image' && target.toLowerCase().endsWith('.pdf')) {
                     const rawT = target.replace('/image/upload/', '/raw/upload/');
                     const rawResp = await fetch(rawT);
@@ -305,10 +318,21 @@ router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
         }
     }
 
-    if (!response.ok) return res.redirect(target);
+    if (!response || !response.ok) {
+        console.warn('Download Proxy: Target still failing after fallback, redirecting to raw target', target);
+        return res.redirect(target);
+    }
 
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${(filename || 'Document').replace(/[^\x00-\x7F]/g, "").replace(/["\s]/g, "_")}.pdf"`);
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    
+    // Sanitize filename and try to keep extension if possible
+    let cleanFilename = (filename || 'Document').replace(/[^\x00-\x7F]/g, "").replace(/["\s]/g, "_");
+    if (!cleanFilename.toLowerCase().endsWith('.pdf') && contentType.includes('pdf')) {
+        cleanFilename += '.pdf';
+    }
+    
+    res.setHeader('Content-Disposition', `attachment; filename="${cleanFilename}"`);
     res.send(Buffer.from(await response.arrayBuffer()));
 }));
 

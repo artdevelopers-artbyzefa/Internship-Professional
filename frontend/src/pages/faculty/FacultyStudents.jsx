@@ -16,6 +16,36 @@ export default function FacultyStudents({ user }) {
   const [gradeMap, setGradeMap] = useState({});
   const navigate = useNavigate();
 
+  const handleDownloadMarkSheet = async (id, reg) => {
+    try {
+      const blob = await apiRequest(`/faculty/mark-sheet/${id}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${reg}_MarkSheet.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast.success('Mark sheet generated successfully.');
+    } catch (err) { }
+  };
+
+  const handleBulkDownload = async () => {
+    try {
+      const blob = await apiRequest('/faculty/mark-sheet/bulk', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Faculty_Master_Ledger.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast.success('Master report generated successfully.');
+    } catch (err) { }
+  };
+
   useEffect(() => {
     fetchStudents();
     if (user?.role !== 'site_supervisor') {
@@ -25,7 +55,7 @@ export default function FacultyStudents({ user }) {
           (d?.tableData || []).forEach(row => { map[row[0]] = { grade: row[5], pct: row[4], status: row[6] }; });
           setGradeMap(map);
         })
-        .catch((err) => { 
+        .catch((err) => {
           // Error handled by apiRequest
         });
     }
@@ -56,18 +86,27 @@ export default function FacultyStudents({ user }) {
           <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Assigned Students</h2>
           <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">
             {user?.role === 'site_supervisor'
-              ? 'Registry of interns under your industrial mentorship.'
+              ? 'Registry of interns under your  mentorship.'
               : 'Registry of interns under your academic supervision.'}
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <SearchBar 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            placeholder="Search students..." 
-            className="flex-1 md:min-w-[280px]" 
+          <SearchBar
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search students..."
+            className="flex-1 md:min-w-[280px]"
           />
-          <Button variant="outline" size="sm" onClick={fetchStudents} className="p-3" disabled={loading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkDownload}
+            className="h-10 px-5 whitespace-nowrap !font-black !text-[9px] !uppercase !tracking-widest"
+          >
+            <i className="fas fa-file-excel text-xs"></i>
+            <span className="hidden sm:inline"> Mark Sheet</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchStudents} className="min-h-[44px] min-w-[44px] rounded-xl border border-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors" disabled={loading}>
             <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`}></i>
           </Button>
         </div>
@@ -83,23 +122,23 @@ export default function FacultyStudents({ user }) {
             <i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i>
           </div>
         ) : (
-          <DataTable 
+          <DataTable
             data={filtered}
             columns={[
               { label: 'Name', key: 'name', render: (val) => <strong>{val}</strong> },
               { label: 'Reg. No.', key: 'reg' },
-              { 
-                label: 'Company', 
-                key: 'company', 
+              {
+                label: 'Company',
+                key: 'company',
                 render: (val, row) => row.isFreelance ? (
                   <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full font-bold text-[10px] whitespace-nowrap">
                     <i className="fas fa-laptop-code mr-1"></i>{val}
                   </span>
-                ) : val 
+                ) : val
               },
-              { 
-                label: 'Grade', 
-                key: 'reg', 
+              {
+                label: 'Grade',
+                key: 'reg',
                 render: (reg) => {
                   const g = gradeMap[reg];
                   if (!g || g.grade === 'N/A') return <span className="text-gray-300 text-xs font-bold">—</span>;
@@ -113,19 +152,40 @@ export default function FacultyStudents({ user }) {
                 }
               },
               { label: 'Status', key: 'status', render: (val) => <StatusBadge status={val} /> },
-              { 
-                label: 'Action', 
-                key: '_id', 
-                render: (id, row) => (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => navigate(`/faculty/students/${id || row.id}`)}
-                    className="rounded-xl font-bold uppercase tracking-widest text-[9px]"
-                  >
-                    <i className="fas fa-eye mr-1"></i> Profile
-                  </Button>
-                )
+              {
+                label: 'Action',
+                key: '_id',
+                render: (id, row) => {
+                  const rolePath = user?.role === 'site_supervisor' ? 'supervisor' : 'faculty';
+                  return (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/${rolePath}/students/${id || row.id}`)}
+                        className="rounded-xl font-black text-[10px] !bg-gray-50 !text-gray-500 !border-gray-100 hover:!bg-gray-100 whitespace-nowrap"
+                      >
+                        Profile
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => navigate(`/${rolePath}/evaluation?studentId=${id || row.id}`)}
+                        className="rounded-xl font-black text-[10px] whitespace-nowrap"
+                      >
+                        Evaluation
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadMarkSheet(id || row.id, row.reg)}
+                        className="rounded-xl font-black text-[10px] !bg-gray-50 !text-gray-500 !border-gray-100 hover:!bg-gray-100 whitespace-nowrap"
+                      >
+                        Mark sheet
+                      </Button>
+                    </div>
+                  );
+                }
               }
             ]}
           />

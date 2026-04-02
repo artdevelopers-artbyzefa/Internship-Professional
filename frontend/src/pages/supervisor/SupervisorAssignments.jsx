@@ -237,7 +237,7 @@ export default function SupervisorAssignments({ user }) {
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-gray-800">No Assignments Yet</h3>
-                            <p className="text-sm text-gray-500 font-medium">You haven't assigned any industrial tasks to your interns yet.</p>
+                            <p className="text-sm text-gray-500 font-medium">You haven't assigned any   tasks to your interns yet.</p>
                         </div>
                     </div>
                 ) : (

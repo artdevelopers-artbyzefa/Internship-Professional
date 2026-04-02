@@ -41,6 +41,38 @@ const RegisteredStudents = memo(({ user }) => {
     const isFaculty = user?.role === 'faculty_supervisor';
     const isOffice = user?.role === 'internship_office';
 
+    const handleDownloadMarkSheet = async (id, name, reg) => {
+        try {
+            const blob = await apiRequest(`/faculty/mark-sheet/${id}`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${reg}_MarkSheet.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showToast.success('Mark sheet generated successfully.');
+        } catch (err) {
+            // Error managed by apiRequest
+        }
+    };
+
+    const handleBulkDownload = async () => {
+        try {
+            const blob = await apiRequest('/faculty/mark-sheet/bulk', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Faculty_Master_Ledger.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showToast.success('Master report generated successfully.');
+        } catch (err) {}
+    };
+
     useEffect(() => {
         const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 350);
         return () => clearTimeout(t);
@@ -107,7 +139,40 @@ const RegisteredStudents = memo(({ user }) => {
                 </div>
             )
         },
-        { key: 'status', label: 'Status', render: () => <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span> }
+        {
+            key: 'status',
+            label: 'Status',
+            render: () => <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span>
+        },
+        {
+            label: 'Action',
+            key: 'action',
+            render: (_, r) => {
+                const rolePath = user?.role === 'site_supervisor' ? 'supervisor' : 'faculty';
+                return (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => navigate(`/${rolePath}/students/${r._id || r.id}`)}
+                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                        >
+                            Profile
+                        </button>
+                        <button
+                            onClick={() => navigate(`/${rolePath}/evaluation?studentId=${r._id || r.id}`)}
+                            className="h-7 px-3 rounded-lg text-[10px] font-bold bg-secondary text-white hover:bg-black transition-all cursor-pointer whitespace-nowrap border-0"
+                        >
+                            Evaluation
+                        </button>
+                        <button
+                            onClick={() => handleDownloadMarkSheet(r._id || r.id, r.name, r.reg)}
+                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                        >
+                            Mark sheet
+                        </button>
+                    </div>
+                );
+            }
+        }
     ] : [
         {
             key: 'name',
@@ -147,6 +212,29 @@ const RegisteredStudents = memo(({ user }) => {
             key: 'status',
             label: 'Placement Status',
             render: (v, r) => <StatusBadge status={r.status} isFreelance={r.internshipRequest?.mode === 'Freelance'} hasFaculty={!!r.assignedFaculty} hasSiteSup={r.internshipRequest?.mode === 'Freelance' || !!(r.assignedSiteSupervisor || r.assignedCompanySupervisor)} />
+        },
+        {
+            label: 'Action',
+            key: 'action',
+            render: (_, r) => {
+                const rolePath = user?.role === 'site_supervisor' ? 'supervisor' : 'faculty';
+                return (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => navigate(`/${rolePath}/students/${r._id || r.id}`)}
+                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                        >
+                            Profile
+                        </button>
+                        <button
+                            onClick={() => handleDownloadMarkSheet(r._id || r.id, r.name, r.reg)}
+                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                        >
+                            Mark sheet
+                        </button>
+                    </div>
+                );
+            }
         }
     ], [isSupervisor]);
 
@@ -185,8 +273,17 @@ const RegisteredStudents = memo(({ user }) => {
                         <input type="text" value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Search by name or reg..."
-                            className="pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 w-full sm:w-64 lg:w-72 transition-all min-h-[44px]" />
+                             className="pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 w-full sm:w-64 lg:w-72 transition-all min-h-[44px]" />
                     </div>
+                    {(isSupervisor || isFaculty) && (
+                        <button
+                            onClick={handleBulkDownload}
+                            className="h-10 px-5 flex items-center gap-2 whitespace-nowrap bg-transparent text-secondary border border-secondary hover:bg-slate-50 font-poppins rounded-xl transition-all duration-200 cursor-pointer font-black text-[9px] uppercase tracking-widest flex-shrink-0"
+                        >
+                            <i className="fas fa-file-excel text-xs"></i>
+                            <span className="hidden sm:inline">Master Mark Sheet</span>
+                        </button>
+                    )}
                     <button
                         onClick={() => fetchStudents(new AbortController().signal)}
                         aria-label="Refresh student data"

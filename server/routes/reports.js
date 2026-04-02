@@ -7,6 +7,10 @@ import { getPKTTime, getPKTDate } from '../utils/time.js';
 import { protect } from '../middleware/auth.js';
 import ExcelJS from 'exceljs';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import User from '../models/User.js';
+import Mark from '../models/Mark.js';
+import Assignment from '../models/Assignment.js';
+import Company from '../models/Company.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -321,101 +325,228 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
 }));
 
 // @route   POST api/reports/hod-excel-report
-// @desc    Generate the full HOD Institutional Audit Excel workbook
+// @desc    Generate a heavy-duty Institutional Audit Excel workbook with multi-sheet analytics
 router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
-    const { stats, tables } = req.body;
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'DIMS — COMSATS CUI Abbottabad';
+    workbook.creator = 'DIMS — Institutional Reporting';
+    workbook.lastModifiedBy = 'HOD Portal';
     workbook.created = new Date();
 
+    // 🎨 Theme Definitions
     const NAVY = { argb: 'FF1E3A8A' };
     const WHITE = { argb: 'FFFFFFFF' };
-    const GREEN = { argb: 'FF059669' };
-    const RED = { argb: 'FFDC2626' };
-    const AMBER = { argb: 'FFD97706' };
-    const LIGHT = { argb: 'FFF8FAFC' };
+    const GOLD = { argb: 'FFFFD700' };
+    const LIGHT_BLUE = { argb: 'FFEFF6FF' };
+    const BORDER = { style: 'thin', color: { argb: 'FFE2E8F0' } };
 
-    const styleHeader = (ws, rowNum) => {
-        const r = ws.getRow(rowNum);
-        r.font = { bold: true, color: WHITE, size: 10 };
-        r.fill = { type: 'pattern', pattern: 'solid', fgColor: NAVY };
-        r.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-        r.height = 32;
+    const styleHeader = (ws, rowIdx) => {
+        const row = ws.getRow(rowIdx);
+        row.font = { bold: true, color: WHITE, size: 10 };
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: NAVY };
+        row.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        row.height = 30;
     };
 
-    const styleAltRow = (r, idx) => {
-        if (idx % 2 !== 0) {
-            r.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT }; });
+    // 1. DATA AGGREGATION ──────────────────────────────────────────────────
+    // Fetch everything needed for deep analysis
+    const [students, allMarks, assignments, supervisors, faculty] = await Promise.all([
+        User.find({ role: 'student' }).populate('assignedFaculty', 'name email').populate('assignedSiteSupervisor', 'name email').lean(),
+        Mark.find({}).lean(),
+        Assignment.find({}).lean(),
+        User.find({ role: 'site_supervisor' }).lean(),
+        User.find({ role: 'faculty_supervisor' }).lean()
+    ]);
+
+    const activeAssignmentsCount = assignments.length;
+
+    // 📊 Processing Logic
+    const studentStats = [];
+    const supervisorStats = {};
+    const facultyStats = {};
+    const companyStats = {};
+
+    students.forEach(s => {
+        const marks = allMarks.filter(m => m.student?.toString() === s._id.toString());
+        const totalTasks = marks.filter(m => m.isFacultyGraded || m.isSiteSupervisorGraded).length;
+
+        // Calculate Aggregate Score
+        const free = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+        const scores = marks.map(m => free ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2);
+        const avg = marks.length > 0 ? (scores.reduce((a, b) => a + b, 0) / marks.length) : 0;
+        const pct = Math.round((avg / 10) * 100);
+
+        studentStats.push({
+            reg: s.reg,
+            name: s.name,
+            company: s.assignedCompany || 'N/A',
+            tasksPerformed: totalTasks,
+            avgScore: avg.toFixed(2),
+            percentage: pct,
+            status: s.status,
+            supervisor: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor || 'N/A',
+            faculty: s.assignedFaculty?.name || 'N/A'
+        });
+
+        // 🏢 Company Analytics
+        const cName = s.assignedCompany || 'Unassigned';
+        if (!companyStats[cName]) companyStats[cName] = { name: cName, students: 0, totalMarks: 0, totalTasks: 0 };
+        companyStats[cName].students++;
+        companyStats[cName].totalMarks += pct;
+        companyStats[cName].totalTasks += totalTasks;
+
+        // 👔 Supervisor Analytics
+        const supId = s.assignedSiteSupervisor?._id?.toString() || s.assignedCompanySupervisor;
+        if (supId) {
+            if (!supervisorStats[supId]) supervisorStats[supId] = { name: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor, students: 0, tasksGiven: 0, totalScore: 0 };
+            supervisorStats[supId].students++;
+            supervisorStats[supId].tasksGiven += marks.filter(m => m.isSiteSupervisorGraded).length;
+            supervisorStats[supId].totalScore += pct;
         }
-    };
 
-    const sh1 = workbook.addWorksheet('Institutional Summary');
-    sh1.columns = [{ key: 'metric', width: 42 }, { key: 'value', width: 25 }];
-    sh1.addRow(['COMSATS UNIVERSITY ISLAMABAD — INTERNSHIP PROGRAMME AUDIT', '']);
-    sh1.addRow([`Academic Cycle: ${new Date().getFullYear()}   |   Report Generated: ${getPKTDate()} ${getPKTTime()}`, '']);
-    sh1.addRow([]);
-    sh1.addRow(['METRIC', 'VALUE']);
-    styleHeader(sh1, 4);
-
-    const metrics = [
-        ['Total Enrolled Students', stats.total ?? 'N/A'],
-        ['Participating Students (Graded)', stats.participating ?? 'N/A'],
-        ['Ineligible / Not Started', stats.ineligible ?? 'N/A'],
-        ['Physical Internship Placements', stats.physical ?? 'N/A'],
-        ['Freelance Internship Placements', stats.freelance ?? 'N/A'],
-        ['Successfully Graduated (Pass)', stats.passed ?? 'N/A'],
-        ['Failed / Attrition', stats.failed ?? 'N/A'],
-        ['Success Rate (Participating)', `${Math.round(((stats.passed || 0) / (stats.participating || 1)) * 100)}%`],
-        ['Cohort Average Score (%)', `${stats.avgPct ?? 0}%`],
-        ['Calculated Average Grade', stats.avgGrade ?? 'N/A'],
-        ['Students Pending Evaluation', stats.pending ?? 0],
-        ['Number of Faculty Supervisors', stats.totalFaculty ?? 'N/A']
-    ];
-
-    metrics.forEach(([metric, value], idx) => {
-        const row = sh1.addRow([metric, value]);
-        row.getCell(1).font = { bold: true, color: NAVY };
-        row.getCell(2).alignment = { horizontal: 'center' };
-        if (idx % 2 !== 0) {
-            row.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT }; });
+        // 🎓 Faculty Analytics
+        const fId = s.assignedFaculty?._id?.toString();
+        if (fId) {
+            if (!facultyStats[fId]) facultyStats[fId] = { name: s.assignedFaculty.name, students: 0, unmarked: 0, marked: 0 };
+            facultyStats[fId].students++;
+            facultyStats[fId].marked += marks.filter(m => m.isFacultyGraded).length;
+            // Unmarked = (Number of assignments * number of students) - number of graded marks
+            // But we only count if student has actually submitted/created a mark object or if we assume all assignment exist for all
+            // For now, let's track missing graded marks for existing submissions
+            facultyStats[fId].unmarked += marks.filter(m => !m.isFacultyGraded).length;
         }
     });
 
-    const sh2 = workbook.addWorksheet('Student Achievement Register');
-    sh2.columns = [
-        { header: 'REGISTRATION #', key: 'reg', width: 18 },
-        { header: 'STUDENT FULL NAME', key: 'name', width: 28 },
-        { header: 'CONTACT (WHATSAPP)', key: 'phone', width: 20 },
-        { header: 'SECONDARY EMAIL', key: 'secEmail', width: 28 },
-        { header: 'ACADEMIC SUPERVISOR', key: 'faculty', width: 35 },
-        { header: 'SITE SUPERVISOR', key: 'site', width: 35 },
+    // 2. SHEET: EXECUTIVE DASHBOARD ──────────────────────────────────────────
+    const sh0 = workbook.addWorksheet('Executive Dashboard', { views: [{ showGridLines: false }] });
+    sh0.getColumn(1).width = 45;
+    sh0.getColumn(2).width = 35;
+    sh0.getColumn(3).width = 25;
+    sh0.getColumn(4).width = 25;
+
+    // Title Section
+    sh0.mergeCells('A1:D1');
+    const titleCell = sh0.getCell('A1');
+    titleCell.value = 'INSTITUTIONAL PERFORMANCE AUDIT & EXECUTIVE DASHBOARD';
+    titleCell.font = { bold: true, size: 20, color: NAVY };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sh0.getRow(1).height = 45;
+
+    sh0.mergeCells('A2:D2');
+    const subCell = sh0.getCell('A2');
+    subCell.value = `Academic Cycle: ${new Date().getFullYear()}   |   Generated On: ${getPKTDate()} at ${getPKTTime()}`;
+    subCell.font = { size: 10, color: { argb: 'FF64748B' } };
+    subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sh0.getRow(2).height = 20;
+
+    sh0.addRow([]);
+
+    // Logic for Completion
+    const sortedCos = Object.values(companyStats).sort((a, b) => (b.totalMarks / b.students) - (a.totalMarks / a.students));
+    const sortedTasks = Object.values(companyStats).sort((a, b) => b.totalTasks - a.totalTasks);
+    const sortedFac = Object.values(facultyStats).sort((a, b) => a.unmarked - b.unmarked);
+    const allGraded = sortedFac.length > 0 && sortedFac.every(f => f.unmarked === 0);
+
+    // Header for Summary Table
+    const headerRow = sh0.addRow(['ANALYSIS CATEGORY', 'TOP PERFORMING ENTITY', 'KEY METRIC', 'VALUE / COUNT']);
+    styleHeader(sh0, headerRow.number);
+
+    const leaderData = [
+        ['Highest Performing Company (Avg Grade)', sortedCos[0]?.name || 'N/A', 'Avg Success Rate', sortedCos[0] ? `${Math.round(sortedCos[0].totalMarks / sortedCos[0].students)}%` : '0%'],
+        ['Most Active Company (Task Volume)', sortedTasks[0]?.name || 'N/A', 'Tasks Completed', sortedTasks[0]?.totalTasks || 0],
+        ['Highest Performing Faculty (Evaluations)',
+            allGraded ? 'AUDIT COMPLETED' : (sortedFac[0]?.name || 'N/A'),
+            allGraded ? 'STATUS' : 'Pending Tasks',
+            allGraded ? '100% GRADED' : (sortedFac[0]?.unmarked || 0)],
+        ['Least Performing Faculty (Evaluations)',
+            allGraded ? 'N/A' : (sortedFac[sortedFac.length - 1]?.name || 'N/A'),
+            allGraded ? 'REMARK' : 'Pending Tasks',
+            allGraded ? 'Everyone has Marked Every Task' : (sortedFac[sortedFac.length - 1]?.unmarked || 0)]
+    ];
+
+    leaderData.forEach((ld, idx) => {
+        const r = sh0.addRow(ld);
+        r.height = 30;
+        r.alignment = { vertical: 'middle' };
+        r.getCell(1).font = { bold: true, color: { argb: 'FF334155' } };
+        r.getCell(2).font = { bold: true, color: NAVY };
+        r.getCell(4).font = { bold: true, color: (idx === 3 && !allGraded ? { argb: 'FFDC2626' } : { argb: 'FF059669' }) };
+
+        r.eachCell(c => {
+            c.border = BORDER;
+            if (idx % 2 !== 0) c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE };
+        });
+    });
+
+    sh0.addRow([]);
+    sh0.addRow(['* This institutional audit is strictly for departmental review and archival purposes.']).font = { size: 9, italic: true, color: { argb: 'FF64748B' } };
+
+    // 3. SHEET: STUDENT RECORDS ──────────────────────────────────────────
+    const sh1 = workbook.addWorksheet('Student Achievement Register');
+    sh1.columns = [
+        { header: 'REGISTRATION #', key: 'reg', width: 22 },
+        { header: 'FULL NAME', key: 'name', width: 30 },
         { header: 'AFFILIATED COMPANY', key: 'company', width: 30 },
-        { header: 'PLACEMENT MODE', key: 'mode', width: 20 },
-        { header: 'AVG MARKS (/10)', key: 'avg', width: 14 },
-        { header: 'PERCENTAGE (%)', key: 'pct', width: 14 },
-        { header: 'GRADE', key: 'grade', width: 10 },
-        { header: 'FINAL STATUS', key: 'status', width: 18 }
+        { header: 'SITE SUPERVISOR', key: 'sup', width: 30 },
+        { header: 'ACADEMIC SUPERVISOR', key: 'fac', width: 30 },
+        { header: 'TASKS COMPLETED', key: 'tasks', width: 15 },
+        { header: 'AVG / 10', key: 'avg', width: 12 },
+        { header: '% SCORE', key: 'pct', width: 12 },
+        { header: 'STATUS', key: 'status', width: 20 }
+    ];
+    styleHeader(sh1, 1);
+    studentStats.forEach((s, i) => {
+        const r = sh1.addRow(s);
+        r.height = 25;
+        r.alignment = { vertical: 'middle' };
+        if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
+        r.getCell('pct').font = { bold: true, color: s.percentage >= 50 ? { argb: 'FF059669' } : { argb: 'FFDC2626' } };
+        r.eachCell(c => c.border = BORDER);
+    });
+
+    // 4. SHEET: SUPERVISOR ANALYTICS ───────────────────────────────────────
+    const sh2 = workbook.addWorksheet('Supervisor Insights');
+    sh2.columns = [
+        { header: 'SUPERVISOR NAME', key: 'name', width: 35 },
+        { header: 'INTERNS ASSIGNED', key: 'students', width: 22 },
+        { header: 'TASKS EVALUATED', key: 'tasks', width: 22 },
+        { header: 'COHORT AVG GRADE', key: 'avg', width: 22 }
     ];
     styleHeader(sh2, 1);
-
-    (tables.students || []).forEach((row, idx) => {
+    Object.values(supervisorStats).forEach((s, i) => {
         const r = sh2.addRow({
-            reg: row[0] ?? 'N/A', name: row[1] ?? 'N/A', phone: row[2] ?? 'N/A', secEmail: row[3] ?? 'N/A',
-            faculty: String(row[4] ?? 'N/A').replace(/\n/g, ' | '), site: String(row[5] ?? 'N/A').replace(/\n/g, ' | '),
-            company: row[6] ?? 'N/A', mode: row[7] ?? 'N/A', avg: row[8] ?? 'N/A', pct: row[9] ?? 'N/A',
-            grade: row[10] ?? 'N/A', status: row[11] ?? 'N/A'
+            name: s.name,
+            students: s.students,
+            tasks: s.tasksGiven,
+            avg: `${Math.round(s.totalScore / s.students)}%`
         });
-        styleAltRow(r, idx);
-        r.getCell('reg').font = { bold: true }; r.getCell('name').font = { bold: true };
-        r.getCell('grade').font = { bold: true, color: NAVY };
-
-        const sc = r.getCell('status');
-        if (row[11] === 'Pass') sc.font = { color: GREEN, bold: true };
-        else if (row[11] === 'Fail') sc.font = { color: RED, bold: true };
+        r.height = 25;
+        r.alignment = { vertical: 'middle' };
+        if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
+        r.eachCell(c => c.border = BORDER);
     });
 
+    // 5. SHEET: FACULTY ANALYTICS ──────────────────────────────────────────
+    const sh3 = workbook.addWorksheet('Faculty Workload Audit');
+    sh3.columns = [
+        { header: 'FACULTY NAME', key: 'name', width: 35 },
+        { header: 'STUDENTS MAPPED', key: 'students', width: 22 },
+        { header: 'TASKS GRADED', key: 'marked', width: 22 },
+        { header: 'TASKS PENDING', key: 'unmarked', width: 22 }
+    ];
+    styleHeader(sh3, 1);
+    Object.values(facultyStats).forEach((s, i) => {
+        const r = sh3.addRow(s);
+        r.height = 25;
+        r.alignment = { vertical: 'middle' };
+        if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
+        const pc = r.getCell('unmarked');
+        if (s.unmarked > 5) pc.font = { color: { argb: 'FFDC2626' }, bold: true };
+        r.eachCell(c => c.border = BORDER);
+    });
+
+    // Finalize
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="HOD_Internship_Audit.xlsx"');
+    res.setHeader('Content-Disposition', 'attachment; filename="Institutional_Audit_Dossier.xlsx"');
     await workbook.xlsx.write(res);
     res.end();
 }));

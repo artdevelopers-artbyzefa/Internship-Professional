@@ -48,7 +48,22 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
     }
 
     try {
-        const response = await fetch(`${API_BASE}${endpoint}`, config);
+        let url = `${API_BASE}${endpoint}`;
+        
+        if (options.params) {
+            const queryParams = new URLSearchParams();
+            Object.entries(options.params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    queryParams.append(key, value);
+                }
+            });
+            const queryString = queryParams.toString();
+            if (queryString) {
+                url += (url.includes('?') ? '&' : '?') + queryString;
+            }
+        }
+
+        const response = await fetch(url, config);
         clearTimeout(id);
 
         let data;

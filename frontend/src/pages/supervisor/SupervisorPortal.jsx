@@ -10,6 +10,8 @@ import SupervisorDashboard from './SupervisorDashboard.jsx';
 // Lazy-load all other pages
 const SupervisorAssignments = lazy(() => import('./SupervisorAssignments.jsx'));
 const SupervisorGrading     = lazy(() => import('./SupervisorGrading.jsx'));
+const FacultyEvaluation    = lazy(() => import('../faculty/FacultyEvaluation.jsx'));
+const StudentProfileDetail = lazy(() => import('../faculty/StudentProfileDetail.jsx'));
 const SupervisorProfile     = lazy(() => import('../../components/supervisor/SupervisorProfile.jsx'));
 const RegisteredStudents    = lazy(() => import('../office/RegisteredStudents.jsx'));
 
@@ -43,7 +45,14 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
             .catch(() => setActivePhase(null));
     }, []);
 
-    const currentPath = location.pathname.split('/').pop() || 'dashboard';
+    const rawPath = location.pathname.split('/').filter(Boolean).pop() || 'dashboard';
+    const cleanPath = rawPath.split('?')[0];
+
+    // Map aliases to sidebar IDs
+    const currentPath = 
+        ['grading', 'evaluation', 'evaluations', 'add-marks'].includes(cleanPath) ? 'grading' :
+        ['registered-students', 'students'].includes(cleanPath) ? 'registered-students' : 
+        cleanPath;
 
     const handlePageChange = (newPageId) => {
         navigate(`/supervisor/${newPageId}`);
@@ -77,8 +86,10 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
                     <Route path="/" element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<SupervisorDashboard user={user} activePhase={activePhase} />} />
                     <Route path="registered-students" element={<LazyWrap><RegisteredStudents user={user} /></LazyWrap>} />
+                    <Route path="students/:studentId" element={<LazyWrap><StudentProfileDetail /></LazyWrap>} />
                     <Route path="assignments" element={<LazyWrap><SupervisorAssignments user={user} /></LazyWrap>} />
                     <Route path="grading" element={<LazyWrap><SupervisorGrading user={user} activePhase={activePhase} /></LazyWrap>} />
+                    <Route path="evaluation" element={<LazyWrap><FacultyEvaluation user={user} activePhase={activePhase} /></LazyWrap>} />
                     <Route path="profile" element={<LazyWrap><SupervisorProfile user={user} onUpdate={onUpdateUser} /></LazyWrap>} />
 
                     <Route path="*" element={<NotFoundPage />} />

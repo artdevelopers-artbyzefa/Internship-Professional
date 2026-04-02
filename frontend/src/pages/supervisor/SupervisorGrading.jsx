@@ -56,7 +56,7 @@ export default function SupervisorGrading({ user, activePhase }) {
         if (!url) return;
         try {
             const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}`;
-            const blob = await apiRequest(`${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(url)}&filename=${cleanName}.pdf`, {
+            const blob = await apiRequest(`/auth/download-proxy?url=${encodeURIComponent(url)}&filename=${cleanName}.pdf`, {
                 responseType: 'blob'
             });
 
@@ -188,7 +188,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                             </tbody>
                         </table>
                     </div>
-                    
+
                     {/* Pagination for Summary Table */}
                     {totalPages > 1 && (
                         <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between gap-4">
@@ -196,14 +196,14 @@ export default function SupervisorGrading({ user, activePhase }) {
                                 Page <span className="text-slate-900">{page}</span> of {totalPages}
                             </p>
                             <div className="flex items-center gap-1.5">
-                                <button 
+                                <button
                                     onClick={() => setPage(p => Math.max(1, p - 1))}
                                     disabled={page === 1}
                                     className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-100 text-slate-400 hover:border-primary hover:text-primary disabled:opacity-20 transition-all bg-white cursor-pointer"
                                 >
                                     <i className="fas fa-chevron-left text-[10px]" />
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                     disabled={page === totalPages}
                                     className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-100 text-slate-400 hover:border-primary hover:text-primary disabled:opacity-20 transition-all bg-white cursor-pointer"
@@ -220,7 +220,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                 <>
                     <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="text-center sm:text-left">
-                            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Industrial Evaluation Centre</h2>
+                            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">  Evaluation Centre</h2>
                         </div>
                         <select
                             className="w-full lg:w-[300px] p-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-4 focus:ring-primary/5"
@@ -300,7 +300,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                         {isExpanded && (
                                                             <div className="p-4 bg-slate-50/30 border-t border-slate-100">
                                                                 <div className="flex gap-2 mb-4">
-                                                                    <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)} 
+                                                                    <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)}
                                                                         className="flex-1 py-2 bg-primary text-white rounded-xl text-[10px] font-black border-0 cursor-pointer">
                                                                         View Document
                                                                     </button>
@@ -326,7 +326,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                                         })}
                                                                     </div>
                                                                     <textarea className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium h-24 resize-none"
-                                                                        placeholder="Feedback..." value={gradeForm.remarks} onChange={e => setGradeForm({...gradeForm, remarks: e.target.value})} />
+                                                                        placeholder="Feedback..." value={gradeForm.remarks} onChange={e => setGradeForm({ ...gradeForm, remarks: e.target.value })} />
                                                                     <div className="flex items-center justify-between gap-4">
                                                                         <div className="text-center">
                                                                             <p className="text-[9px] font-bold text-slate-400">Final Score</p>
@@ -372,7 +372,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-5">
-                                                            <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)} 
+                                                            <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)}
                                                                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl border-0 transition-all text-[11px] font-bold cursor-pointer">
                                                                 <i className="fas fa-file-pdf"></i> View File
                                                             </button>
@@ -390,7 +390,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-5 text-right">
-                                                            <button onClick={() => handleOpenGrade(sub)} 
+                                                            <button onClick={() => handleOpenGrade(sub)}
                                                                 className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border-0 cursor-pointer ${expandedId === sub._id ? 'bg-rose-500 text-white' : 'bg-slate-900 text-white hover:bg-black'}`}>
                                                                 {expandedId === sub._id ? 'Cancel' : 'Evaluate'}
                                                             </button>
@@ -424,7 +424,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                                                 })}
                                                                             </div>
                                                                             <textarea className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-slate-700 text-sm h-32 resize-none"
-                                                                                placeholder="Remarks..." value={gradeForm.remarks} onChange={e => setGradeForm({...gradeForm, remarks: e.target.value})} />
+                                                                                placeholder="Remarks..." value={gradeForm.remarks} onChange={e => setGradeForm({ ...gradeForm, remarks: e.target.value })} />
                                                                         </div>
                                                                         <div className="lg:w-64 flex flex-col justify-end">
                                                                             <button onClick={() => handleGradeSubmit(sub.user._id, sub._id)} disabled={gradeForm.marks === ''}
