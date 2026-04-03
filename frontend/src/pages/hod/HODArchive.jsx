@@ -181,358 +181,384 @@ export default function HODArchive() {
         );
     }
 
-    // ── Cycle Overview / Tabbed Registers ───────────────────────────────────
+    // ── Cycle Overview / Forensic Multi-Section Report ───────────────────────
     if (selected) {
+        const totalTasks = entities?.siteSupervisors?.reduce((acc, ss) => acc + (ss.tasksGraded || 0), 0) || 0;
+
         return (
-            <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-500">
-                {/* Header Context */}
-                <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-xl shadow-slate-200/30 flex flex-col md:flex-row md:items-center justify-between gap-8 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl opacity-50 pointer-events-none" />
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-4 mb-2">
-                             <h2 className="text-3xl font-black text-gray-800 tracking-tighter italic uppercase">{selected.cycleName}</h2>
-                             {selected.isLive && (
-                                <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-100 rounded-full text-[9px] font-black text-rose-500 italic uppercase tracking-widest animate-pulse shadow-sm shadow-rose-100">
-                                    <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" /> Live Academic Stream
-                                </span>
-                             )}
+            <div className="space-y-12 pb-32 animate-in fade-in slide-in-from-bottom-10 duration-1000">
+                {/* ── HERO COMMAND CENTER ──────────────────────────────────── */}
+                <div className="relative overflow-hidden bg-[#0A0C10] rounded-[4rem] border border-white/5 shadow-2xl">
+                    <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/20 rounded-full -mr-[400px] -mt-[400px] blur-[150px] opacity-30" />
+                    <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-500/10 rounded-full -ml-[300px] -mb-[300px] blur-[120px] opacity-20" />
+                    
+                    <div className="relative z-10 p-12 md:p-20">
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-12">
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <span className="px-5 py-2 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-primary uppercase tracking-[0.4em] backdrop-blur-md">
+                                        Institutional Archive
+                                    </span>
+                                    {selected.isLive && (
+                                        <span className="flex items-center gap-2 px-5 py-2 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[10px] font-black text-rose-500 uppercase tracking-[0.4em] animate-pulse">
+                                            <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" /> Live Stream
+                                        </span>
+                                    )}
+                                </div>
+                                <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter uppercase leading-[0.9]">
+                                    {selected.cycleName}
+                                </h1>
+                                <div className="flex flex-wrap items-center gap-8 text-white/40">
+                                    <div className="flex items-center gap-3">
+                                        <i className="fas fa-fingerprint text-primary" />
+                                        <span className="text-xs font-bold uppercase tracking-widest">{selected._id}</span>
+                                    </div>
+                                    <div className="w-1.5 h-1.5 bg-white/10 rounded-full" />
+                                    <div className="flex items-center gap-3">
+                                        <i className="fas fa-calendar-alt" />
+                                        <span className="text-xs font-bold uppercase tracking-widest">Archived {new Date(selected.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button 
+                                onClick={() => setSelected(null)} 
+                                className="group flex items-center gap-6 px-10 py-6 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[2.5rem] transition-all active:scale-95 translate-y-[-10px]"
+                            >
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Exit Report</p>
+                                    <p className="text-xs font-bold text-white uppercase italic">Return to Grid</p>
+                                </div>
+                                <div className="w-12 h-12 bg-white text-black rounded-2xl flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-colors">
+                                    <i className="fas fa-times" />
+                                </div>
+                            </button>
                         </div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                            <i className="fas fa-fingerprint text-slate-300" /> Cycle ID: {selected._id} · Archived {new Date(selected.createdAt).toLocaleDateString()}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-4 relative z-10">
-                        <button onClick={() => { setSelected(null); setActiveTab('overview'); }} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95">
-                            <i className="fas fa-times-circle mr-2" /> Exit Archive
-                        </button>
+
+                        {/* Top-Level Quick Stats */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-20 pt-20 border-t border-white/5">
+                            {[
+                                { label: 'Registered Entities', value: (entities?.companies?.length + entities?.faculty?.length + entities?.siteSupervisors?.length) || 0, icon: 'fa-network-wired' },
+                                { label: 'Task Throughput', value: totalTasks, icon: 'fa-boltn' },
+                                { label: 'Cohort Magnitude', value: selected.students.length, icon: 'fa-user-group' },
+                                { label: 'Audit Compliance', value: '100%', icon: 'fa-shield-check' }
+                            ].map((stat, i) => (
+                                <div key={i} className="bg-white/5 rounded-3xl p-6 border border-white/10">
+                                    <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] mb-3">{stat.label}</p>
+                                    <div className="flex items-end gap-3 text-white">
+                                        <span className="text-2xl font-black">{stat.value}</span>
+                                        <i className={`fas ${stat.icon} text-primary/50 text-sm mb-1`} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
-                {/* Tabbed Navigation */}
-                <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-slate-200/20 overflow-hidden min-h-[600px] flex flex-col">
-                    <div className="bg-slate-50/50 border-b border-gray-100 flex items-center px-4 overflow-x-auto no-scrollbar">
-                        <Tab active={activeTab === 'overview'} label="Performance Forensics" icon="fa-magnifying-glass-chart" onClick={() => setActiveTab('overview')} />
-                        <Tab active={activeTab === 'timeline'} label="Programme Timeline" icon="fa-clock-rotate-left" onClick={() => setActiveTab('timeline')} />
-                        <Tab active={activeTab === 'students'} label="Student Register" icon="fa-user-graduate" onClick={() => setActiveTab('students')} count={selected.students.length} />
-                        {entities && (
-                            <>
-                                <Tab active={activeTab === 'faculty'} label="Faculty Matrix" icon="fa-chalkboard-user" onClick={() => setActiveTab('faculty')} count={entities.faculty?.length} />
-                                <Tab active={activeTab === 'supervisors'} label="Supervisor Indices" icon="fa-user-tie" onClick={() => setActiveTab('supervisors')} count={entities.siteSupervisors?.length} />
-                                <Tab active={activeTab === 'companies'} label="Company Ledger" icon="fa-building" onClick={() => setActiveTab('companies')} count={entities.companies?.length} />
-                            </>
-                        )}
+                {/* ── SECTION 1: PERFORMANCE FORENSICS (STATS) ────────────────── */}
+                <section id="stats" className="space-y-8">
+                    <div className="flex items-center gap-8">
+                        <h2 className="text-[10px] font-black text-primary uppercase tracking-[0.6em] whitespace-nowrap">01 // CORE INSTITUTIONAL STATS</h2>
+                        <div className="h-px bg-slate-200 flex-1" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        {[
+                            { label: 'Success Ratio', value: `${Math.round((selected.statistics.totalPassed / (selected.statistics.totalParticipated || 1)) * 100)}%`, desc: 'Of total cohort certified', color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                            { label: 'Academic Average', value: `${selected.statistics.averagePercentage.toFixed(1)}%`, desc: 'Core performance mean', color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                            { label: 'Program Attrition', value: selected.statistics.totalFailed, desc: 'Students not meeting criteria', color: 'text-rose-500', bg: 'bg-rose-50' },
+                            { label: 'Active Students', value: selected.statistics.totalStudents, desc: 'Total institutional load', color: 'text-slate-800', bg: 'bg-slate-50' }
+                        ].map((k, i) => (
+                            <div key={i} className={`${k.bg} rounded-[3.5rem] p-10 border border-slate-100 shadow-xl shadow-slate-100/50 group hover:scale-[1.02] transition-all`}>
+                                <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-2xl shadow-sm mb-8">
+                                    <i className={`fas fa-chart-pie ${k.color}`} />
+                                </div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{k.label}</p>
+                                <p className={`text-5xl font-black ${k.color} tracking-tighter mb-4 italic`}>{k.value}</p>
+                                <p className="text-xs font-bold text-gray-400 leading-relaxed">{k.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {/* ── SECTION 2: CRITICAL INELIGIBILITY AUDIT ────────────────── */}
+                <section id="audit" className="space-y-8">
+                    <div className="flex items-center gap-8">
+                        <h2 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.6em] whitespace-nowrap">02 // CRITICAL INELIGIBILITY AUDIT</h2>
+                        <div className="h-px bg-rose-100 flex-1" />
+                    </div>
+                    
+                    <div className="bg-rose-50/30 rounded-[4rem] p-12 border border-rose-100 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
+                            {[
+                                { label: 'Low CGPA (< 2.0)', count: selected.statistics.ineligibilityBreakdown?.lowCGPA || 0, icon: 'fa-graduation-cap' },
+                                { label: 'Late Registration', count: selected.statistics.ineligibilityBreakdown?.lateRegistration || 0, icon: 'fa-clock-seven' },
+                                { label: 'Policy Infractions', count: selected.statistics.ineligibilityBreakdown?.other || 0, icon: 'fa-user-slash' }
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center gap-10">
+                                    <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center text-3xl text-rose-500 shadow-2xl shadow-rose-500/10 border border-rose-50">
+                                        <i className={`fas ${item.icon}`} />
+                                    </div>
+                                    <div>
+                                        <p className="text-5xl font-black text-slate-800 tracking-tighter">{item.count}</p>
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-2">{item.label}</p>
+                                        <div className="flex items-center gap-2 mt-4">
+                                            <span className="w-2 h-2 bg-rose-500 rounded-full" />
+                                            <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest italic">Audit Flagged</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── SECTION 3: PERFORMANCE LEADERSHIP (ELITE/AT-RISK) ───────── */}
+                <section id="rankings" className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-12">
+                    <div className="space-y-10">
+                        <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-3xl flex items-center justify-center text-2xl shadow-inner border border-emerald-100/50 font-black">
+                                <i className="fas fa-crown" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">Institutional Elite</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Top performing cohort (Top 10)</p>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            {topPerformers.map((s, idx) => (
+                                <div key={idx} className="group flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] hover:border-emerald-500 hover:bg-emerald-50/30 hover:scale-[1.02] transition-all shadow-sm">
+                                    <div className="flex items-center gap-8">
+                                        <span className="text-2xl font-black text-slate-200 group-hover:text-emerald-500/30 transition-colors">#{idx + 1}</span>
+                                        <div>
+                                            <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter">{s.name}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 font-mono tracking-widest mt-1">{s.reg}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex flex-col items-end gap-2">
+                                        <span className="text-3xl font-black text-emerald-600">{s.percentage}%</span>
+                                        <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-lg text-[9px] font-black uppercase italic">Grade {s.grade}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="p-8 flex-1">
-                        {/* ── OVERVIEW TAB ──────────────────────────────────── */}
-                        {activeTab === 'overview' && (
-                            <div className="space-y-12 animate-in fade-in zoom-in duration-300">
-                                {/* Section 1: KPI Statistics */}
-                                <section>
-                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
-                                        <div className="h-px bg-gray-200 flex-1" /> CORE INSTITUTIONAL STATS <div className="h-px bg-gray-200 flex-1" />
-                                    </h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                        {[
-                                            { label: 'Total Cohort', val: selected.statistics.totalStudents, col: 'text-slate-800', bg: 'bg-white', icon: 'fa-users' },
-                                            { label: 'Pass Ratio', val: `${Math.round((selected.statistics.totalPassed / (selected.statistics.totalParticipated || 1)) * 100)}%`, col: 'text-emerald-600', bg: 'bg-emerald-50/20', icon: 'fa-check-double' },
-                                            { label: 'Underliers', val: selected.statistics.totalFailed, col: 'text-rose-600', bg: 'bg-rose-50/20', icon: 'fa-triangle-exclamation' },
-                                            { label: 'Academic Avg.', val: `${selected.statistics.averagePercentage.toFixed(1)}%`, col: 'text-indigo-600', bg: 'bg-indigo-50/20', icon: 'fa-chart-line' },
-                                        ].map((k, i) => (
-                                            <div key={i} className={`${k.bg} p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center transition-all hover:scale-105`}>
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${k.col} bg-white shadow-lg mb-4 border border-gray-50`}>
-                                                    <i className={`fas ${k.icon}`} />
-                                                </div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{k.label}</p>
-                                                <p className={`text-4xl font-black ${k.col}`}>{k.val}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-
-                                {/* Section 2: Ineligibility Forensics */}
-                                <section>
-                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
-                                        <div className="h-px bg-gray-200 flex-1" /> CRITICAL INELIGIBILITY AUDIT <div className="h-px bg-gray-200 flex-1" />
-                                    </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        {[
-                                            { label: 'Low CGPA (< 2.0)', count: selected.statistics.ineligibilityBreakdown?.lowCGPA || 0, icon: 'fa-graduation-cap', col: 'text-rose-500', bg: 'bg-rose-50/30' },
-                                            { label: 'Late Registration', count: selected.statistics.ineligibilityBreakdown?.lateRegistration || 0, icon: 'fa-clock', col: 'text-amber-500', bg: 'bg-amber-50/30' },
-                                            { label: 'Other / Withdrawn', count: selected.statistics.ineligibilityBreakdown?.other || 0, icon: 'fa-circle-xmark', col: 'text-slate-500', bg: 'bg-slate-50/30' },
-                                        ].map((item, i) => (
-                                            <div key={i} className={`${item.bg} p-8 rounded-[2.5rem] border border-gray-100 flex items-center justify-between`}>
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-12 h-12 rounded-2xl ${item.col} bg-white flex items-center justify-center text-xl shadow-sm border border-gray-100`}>
-                                                        <i className={`fas ${item.icon}`} />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-2xl font-black text-slate-800">{item.count}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{item.label}</p>
-                                                    </div>
-                                                </div>
-                                                <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase ${item.col} bg-white border border-gray-100 shadow-sm`}>
-                                                    Audit Verified
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-
-                                {/* Section 3: Performance Leadership */}
-                                <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic flex items-center gap-3">
-                                            <i className="fas fa-crown" /> INSTITUTIONAL ELITE (TOP 10)
-                                        </h3>
-                                        <div className="space-y-3">
-                                            {topPerformers.map((s, idx) => (
-                                                <div key={idx} className="flex items-center justify-between p-5 bg-emerald-50/10 border border-emerald-100/30 rounded-2xl group hover:bg-emerald-50 transition-all">
-                                                    <div className="flex items-center gap-5">
-                                                        <span className="text-xl font-black text-emerald-200 italic group-hover:text-emerald-500 transition-colors">#{idx + 1}</span>
-                                                        <div>
-                                                            <p className="text-xs font-black text-slate-800 uppercase italic tracking-tighter">{s.name}</p>
-                                                            <p className="text-[9px] font-bold text-slate-400 font-mono tracking-widest">{s.reg}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-lg font-black text-emerald-600">{s.percentage}%</p>
-                                                        <p className="text-[9px] font-black text-emerald-400 uppercase italic">Grade {s.grade}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-rose-600 uppercase tracking-widest italic flex items-center gap-3">
-                                            <i className="fas fa-triangle-exclamation" /> AT-RISK COHORT (BOTTOM 5)
-                                        </h3>
-                                        <div className="space-y-3">
-                                            {bottomPerformers.map((s, idx) => (
-                                                <div key={idx} className="flex items-center justify-between p-5 bg-rose-50/10 border border-rose-100/30 rounded-2xl group hover:bg-rose-50 transition-all">
-                                                    <div className="flex items-center gap-5">
-                                                        <span className="text-xl font-black text-rose-200 italic group-hover:text-rose-500 transition-colors">#{idx + 1}</span>
-                                                        <div>
-                                                            <p className="text-xs font-black text-slate-800 uppercase italic tracking-tighter">{s.name}</p>
-                                                            <p className="text-[9px] font-bold text-slate-400 font-mono tracking-widest">{s.reg}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-lg font-black text-rose-600">{s.percentage}%</p>
-                                                        <p className="text-[9px] font-black text-rose-400 uppercase italic">Status: {s.finalStatus}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </section>
+                    <div className="space-y-10 text-right md:text-left">
+                        <div className="flex flex-row-reverse md:flex-row items-center gap-6">
+                            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center text-2xl shadow-inner border border-rose-100/50 font-black">
+                                <i className="fas fa-triangle-exclamation" />
                             </div>
-                        )}
-
-                        {/* ── TIMELINE TAB ──────────────────────────────────── */}
-                        {activeTab === 'timeline' && (
-                            <div className="animate-in slide-in-from-right-4 duration-300 space-y-12">
-                                <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-10 flex items-center gap-4">
-                                    <i className="fas fa-history" /> COHORT PROGRESSION TIMELINE
-                                </h3>
-                                <div className="space-y-10 relative pl-12 before:content-[''] before:absolute before:left-6 before:top-0 before:bottom-0 before:w-1 before:bg-indigo-50 before:rounded-full">
-                                    {selected.phases?.map((p, i) => (
-                                        <div key={i} className="relative">
-                                            <div className="absolute -left-[30px] top-0 w-4 h-4 rounded-full border-4 border-white bg-indigo-500 shadow-sm z-10" />
-                                            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:border-indigo-200 group">
-                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                                    <div className="flex items-center gap-6">
-                                                        <div className="w-16 h-16 bg-slate-50 text-indigo-500 rounded-3xl flex items-center justify-center text-2xl font-black border border-slate-100 group-hover:bg-indigo-500 group-hover:text-white transition-all">
-                                                            {p.order}
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="text-xl font-black text-slate-800 uppercase italic tracking-tighter">{p.label || `Phase ${p.order}`}</h4>
-                                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{p.description || 'Institutional progression stage'}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="text-right">
-                                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ACTIVATION DATE</p>
-                                                            <p className="text-sm font-black text-indigo-600">{p.startedAt ? new Date(p.startedAt).toLocaleDateString() : 'DRAFT'}</p>
-                                                        </div>
-                                                        <div className="w-px h-10 bg-gray-100 mx-2" />
-                                                        <div className="text-right">
-                                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ARCHIVAL LOCK</p>
-                                                            <p className="text-sm font-black text-slate-800">{p.completedAt ? new Date(p.completedAt).toLocaleDateString() : 'IN PROGRESS'}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                            <div className="md:text-left text-right">
+                                <h3 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">At-Risk Cohort</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Marginalized academic performance (Bottom 5)</p>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            {bottomPerformers.map((s, idx) => (
+                                <div key={idx} className="group flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] hover:border-rose-500 hover:bg-rose-50/30 hover:scale-[1.02] transition-all shadow-sm">
+                                    <div className="flex items-center gap-8">
+                                        <span className="text-2xl font-black text-slate-200 group-hover:text-rose-500/30 transition-colors">#{idx + 1}</span>
+                                        <div>
+                                            <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter">{s.name}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 font-mono tracking-widest mt-1">{s.reg}</p>
                                         </div>
-                                    ))}
+                                    </div>
+                                    <div className="text-right flex flex-col items-end gap-2">
+                                        <span className="text-3xl font-black text-rose-600">{s.percentage}%</span>
+                                        <span className="px-3 py-1 bg-rose-100 text-rose-600 rounded-lg text-[9px] font-black uppercase italic">Status: {s.finalStatus}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* ── STUDENTS TAB ──────────────────────────────────── */}
-                        {activeTab === 'students' && (
-                            <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                                <div className="flex items-center justify-between mb-8">
-                                    <div className="relative group">
-                                        <i className="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
-                                        <input 
-                                            type="text"
-                                            placeholder="Search performance register by name or reg..."
-                                            value={searchTerm}
-                                            onChange={e => setSearchTerm(e.target.value)}
-                                            className="pl-14 pr-8 py-4.5 bg-slate-50 border border-gray-100 rounded-[2rem] text-[11px] font-bold w-96 transition-all focus:bg-white focus:ring-8 focus:ring-primary/5 focus:border-primary outline-none uppercase"
-                                        />
-                                    </div>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase italic tracking-widest">Audit Ledger: {studentList.length} Entries</p>
-                                </div>
-                                <DataTable columns={['Student identity', 'Registration No.', 'Affiliated company', 'Institutional status', 'Audit Grade', 'Actions']}>
-                                    {pStudents.map((s, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell><strong>{s.name}</strong></TableCell>
-                                            <TableCell muted><span className="font-mono text-[11px] font-black tracking-tight">{s.reg}</span></TableCell>
-                                            <TableCell><span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter italic">{s.company}</span></TableCell>
-                                            <TableCell>
-                                                <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black border ${
-                                                    s.finalStatus === 'Pass' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm' : 
-                                                    s.finalStatus === 'Fail' ? 'bg-rose-50 text-rose-600 border-rose-100 shadow-sm' : 
-                                                    'bg-slate-50 text-slate-500 border-slate-100 font-bold'
-                                                }`}>
-                                                    {s.finalStatus.toUpperCase()}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell><span className={`font-black text-base ${s.percentage >= 50 ? 'text-emerald-500 italic' : 'text-rose-500'}`}>{s.grade}</span></TableCell>
-                                            <TableCell>
-                                                <button onClick={() => setSelectedStudent(s)} className="p-4 text-indigo-600 hover:bg-slate-900 hover:text-white rounded-2xl transition-all border border-transparent shadow-sm cursor-pointer flex items-center gap-3 active:scale-95">
-                                                    <i className="fas fa-fingerprint text-base" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest">Access Dossier</span>
-                                                </button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </DataTable>
-                                <Pagination page={sPage} totalPages={sTotal} setPage={setSPage} />
-                            </div>
-                        )}
-
-                        {/* ── FACULTY TAB ───────────────────────────────────── */}
-                        {activeTab === 'faculty' && entities && (
-                             <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-10 text-center flex items-center gap-6">
-                                    <div className="h-px bg-gray-100 flex-1" />
-                                    FACULTY SUPERVISOR WORKLOAD MATRIX
-                                    <div className="h-px bg-gray-100 flex-1" />
-                                </h3>
-                                <DataTable columns={['Faculty Member', 'Institutional Email', 'Supervision Load', 'Academic Output Avg']}>
-                                    {entities.faculty.map((f, idx) => {
-                                        const supervised = selected.students.filter(s => s.faculty.name === f.name);
-                                        const avgPct = supervised.length > 0 
-                                            ? Math.round(supervised.reduce((a, b) => a + b.percentage, 0) / supervised.length) 
-                                            : 0;
-                                        return (
-                                            <TableRow key={idx}>
-                                                <TableCell><strong>{f.name}</strong></TableCell>
-                                                <TableCell muted><span className="font-mono text-[11px] text-indigo-400 font-bold">{f.email}</span></TableCell>
-                                                <TableCell>
-                                                    <div className="bg-indigo-50/50 px-4 py-1.5 rounded-xl border border-indigo-100/50 flex items-center gap-3 w-fit">
-                                                        <i className="fas fa-users-viewfinder text-indigo-400" />
-                                                        <span className="text-[11px] font-black text-indigo-600 uppercase tracking-tighter">
-                                                            {supervised.length} MAPPED STUDENTS
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden max-w-[120px] shadow-inner border border-gray-50">
-                                                            <div className="h-full bg-gradient-to-r from-indigo-400 to-indigo-600" style={{ width: `${avgPct}%` }} />
-                                                        </div>
-                                                        <span className="text-sm font-black text-indigo-600 italic">{avgPct}%</span>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </DataTable>
-                             </div>
-                        )}
-
-                        {/* ── SUPERVISORS TAB ────────────────────────────────── */}
-                        {activeTab === 'supervisors' && entities && (
-                             <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-10 text-center flex items-center gap-6">
-                                    <div className="h-px bg-gray-100 flex-1" />
-                                    INDUSTRIAL SUPERVISOR PERFORMANCE FORENSICS
-                                    <div className="h-px bg-gray-100 flex-1" />
-                                </h3>
-                                <DataTable columns={['Site Supervisor', 'Corporate Partner', 'Internship Impact', 'Grading Velocity', 'Institutional Standings']}>
-                                    {entities.siteSupervisors.map((ss, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell><strong>{ss.name}</strong></TableCell>
-                                            <TableCell><span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">{ss.company || 'N/A'}</span></TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col gap-1">
-                                                     <span className="text-sm font-black text-slate-800">{ss.internCount} Active Interns</span>
-                                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Placement Capacity</p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col gap-1">
-                                                     <span className="text-sm font-black text-emerald-600 italic">+{ss.tasksGraded} Tasks Validated</span>
-                                                     <p className="text-[9px] font-black text-emerald-300 uppercase tracking-widest">Grading Velocity</p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={`px-4 py-2 rounded-2xl text-[9px] font-black border italic uppercase tracking-widest shadow-sm ${
-                                                    ss.performanceStatus === 'Exemplary' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                                                    ss.performanceStatus === 'Standard' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                                    'bg-amber-50 text-amber-600 border-amber-100'
-                                                }`}>
-                                                    {ss.performanceStatus} Partner
-                                                </span>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </DataTable>
-                             </div>
-                        )}
-
-                        {/* ── COMPANIES TAB ──────────────────────────────────── */}
-                        {activeTab === 'companies' && entities && (
-                             <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-10 text-center flex items-center gap-6">
-                                    <div className="h-px bg-gray-100 flex-1" />
-                                    CORPORATE PARTNERSHIP IMPACT LEDGER
-                                    <div className="h-px bg-gray-100 flex-1" />
-                                </h3>
-                                <DataTable columns={['Industry Partner', 'Contact Vector', 'Graduation Pipeline', 'Institutional Quality Score']}>
-                                    {entities.companies.map((c, idx) => {
-                                        const interns = selected.students.filter(s => s.company === c.name);
-                                        const avgScore = interns.length > 0 ? Math.round(interns.reduce((a, b) => a + b.percentage, 0) / interns.length) : 0;
-                                        return (
-                                            <TableRow key={idx}>
-                                                <TableCell><strong className="text-slate-800 text-base italic">{c.name}</strong></TableCell>
-                                                <TableCell muted><span className="font-mono text-[11px] font-bold text-slate-400">{c.email || 'N/A'}</span></TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3">
-                                                         <i className="fas fa-user-plus text-indigo-400" />
-                                                         <span className="text-sm font-black text-slate-700 tracking-tighter">{interns.length} PLACEMENTS</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className={`px-5 py-2 rounded-2xl text-[9px] font-black border italic uppercase tracking-[0.2em] shadow-inner ${
-                                                        avgScore >= 80 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'
-                                                    }`}>
-                                                        {avgScore >= 80 ? 'Blue-Chip Partner' : 'Certified Placement'}
-                                                    </span>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </DataTable>
-                             </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
-                </div>
+                </section>
+
+                {/* ── SECTION 4: PROGRAMME TIMELINE ──────────────────────────── */}
+                <section id="timeline" className="space-y-12 py-20">
+                    <div className="flex items-center gap-8">
+                        <h2 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.6em] whitespace-nowrap">03 // PROGRAMME TIMELINE</h2>
+                        <div className="h-px bg-indigo-100 flex-1" />
+                    </div>
+
+                    <div className="relative pt-10">
+                        <div className="absolute left-[50%] top-0 bottom-0 w-1 bg-slate-100 rounded-full hidden md:block" />
+                        <div className="space-y-12">
+                            {selected.phases?.map((p, i) => (
+                                <div key={i} className={`flex flex-col md:flex-row items-center gap-8 relative ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
+                                    <div className="absolute left-[50%] -translate-x-1/2 w-4 h-4 bg-white border-4 border-indigo-500 rounded-full z-10 hidden md:block" />
+                                    <div className="w-full md:w-[45%]">
+                                        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-100/30 hover:border-indigo-200 transition-all group">
+                                            <div className="flex items-center gap-6 mb-6">
+                                                <span className="text-4xl font-black text-indigo-100 group-hover:text-indigo-500 transition-colors italic">0{p.order}</span>
+                                                <h4 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter leading-none">{p.label}</h4>
+                                            </div>
+                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-10 leading-relaxed">{p.description}</p>
+                                            <div className="flex items-center justify-between pt-8 border-t border-slate-50 gap-4">
+                                                <div>
+                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Activation</p>
+                                                    <p className="text-xs font-black text-indigo-600 italic">{p.startedAt ? new Date(p.startedAt).toLocaleDateString() : 'N/A'}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Audit Close</p>
+                                                    <p className="text-xs font-black text-slate-800 italic">{p.completedAt ? new Date(p.completedAt).toLocaleDateString() : 'Active'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="hidden md:block w-[10%]" />
+                                    <div className="w-full md:w-[45%] h-px md:h-0" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── SECTION 5: STUDENT PERFORMANCE REGISTER ────────────────── */}
+                <section id="students" className="space-y-10">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                        <div>
+                            <h2 className="text-[10px] font-black text-primary uppercase tracking-[0.6em] mb-4">04 // STUDENT REGISTER & DOSSIERS</h2>
+                            <h3 className="text-4xl font-black text-slate-800 uppercase italic tracking-tighter">Individual Performance Records</h3>
+                        </div>
+                        <div className="relative">
+                            <i className="fas fa-search absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input 
+                                type="text"
+                                placeholder="Search by name or reg..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="pl-16 pr-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl w-full md:w-96 text-xs font-bold uppercase tracking-widest transition-all focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/20 overflow-hidden">
+                        <DataTable columns={['Student identity', 'Registration No.', 'Affiliated Body', 'Lifecycle Status', 'Academic Grade', 'Forensics']}>
+                            {pStudents.map((s, idx) => (
+                                <TableRow key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                    <TableCell><span className="text-sm font-black text-slate-800 uppercase italic">{s.name}</span></TableCell>
+                                    <TableCell><span className="font-mono text-[11px] font-black text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100/50">{s.reg}</span></TableCell>
+                                    <TableCell><span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{s.company}</span></TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full ${s.finalStatus === 'Pass' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${s.finalStatus === 'Pass' ? 'text-emerald-600' : 'text-rose-600'}`}>{s.finalStatus}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell><span className="text-xl font-black italic text-slate-800">{s.grade} <span className="text-[10px] font-bold text-slate-400 not-italic ml-1">({s.percentage}%)</span></span></TableCell>
+                                    <TableCell>
+                                        <button onClick={() => setSelectedStudent(s)} className="group px-6 py-3 bg-slate-900 text-white rounded-2xl flex items-center gap-3 hover:bg-primary transition-all active:scale-95">
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Dossier</span>
+                                            <i className="fas fa-fingerprint text-white/50 group-hover:text-white" />
+                                        </button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </DataTable>
+                        <Pagination page={sPage} totalPages={sTotal} setPage={setSPage} />
+                    </div>
+                </section>
+
+                {/* ── SECTION 6: ENTERPRISE MATRIX ───────────────────────────── */}
+                <section id="companies" className="space-y-10 pt-10">
+                    <div className="flex items-center gap-8">
+                        <h2 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.6em] whitespace-nowrap">05 // ENTERPRISE LEDGER</h2>
+                        <div className="h-px bg-amber-100 flex-1" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {entities?.companies?.map((c, idx) => {
+                            const interns = selected.students.filter(s => s.company === c.name);
+                            const avgCompScore = interns.length > 0 ? Math.round(interns.reduce((a, b) => a + b.percentage, 0) / interns.length) : 0;
+                            return (
+                                <div key={idx} className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-slate-100/30 hover:border-amber-500/30 transition-all group">
+                                    <div className="flex justify-between items-start mb-8">
+                                        <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center text-2xl border border-amber-100/50">
+                                            <i className="fas fa-building" />
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-emerald-500 uppercase italic">Quality Index</p>
+                                            <p className="text-2xl font-black text-slate-800">{avgCompScore}%</p>
+                                        </div>
+                                    </div>
+                                    <h4 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter mb-2">{c.name}</h4>
+                                    <p className="text-[10px] font-bold text-slate-400 font-mono tracking-widest mb-8">{c.email || 'NO_CONTACT_VECTOR'}</p>
+                                    <div className="flex items-center justify-between pt-8 border-t border-slate-50">
+                                        <div className="flex items-center gap-2">
+                                            <i className="fas fa-user-check text-slate-300" />
+                                            <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{interns.length} Placements</span>
+                                        </div>
+                                        <span className="px-4 py-1.5 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic">Corporate Partner</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                {/* ── SECTION 7: SUPERVISION CORE ────────────────────────────── */}
+                <section id="supervisors" className="space-y-12 pt-10">
+                    <div className="flex items-center gap-8">
+                        <h2 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.6em] whitespace-nowrap">06 // SUPERVISION & VALIDATION MATRIX</h2>
+                        <div className="h-px bg-indigo-100 flex-1" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        {/* Faculty Sub-section */}
+                        <div className="space-y-8">
+                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-4">
+                                <i className="fas fa-user-graduate text-indigo-500" /> Faculty Supervisors
+                            </h3>
+                            <div className="space-y-4">
+                                {entities?.faculty?.map((f, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-indigo-500 border border-slate-100">
+                                                <i className="fas fa-id-badge" />
+                                            </div>
+                                            <div>
+                                                <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter leading-none">{f.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Faculty Advisor</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-black text-indigo-600">{selected.students.filter(s => s.faculty.name === f.name).length} Students</p>
+                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">Direct Oversight</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Site Supervisors Sub-section */}
+                        <div className="space-y-8">
+                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-4">
+                                <i className="fas fa-id-card-clip text-emerald-500" /> Industrial Supervisors
+                            </h3>
+                            <div className="space-y-4">
+                                {entities?.siteSupervisors?.map((ss, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-emerald-500 border border-slate-100">
+                                                <i className="fas fa-briefcase" />
+                                            </div>
+                                            <div>
+                                                <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter leading-none">{ss.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{ss.company}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-black text-emerald-600">+{ss.tasksGraded} Tasks</p>
+                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">Validation Magnitude</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         );
     }
