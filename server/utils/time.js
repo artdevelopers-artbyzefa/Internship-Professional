@@ -1,6 +1,13 @@
 /**
- * Helper to get current time in Pakistan Standard Time (PKT)
- * @returns {string} Formatted time string
+ * @fileoverview Timezone Utility for Pakistan Standard Time (PKT).
+ * Provides consistent date and time formatting across the system 
+ * relative to the Asia/Karachi timezone.
+ */
+
+/**
+ * Returns the current system time formatted for PKT.
+ * 
+ * @returns {string} Formatted time string (e.g., "08:30:00 PM").
  */
 export const getPKTTime = () => {
     return new Date().toLocaleString('en-US', {
@@ -13,8 +20,9 @@ export const getPKTTime = () => {
 };
 
 /**
- * Helper to get current date in Pakistan
- * @returns {string} Formatted date string
+ * Returns the current system date formatted for PKT.
+ * 
+ * @returns {string} Formatted date string (e.g., "Apr 03, 2026").
  */
 export const getPKTDate = () => {
     return new Date().toLocaleString('en-US', {
@@ -24,3 +32,4 @@ export const getPKTDate = () => {
         day: '2-digit'
     });
 };
+

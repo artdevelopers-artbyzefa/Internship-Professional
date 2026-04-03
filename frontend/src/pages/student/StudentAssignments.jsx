@@ -17,7 +17,7 @@ export default function StudentAssignments({ user }) {
   );
   
   const freelanceHistory = (assignments || [])
-    .filter(a => a.courseTitle === 'Freelance Weekly Report')
+    .filter(a => a.courseTitle === 'Freelance Weekly Report' && a.submissionStatus === 'Submitted')
     .sort((a, b) => {
       const weekA = parseInt(a.title?.split('Week ')[1]) || 0;
       const weekB = parseInt(b.title?.split('Week ')[1]) || 0;
@@ -286,7 +286,7 @@ export default function StudentAssignments({ user }) {
                         </div>
                       </td>
                       <td className="px-8 py-5">
-                        <p className="text-xs font-bold text-gray-700">{formatDate(a.submissionDate || a.createdAt)}</p>
+                        <p className="text-xs font-bold text-gray-700">{a.submissionDate ? formatDate(a.submissionDate) : 'Not Submitted'}</p>
                       </td>
                       <td className="px-8 py-5 text-center">
                         {a.marks && a.marks.isFacultyGraded ? (

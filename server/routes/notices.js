@@ -7,19 +7,50 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-// @route   POST api/notices
-// @desc    Create a new notice with file uploads
+/**
+ * @swagger
+ * tags:
+ *   name: Notices
+ *   description: Notice board management for students and faculty
+ */
+
+/**
+ * @swagger
+ * /notices:
+ *   post:
+ *     summary: Create a new notice with optional file attachments
+ *     tags: [Notices]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [title, content, targetType]
+ *             properties:
+ *               title: { type: string }
+ *               content: { type: string }
+ *               links: { type: string }
+ *               targetType: { type: string, enum: [all_students, all_supervisors, specific_student, specific_supervisor, system_landing] }
+ *               targetId: { type: string }
+ *               files: { type: array, items: { type: string, format: binary } }
+ *     responses:
+ *       201:
+ *         description: Notice created successfully
+ */
 router.post('/', protect, authorize('internship_office'), uploadCloudinary.array('files'), asyncHandler(async (req, res) => {
     const { title, content, links, targetType, targetId, attachmentTitles } = req.body;
 
     let parsedLinks = [];
     if (links) {
-        try { parsedLinks = JSON.parse(links); } catch (e) { /* silent fail, default to empty */ }
+        try { parsedLinks = JSON.parse(links); } catch (e) { }
     }
 
     let titles = [];
     if (attachmentTitles) {
-        try { titles = JSON.parse(attachmentTitles); } catch (e) { /* silent fail */ }
+        try { titles = JSON.parse(attachmentTitles); } catch (e) { }
     }
 
     const attachments = (req.files || []).map((file, idx) => ({
@@ -44,15 +75,34 @@ router.post('/', protect, authorize('internship_office'), uploadCloudinary.array
     res.status(201).json(notice);
 }));
 
-// @route   GET api/notices/all
-// @desc    Get all notices for Office management with titles and target info
+/**
+ * @swagger
+ * /notices/all:
+ *   get:
+ *     summary: Retrieve all notices (Admin search)
+ *     tags: [Notices]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all notices with target population info
+ */
 router.get('/all', protect, authorize('internship_office'), asyncHandler(async (req, res) => {
     const notices = await Notice.find().sort({ createdAt: -1 }).populate('targetId', 'name reg');
     res.json(notices);
 }));
 
-// @route   PUT api/notices/:id
-// @desc    Update a notice (handles new files and existing data)
+/**
+ * @swagger
+ * /notices/{id}:
+ *   put:
+ *     summary: Update notice content and swap attachments
+ *     tags: [Notices]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ */
 router.put('/:id', protect, authorize('internship_office'), uploadCloudinary.array('files'), asyncHandler(async (req, res) => {
     const { title, content, links, targetType, targetId, attachmentTitles, existingAttachments } = req.body;
 
@@ -61,17 +111,17 @@ router.put('/:id', protect, authorize('internship_office'), uploadCloudinary.arr
 
     let parsedLinks = [];
     if (links) {
-        try { parsedLinks = JSON.parse(links); } catch (e) { /* silent fail */ }
+        try { parsedLinks = JSON.parse(links); } catch (e) { }
     }
 
     let titles = [];
     if (attachmentTitles) {
-        try { titles = JSON.parse(attachmentTitles); } catch (e) { /* silent fail */ }
+        try { titles = JSON.parse(attachmentTitles); } catch (e) { }
     }
 
     let parsedExisting = [];
     if (existingAttachments) {
-        try { parsedExisting = JSON.parse(existingAttachments); } catch (e) { /* silent fail */ }
+        try { parsedExisting = JSON.parse(existingAttachments); } catch (e) { }
     }
 
     const newAttachments = (req.files || []).map((file, idx) => ({
@@ -93,8 +143,13 @@ router.put('/:id', protect, authorize('internship_office'), uploadCloudinary.arr
     res.json(notice);
 }));
 
-// @route   DELETE api/notices/:id
-// @desc    Delete a notice and its files
+/**
+ * @swagger
+ * /notices/{id}:
+ *   delete:
+ *     summary: Remove a notice
+ *     tags: [Notices]
+ */
 router.delete('/:id', protect, authorize('internship_office'), asyncHandler(async (req, res) => {
     const notice = await Notice.findById(req.params.id);
     if (!notice) return res.status(404).json({ message: 'Notice not found' });
@@ -103,8 +158,13 @@ router.delete('/:id', protect, authorize('internship_office'), asyncHandler(asyn
     res.json({ message: 'Notice and files removed' });
 }));
 
-// @route   GET api/notices/my
-// @desc    Get notices for the current student/supervisor
+/**
+ * @swagger
+ * /notices/my:
+ *   get:
+ *     summary: Get notices targeted for the authenticated user
+ *     tags: [Notices]
+ */
 router.get('/my', protect, asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const role = req.user.role;
@@ -132,15 +192,25 @@ router.get('/my', protect, asyncHandler(async (req, res) => {
     res.json(notices);
 }));
 
-// @route   GET api/notices/supervisors
-// @desc    Get all faculty supervisors
+/**
+ * @swagger
+ * /notices/supervisors:
+ *   get:
+ *     summary: List all faculty supervisors for targeting
+ *     tags: [Notices]
+ */
 router.get('/supervisors', protect, authorize('internship_office'), asyncHandler(async (req, res) => {
     const supervisors = await User.find({ role: 'faculty_supervisor' }, 'name email');
     res.json(supervisors);
 }));
 
-// @route   GET api/notices/students/:supervisorId
-// @desc    Get students assigned to a specific supervisor
+/**
+ * @swagger
+ * /notices/students/{supervisorId}:
+ *   get:
+ *     summary: List students assigned to a specific supervisor for targeting
+ *     tags: [Notices]
+ */
 router.get('/students/:supervisorId', protect, authorize('internship_office'), asyncHandler(async (req, res) => {
     const students = await User.find({
         role: 'student',
@@ -149,8 +219,13 @@ router.get('/students/:supervisorId', protect, authorize('internship_office'), a
     res.json(students);
 }));
 
-// @route   GET api/notices/public
-// @desc    Get all public notices (for students and supervisors)
+/**
+ * @swagger
+ * /notices/public:
+ *   get:
+ *     summary: Get top 10 recent public notices
+ *     tags: [Notices]
+ */
 router.get('/public', asyncHandler(async (req, res) => {
     const notices = await Notice.find({
         targetType: { $in: ['all_students', 'all_supervisors', 'system_landing'] }

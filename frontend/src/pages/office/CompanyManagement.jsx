@@ -435,14 +435,7 @@ export default function CompanyManagement({ view, user }) {
                 >
                   Discard
                 </button>
-                <button
-                  type="button"
-                  onClick={autofillData}
-                  className="px-4 py-3 rounded-xl font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all text-xs border border-amber-200"
-                >
-                  <i className="fas fa-magic mr-2"></i>
-                  Power Autofill
-                </button>
+
                 <button
                   type="submit"
                   disabled={submitting}

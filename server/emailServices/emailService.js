@@ -8,12 +8,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+/**
+ * Initializes and returns a Brevo-based SMTP transporter for email dispatch.
+ */
 const getTransporter = () => {
     const smtpUser = (process.env.SMTP_USER || process.env.SENDER_EMAIL || '').trim();
     const apiKey = (process.env.BREVO_API_KEY || '').trim();
     return nodemailer.createTransport({ host: 'smtp-relay.brevo.com', port: 587, secure: false, auth: { user: smtpUser, pass: apiKey } });
 };
 
+/**
+ * Wraps a message into a professional premium HTML/CSS template.
+ */
 const wrapTemplate = (title, name, message, buttonLabel, buttonUrl, secondaryText = '') => {
   const brandColor = '#2563eb';
   const textColor = '#1e293b';
@@ -32,7 +38,6 @@ const wrapTemplate = (title, name, message, buttonLabel, buttonUrl, secondaryTex
         .wrapper { width: 100%; table-layout: fixed; background-color: #f1f5f9; padding-bottom: 40px; padding-top: 40px; }
         .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-spacing: 0; color: ${textColor}; border-radius: 28px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); }
         
-        /* Animated Gradient Header */
         .header { 
             background: linear-gradient(-45deg, #1e3a8a, #3b82f6, #2563eb, #1d4ed8);
             background-size: 400% 400%;
@@ -55,7 +60,6 @@ const wrapTemplate = (title, name, message, buttonLabel, buttonUrl, secondaryTex
         
         .btn-container { text-align: center; margin-top: 36px; margin-bottom: 36px; }
         
-        /* Pulsing Animated Button */
         .btn { 
             background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); 
             color: #ffffff !important; 
@@ -125,7 +129,9 @@ const wrapTemplate = (title, name, message, buttonLabel, buttonUrl, secondaryTex
   `;
 };
 
-
+/**
+ * Handles the low-level SMTP dispatch for a specific recipient.
+ */
 const brevoSend = async (to, subject, html) => {
     const SENDER_NAME = process.env.SENDER_NAME;
     const SENDER_EMAIL = process.env.SENDER_EMAIL;
@@ -138,8 +144,8 @@ const brevoSend = async (to, subject, html) => {
     } catch (error) {
         if (error.message.includes('535') && !process.env.SMTP_USER) {
             try {
-                const retryTransporter = nodemailer.createTransport({ host: 'smtp-relay.brevo.com', port: 587, secure: false, auth: { user: 'a4dd03001@smtp-brevo.com', pass: process.env.BREVO_API_KEY } });
-                await retryTransporter.sendMail({ from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`, to, subject, html });
+                const retryT = nodemailer.createTransport({ host: 'smtp-relay.brevo.com', port: 587, secure: false, auth: { user: 'a4dd03001@smtp-brevo.com', pass: process.env.BREVO_API_KEY } });
+                await retryT.sendMail({ from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`, to, subject, html });
                 return { success: true };
             } catch (retryError) {
                 await logError(retryError, null, `RETRY_MAIL_FAIL: ${to}`);
@@ -151,145 +157,104 @@ const brevoSend = async (to, subject, html) => {
     }
 };
 
+/**
+ * Dispatches account verification links.
+ */
 export const sendVerificationEmail = async (email, token) => {
     const url = `${process.env.FRONTEND_URL}/verify-email/${token}`;
-    const html = wrapTemplate(
-      'Account Verification',
-      'User',
-      'Thank you for joining the DIMS portal. To unlock your full access and start your internship journey, please verify your email address.',
-      'Verify My Account',
-      url
-    );
-    return await brevoSend(email, 'Action Required: Verify Your DIMS Account', html);
+    const message = 'Thank you for joining the DIMS portal. To unlock your full access and start your internship journey, please verify your email address.';
+    return await brevoSend(email, 'Action Required: Verify Your DIMS Account', wrapTemplate('Account Verification', 'User', message, 'Verify My Account', url));
 };
 
+/**
+ * Dispatches faculty nomination and activation links.
+ */
 export const sendFacultyNominationEmail = async (email, token, name) => {
     const url = `${process.env.FRONTEND_URL}/faculty/activate/${token}`;
-    const html = wrapTemplate(
-      'Faculty Nomination',
-      name,
-      'You have been officially nominated as a Faculty Internship Supervisor. Your expertise is vital to our students\' success. Please set your password to activate your administration dashboard.',
-      'Activate Supervisor Account',
-      url
-    );
-    return await brevoSend(email, 'Official Nomination: Faculty Internship Supervisor', html);
+    const message = 'You have been officially nominated as a Faculty Internship Supervisor. Your expertise is vital to our students\' success. Please set your password to activate your administration dashboard.';
+    return await brevoSend(email, 'Official Nomination: Faculty Internship Supervisor', wrapTemplate('Faculty Nomination', name, message, 'Activate Supervisor Account', url));
 };
 
+/**
+ * Confirms formal student internship placement.
+ */
 export const sendAssignmentConfirmationEmail = async (email, name, details) => {
-    const html = wrapTemplate(
-      'Placement Confirmed',
-      name,
-      `Great news! Your internship placement at <b>${details.companyName}</b> has been officially confirmed. The next chapter of your professional career begins now.`,
-      'View Placement Details',
-      `${process.env.FRONTEND_URL}/dashboard`
-    );
-    return await brevoSend(email, 'Official Notification: Internship Assignment Confirmed', html);
+    const message = `Great news! Your internship placement at <b>${details.companyName}</b> has been officially confirmed. The next chapter of your professional career begins now.`;
+    return await brevoSend(email, 'Official Notification: Internship Assignment Confirmed', wrapTemplate('Placement Confirmed', name, message, 'View Placement Details', `${process.env.FRONTEND_URL}/dashboard`));
 };
 
+/**
+ * Notifies faculty of new student assignments.
+ */
 export const sendFacultyAssignmentNotificationEmail = async (email, name, details) => {
-    const html = wrapTemplate(
-      'New Student Assigned',
-      name,
-      `A new student, <b>${details.studentName}</b>, has been assigned to your supervision for their tenure at <b>${details.companyName}</b>. You can now monitor their progress through your dashboard.`,
-      'Go to Dashboard',
-      `${process.env.FRONTEND_URL}/faculty`
-    );
-    return await brevoSend(email, `Student Assigned: ${details.studentName}`, html);
+    const message = `A new student, <b>${details.studentName}</b>, has been assigned to your supervision for their tenure at <b>${details.companyName}</b>. You can now monitor their progress through your dashboard.`;
+    return await brevoSend(email, `Student Assigned: ${details.studentName}`, wrapTemplate('New Student Assigned', name, message, 'Go to Dashboard', `${process.env.FRONTEND_URL}/faculty`));
 };
 
+/**
+ * Notifies industrial site supervisors of new student assignments.
+ */
 export const sendSupervisorAssignmentNotificationEmail = async (email, name, details) => {
-    const html = wrapTemplate(
-      'Official Placement',
-      name,
-      `We represent to you <b>${details.studentName}</b>, who has been officially assigned to your supervision at <b>${details.companyName}</b>. We look forward to a productive collaboration.`,
-      'Manage Placement',
-      `${process.env.FRONTEND_URL}/supervisor`
-    );
-    return await brevoSend(email, `Official Placement: ${details.studentName} at ${details.companyName}`, html);
+    const message = `We represent to you <b>${details.studentName}</b>, who has been officially assigned to your supervision at <b>${details.companyName}</b>. We look forward to a productive collaboration.`;
+    return await brevoSend(email, `Official Placement: ${details.studentName} at ${details.companyName}`, wrapTemplate('Official Placement', name, message, 'Manage Placement', `${process.env.FRONTEND_URL}/supervisor`));
 };
 
+/**
+ * Dispatches temporary administrator passwords.
+ */
 export const sendFacultyPasswordResetEmail = async (email, pw, name) => {
-    const html = wrapTemplate(
-      'Administrative Reset',
-      name,
-      `Your account password has been reset by the administration. Please use the temporary credentials provided below to log in and immediately update your password.`,
-      'Log In Now',
-      `${process.env.FRONTEND_URL}/login`,
-      `Temporary Password: <b>${pw}</b>`
-    );
-    return await brevoSend(email, 'Administrative Action: Password Reset for DIMS', html);
+    const message = `Your account password has been reset by the administration. Please use the temporary credentials provided below to log in and immediately update your password.`;
+    return await brevoSend(email, 'Administrative Action: Password Reset for DIMS', wrapTemplate('Administrative Reset', name, message, 'Log In Now', `${process.env.FRONTEND_URL}/login`, `Temporary Password: <b>${pw}</b>`));
 };
 
+/**
+ * Dispatches password reset security codes.
+ */
 export const sendPasswordResetCode = async (email, code) => {
-    const html = wrapTemplate(
-      'Security Verification',
-      '',
-      'We received a request to reset your DIMS portal password. Use the security code below to proceed. If you did not request this, please secure your account immediately.',
-      null,
-      null,
-      `<div style="font-size: 42px; font-weight: 600; color: #2563eb; letter-spacing: 4px; margin: 30px 0;">${code}</div>`
-    );
-    return await brevoSend(email, 'Your Verification Code - DIMS Security', html);
+    const message = 'We received a request to reset your DIMS portal password. Use the security code below to proceed. If you did not request this, please secure your account immediately.';
+    return await brevoSend(email, 'Your Verification Code - DIMS Security', wrapTemplate('Security Verification', '', message, null, null, `<div style="font-size: 42px; font-weight: 600; color: #2563eb; letter-spacing: 4px; margin: 30px 0;">${code}</div>`));
 };
 
+/**
+ * Dispatches verification codes for linking secondary emails.
+ */
 export const sendSecondaryEmailVerificationCode = async (email, code) => {
-    const html = wrapTemplate(
-      'Email Linking',
-      '',
-      'You are attempting to link a secondary email to your DIMS profile. Please enter the verification code below to confirm this action.',
-      null,
-      null,
-      `<div style="font-size: 42px; font-weight: 600; color: #2563eb; letter-spacing: 4px; margin: 30px 0;">${code}</div>`
-    );
-    return await brevoSend(email, 'Verify Your Secondary Email - DIMS', html);
+    const message = 'You are attempting to link a secondary email to your DIMS profile. Please enter the verification code below to confirm this action.';
+    return await brevoSend(email, 'Verify Your Secondary Email - DIMS', wrapTemplate('Email Linking', '', message, null, null, `<div style="font-size: 42px; font-weight: 600; color: #2563eb; letter-spacing: 4px; margin: 30px 0;">${code}</div>`));
 };
 
+/**
+ * Confirms successful secondary email linking.
+ */
 export const sendSecondaryEmailLinkedConfirmation = async (email, primary) => {
-    const html = wrapTemplate(
-      'Linking Successful',
-      'User',
-      `Success! Your email <b>${email}</b> has been successfully linked to your primary account <b>${primary}</b>. You can now use either email for portal notifications.`,
-      'Go to Profile',
-      `${process.env.FRONTEND_URL}/profile`
-    );
-    return await brevoSend(email, 'Success: Secondary Email Linked to DIMS', html);
+    const message = `Success! Your email <b>${email}</b> has been successfully linked to your primary account <b>${primary}</b>. You can now use either email for portal notifications.`;
+    return await brevoSend(email, 'Success: Secondary Email Linked to DIMS', wrapTemplate('Linking Successful', 'User', message, 'Go to Profile', `${process.env.FRONTEND_URL}/profile`));
 };
 
+/**
+ * Dispatches generic student account activation links.
+ */
 export const sendStudentActivationEmail = async (email, token, name) => {
-    const url = `${process.env.FRONTEND_URL}/verify-email/${token}`;
-    const html = wrapTemplate(
-      'Welcome to DIMS',
-      name,
-      'Welcome to the official Internship Management System! We are thrilled to help you land your dream placement. Click the button below to activate your account and start applying.',
-      'Activate My Account',
-      url
-    );
-    return await brevoSend(email, 'Portal Access: Student Internship Management System', html);
+    const message = 'Welcome to the official Internship Management System! We are thrilled to help you land your dream placement. Click the button below to activate your account and start applying.';
+    return await brevoSend(email, 'Portal Access: Student Internship Management System', wrapTemplate('Welcome to DIMS', name, message, 'Activate My Account', `${process.env.FRONTEND_URL}/verify-email/${token}`));
 };
 
+/**
+ * Onboards industrial site supervisors with system activation.
+ */
 export const sendCompanySupervisorActivationEmail = async (email, token, name, company) => {
-    const url = `${process.env.FRONTEND_URL}/supervisor/activate/${token}`;
-    const html = wrapTemplate(
-      'Site Onboarding',
-      name,
-      `Welcome to the DIMS network. You have been registered as the Official Site Supervisor for <b>${company}</b>. Please activate your account to begin managing student placements.`,
-      'Activate Supervisor Account',
-      url
-    );
-    return await brevoSend(email, `Official Onboarding: Site Supervisor for ${company}`, html);
+    const message = `Welcome to the DIMS network. You have been registered as the Official Site Supervisor for <b>${company}</b>. Please activate your account to begin managing student placements.`;
+    return await brevoSend(email, `Official Onboarding: Site Supervisor for ${company}`, wrapTemplate('Site Onboarding', name, message, 'Activate Supervisor Account', `${process.env.FRONTEND_URL}/supervisor/activate/${token}`));
 };
 
+/**
+ * Dispatches bulk announcements to the entire student/faculty registry.
+ */
 export const sendBulkEmailService = async (recipients, subject, content) => {
     const SENDER_NAME = process.env.SENDER_NAME;
     const SENDER_EMAIL = process.env.SENDER_EMAIL;
     try {
-        const html = wrapTemplate(
-          'Official Announcement',
-          '',
-          content,
-          'Visit Portal',
-          process.env.FRONTEND_URL
-        );
+        const html = wrapTemplate('Official Announcement', '', content, 'Visit Portal', process.env.FRONTEND_URL);
         const transporter = getTransporter();
         await transporter.sendMail({ from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`, to: SENDER_EMAIL, bcc: recipients, subject, html });
         return { success: true };
@@ -298,5 +263,3 @@ export const sendBulkEmailService = async (recipients, subject, content) => {
         return { success: false, error: error.message };
     }
 };
-
-

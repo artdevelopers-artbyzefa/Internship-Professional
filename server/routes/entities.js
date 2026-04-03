@@ -75,7 +75,34 @@ async function matchSupervisor(name) {
     return { matchType: 'none', entity: null };
 }
 
-// @route   POST api/entities/validate-company
+/**
+ * @swagger
+ * tags:
+ *   name: Entities
+ *   description: Entity validation and search (Companies, Supervisors, Faculty)
+ */
+
+/**
+ * @swagger
+ * /entities/validate-company:
+ *   post:
+ *     summary: Validate and match company name against registry
+ *     tags: [Entities]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string }
+ *     responses:
+ *       200:
+ *         description: Match suggestion or new pending entity creation
+ */
 router.post('/validate-company', protect, asyncHandler(async (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({ message: 'Company name required' });
@@ -87,7 +114,29 @@ router.post('/validate-company', protect, asyncHandler(async (req, res) => {
     res.json({ action: 'created_pending', entity: newCompany });
 }));
 
-// @route   POST api/entities/validate-supervisor
+/**
+ * @swagger
+ * /entities/validate-supervisor:
+ *   post:
+ *     summary: Validate and match site supervisor name
+ *     tags: [Entities]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string }
+ *               email: { type: string }
+ *               companyId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Match suggestion or new pending entity
+ */
 router.post('/validate-supervisor', protect, asyncHandler(async (req, res) => {
     const { name, email, companyId } = req.body;
     if (!name) return res.status(400).json({ message: 'Supervisor name required' });
@@ -99,7 +148,23 @@ router.post('/validate-supervisor', protect, asyncHandler(async (req, res) => {
     res.json({ action: 'created_pending', entity: newSup });
 }));
 
-// @route   GET api/entities/search-company
+/**
+ * @swagger
+ * /entities/search-company:
+ *   get:
+ *     summary: Search for active companies by name or key
+ *     tags: [Entities]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: List of matching companies
+ */
 router.get('/search-company', protect, asyncHandler(async (req, res) => {
     const q = req.query.q;
     if (!q || q.length < 2) return res.json([]);
@@ -119,7 +184,23 @@ router.get('/search-company', protect, asyncHandler(async (req, res) => {
     res.json(companies);
 }));
 
-// @route   GET api/entities/search-faculty
+/**
+ * @swagger
+ * /entities/search-faculty:
+ *   get:
+ *     summary: Search for active faculty supervisors
+ *     tags: [Entities]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: List of matching faculty
+ */
 router.get('/search-faculty', protect, asyncHandler(async (req, res) => {
     const q = req.query.q;
     if (!q || q.length < 2) return res.json([]);
@@ -136,12 +217,27 @@ router.get('/search-faculty', protect, asyncHandler(async (req, res) => {
     res.json(faculty);
 }));
 
-// @route   GET api/entities/search-mentor
+/**
+ * @swagger
+ * /entities/search-mentor:
+ *   get:
+ *     summary: Aggregated search for mentors across users and companies
+ *     tags: [Entities]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: List of matching mentors/supervisors
+ */
 router.get('/search-mentor', protect, asyncHandler(async (req, res) => {
     const q = req.query.q;
     if (!q || q.length < 2) return res.json([]);
 
-    // 1. Search in Site Supervisor users
     const users = await User.find({
         role: 'site_supervisor',
         $or: [
@@ -150,7 +246,6 @@ router.get('/search-mentor', protect, asyncHandler(async (req, res) => {
         ]
     }).limit(5).select('name email whatsappNumber assignedCompany');
 
-    // 2. Search in Company siteSupervisors (subdocuments)
     const companies = await Company.find({
         'siteSupervisors.name': { $regex: q, $options: 'i' }
     }).limit(5).select('name siteSupervisors');

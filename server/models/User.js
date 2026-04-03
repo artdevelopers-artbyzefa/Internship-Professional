@@ -1,5 +1,49 @@
 import mongoose from 'mongoose';
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - name
+ *         - email
+ *         - password
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: Auto-generated MongoDB ID
+ *         name:
+ *           type: string
+ *           description: Full legal name of the user
+ *         reg:
+ *           type: string
+ *           description: Registration number (CIIT/FAXX-BYS-XXX/ATD)
+ *         semester:
+ *           type: string
+ *           enum: [1, 2, 3, 4, 5, 6, 7, 8]
+ *         email:
+ *           type: string
+ *           description: Institutional or verified email address
+ *         role:
+ *           type: string
+ *           enum: [student, hod, internship_office, faculty_supervisor, site_supervisor]
+ *         status:
+ *           type: string
+ *           description: Logical state of the user in the system workflow
+ *         whatsappNumber:
+ *           type: string
+ *         profilePicture:
+ *           type: string
+ *           description: Cloudinary URL for the profile image
+ *         assignedFaculty:
+ *           type: string
+ *           description: MongoDB ID of the assigned faculty supervisor
+ *         assignedSiteSupervisor:
+ *           type: string
+ *           description: MongoDB ID of the assigned site supervisor
+ */
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -10,7 +54,7 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: function () { return this.role === 'student'; },
         unique: true,
-        sparse: true, // Allows multiple null/missing values for non-students
+        sparse: true,
         trim: true
     },
     semester: {
@@ -30,12 +74,9 @@ const userSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function (v) {
-                // Students MUST use the institutional domain (@cuiatd.edu.pk)
-                // We also allow @gmail.com for development/external test accounts
                 if (this.role === 'student') {
                     return v.endsWith('@cuiatd.edu.pk') || v.endsWith('@gmail.com');
                 }
-                // Faculty and Staff can use any valid email
                 return true;
             },
             message: props => `${props.value} is not a valid email domain for students! Must be @cuiatd.edu.pk`
@@ -57,17 +98,16 @@ const userSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: [
-            'unverified', 'verified', // Student Initial
+            'unverified', 'verified', 
             'Internship Request Submitted', 'Internship Approved', 'Internship Rejected',
             'Agreement Submitted - Self', 'Agreement Submitted - University Assigned',
-            'Agreement Approved', 'Agreement Rejected', 'Assigned', // Student Final
-            'Pending Activation', 'Active', 'Inactive', // Faculty / Staff
+            'Agreement Approved', 'Agreement Rejected', 'Assigned',
+            'Pending Activation', 'Active', 'Inactive',
             'Pass', 'Fail'
         ],
         default: 'unverified'
     },
 
-    // NEW: Student Profile Specific Mandatory Fields
     fatherName: { type: String, trim: true },
     secondaryEmail: { type: String, trim: true, lowercase: true, unique: true, sparse: true, index: true },
     secondaryEmailVerificationCode: { type: String },
@@ -77,12 +117,11 @@ const userSchema = new mongoose.Schema({
     secondaryEmailOtpExpires: { type: Date },
     section: { type: String, trim: true },
     dateOfBirth: { type: Date },
-    profilePicture: { type: String }, // URL or Base64
+    profilePicture: { type: String },
     registeredCourse: { type: String, default: 'Internship' },
     activationToken: String,
     activationExpires: Date,
 
-    // Internship Approval Form Data
     internshipRequest: {
         type: {
             type: String,
@@ -100,10 +139,9 @@ const userSchema = new mongoose.Schema({
             enum: ['Onsite', 'Remote', 'Hybrid', 'Freelance']
         },
         description: String,
-        freelancePlatform: String,       // e.g. 'Fiverr', 'Upwork', 'Freelancer', 'Other'
-        freelanceProfileLink: String,    // URL to the student's freelancing profile
+        freelancePlatform: String,
+        freelanceProfileLink: String,
 
-        // Faculty Supervisor Selection Block
         facultyType: {
             type: String,
             enum: ['Registered', 'Identify New'],
@@ -128,26 +166,22 @@ const userSchema = new mongoose.Schema({
         submittedAt: Date
     },
 
-    // Student Agreement Form Data
     internshipAgreement: {
-        // Student Part
         degreeProgram: String,
         semester: String,
         contactNumber: String,
         preferredField: String,
 
-        // Placement Part
         companyName: String,
-        companyAddress: String, // only for self
-        companyRegNo: String,   // only for self
-        companyScope: String,   // only for self (Field/Domain)
-        companyHREmail: String, // only for self
-        companySupervisorName: String, // only for self
-        companySupervisorEmail: String, // only for self
+        companyAddress: String,
+        companyRegNo: String,
+        companyScope: String,
+        companyHREmail: String,
+        companySupervisorName: String,
+        companySupervisorEmail: String,
         whatsappNumber: String,
         duration: String,
 
-        // Office Only Fields (filled after assignment)
         officeInternshipRole: String,
         officeFacultySupervisor: String,
         officeSiteSupervisor: String,
@@ -158,7 +192,6 @@ const userSchema = new mongoose.Schema({
         submittedAt: Date
     },
 
-    // Assignment Data
     assignedFaculty: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
@@ -182,18 +215,16 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Extreme Performance Indexes for high-traffic queries
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ assignedFaculty: 1 });
 userSchema.index({ assignedSiteSupervisor: 1 });
-userSchema.index({ name: 'text', email: 'text' }); // Search optimization
-userSchema.index({ role: 1, createdAt: -1 }); // Registry sorting optimization
-userSchema.index({ 'internshipRequest.submittedAt': 1 }); // FIFO sorting
-userSchema.index({ role: 1, status: 1, 'internshipRequest.submittedAt': 1 }); // Combined requests optimization
-userSchema.index({ assignedCompany: 1 }); // Optimization for site supervisors
-userSchema.index({ assignedCompanySupervisorEmail: 1 }); // Optimization for site supervisors email lookup
+userSchema.index({ name: 'text', email: 'text' });
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ 'internshipRequest.submittedAt': 1 });
+userSchema.index({ role: 1, status: 1, 'internshipRequest.submittedAt': 1 });
+userSchema.index({ assignedCompany: 1 });
+userSchema.index({ assignedCompanySupervisorEmail: 1 });
 
-// Auto-extract and Enforce Roll Number from Email for Students (only if not manually provided)
 userSchema.pre('save', async function () {
     if (this.role === 'student' && this.email && !this.reg) {
         const rollPart = this.email.split('@')[0].toUpperCase();

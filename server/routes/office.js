@@ -28,10 +28,37 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-// Standardized role authorization used in all office routes
+/**
+ * @swagger
+ * tags:
+ *   name: Office
+ *   description: Internship office and HOD administrative management
+ */
+
 const officeAuth = authorize('internship_office', 'hod');
 
-// @route   GET api/office/all-students
+/**
+ * @swagger
+ * /office/all-students:
+ *   get:
+ *     summary: Retrieve paginated list of all registered students
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Paginated students with basic profile data
+ */
 router.get('/all-students', protect, officeAuth, asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -52,7 +79,28 @@ router.get('/all-students', protect, officeAuth, asyncHandler(async (req, res) =
     res.json({ students, total, page, pages: Math.ceil(total / limit) });
 }));
 
-// @route   GET api/office/faculty-registry
+/**
+ * @swagger
+ * /office/faculty-registry:
+ *   get:
+ *     summary: Retrieve all faculty supervisors with student workload counts
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Paginated faculty list with workload metrics
+ */
 router.get('/faculty-registry', protect, officeAuth, asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -83,12 +131,51 @@ router.get('/faculty-registry', protect, officeAuth, asyncHandler(async (req, re
     });
 }));
 
-// @route   GET api/office/faculty-students/:id
+/**
+ * @swagger
+ * /office/faculty-students/{id}:
+ *   get:
+ *     summary: Retrieve list of students assigned to a specific faculty member
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: List of assigned students
+ */
 router.get('/faculty-students/:id', protect, officeAuth, asyncHandler(async (req, res) => {
     res.json(await User.find({ role: 'student', assignedFaculty: req.params.id }).select('name reg semester email status profilePicture'));
 }));
 
-// @route   POST api/office/broadcast-email
+/**
+ * @swagger
+ * /office/broadcast-email:
+ *   post:
+ *     summary: Send broadcast emails to specific user categories or individuals
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [subject, message]
+ *             properties:
+ *               category: { type: string, enum: [Students, Faculty Supervisors, Site Supervisors, Ineligible Students, Students Pending Placement] }
+ *               selectedRecipients: { type: array, items: { type: string } }
+ *               subject: { type: string }
+ *               message: { type: string }
+ *     responses:
+ *       200:
+ *         description: Broadcast complete summary
+ */
 router.post('/broadcast-email', protect, officeAuth, asyncHandler(async (req, res) => {
     const { category, subject, message, selectedRecipients } = req.body;
     if ((!category && !selectedRecipients) || !subject || !message) return res.status(400).json({ message: 'Missing fields.' });
@@ -170,7 +257,13 @@ router.get('/registered-students', protect, officeAuth, asyncHandler(async (req,
     res.json({ data: students, total, page, pages: Math.ceil(total / limit) });
 }));
 
-// @route   GET api/office/internship-request-students
+/**
+ * @swagger
+ * /office/internship-request-students:
+ *   get:
+ *     summary: Retrieve students who have submitted internship supervision requests
+ *     tags: [Office]
+ */
 router.get('/internship-request-students', protect, officeAuth, asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 15;
@@ -214,7 +307,18 @@ router.get('/internship-request-stats', protect, officeAuth, asyncHandler(async 
     res.json({ all, pending, approved, rejected });
 }));
 
-// @route   GET api/office/student-stats
+/**
+ * @swagger
+ * /office/student-stats:
+ *   get:
+ *     summary: Retrieve aggregate student statistics for dashboard visualization
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Multi-dimensional statistics including eligibility and GPA distribution
+ */
 router.get('/student-stats', protect, officeAuth, asyncHandler(async (req, res) => {
     const students = await User.find({ role: 'student' }).select('semester status cgpa internshipRequest reg');
     const stats = { total: students.length, eligibility: { eligible: 0, ineligible: 0 }, modes: { onsite: 0, remote: 0, hybrid: 0, freelance: 0, unrequested: 0 }, gpa: { low: 0, medium: 0, high: 0 }, completion: { missingSem: 0, missingCGPA: 0, complete: 0 }, departments: { cs: 0, se: 0, other: 0 } };
@@ -241,7 +345,28 @@ router.get('/check-faculty-by-email', protect, officeAuth, asyncHandler(async (r
     res.json({ found: !!faculty, faculty: faculty ? { id: faculty._id, name: faculty.name, email: faculty.email, status: faculty.status } : null });
 }));
 
-// @route   POST api/office/assign-company
+/**
+ * @swagger
+ * /office/assign-company:
+ *   post:
+ *     summary: Manually assign a company to a student
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId, companyName]
+ *             properties:
+ *               studentId: { type: string }
+ *               companyName: { type: string }
+ *     responses:
+ *       200:
+ *         description: Company assigned successfully
+ */
 router.post('/assign-company', protect, officeAuth, asyncHandler(async (req, res) => {
     const { studentId, companyName, officeId } = req.body;
     const student = await User.findById(studentId);
@@ -254,7 +379,30 @@ router.post('/assign-company', protect, officeAuth, asyncHandler(async (req, res
     res.json({ message: 'Company assigned.' });
 }));
 
-// @route   POST api/office/assign-site-supervisor
+/**
+ * @swagger
+ * /office/assign-site-supervisor:
+ *   post:
+ *     summary: Assign a site supervisor to a student placement
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId, siteSupervisorName]
+ *             properties:
+ *               studentId: { type: string }
+ *               siteSupervisorName: { type: string }
+ *               siteSupervisorEmail: { type: string }
+ *               siteSupervisorPhone: { type: string }
+ *     responses:
+ *       200:
+ *         description: Site supervisor assigned successfully
+ */
 router.post('/assign-site-supervisor', protect, officeAuth, asyncHandler(async (req, res) => {
     const { studentId, siteSupervisorName, siteSupervisorEmail, siteSupervisorPhone, officeId } = req.body;
     const student = await User.findById(studentId);
@@ -343,7 +491,29 @@ router.post('/onboard-and-assign-faculty', protect, officeAuth, asyncHandler(asy
     res.json({ message: 'Faculty assigned.' });
 }));
 
-// @route   POST api/office/decide-request
+/**
+ * @swagger
+ * /office/decide-request:
+ *   post:
+ *     summary: Approve or reject a student internship request
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId, decision]
+ *             properties:
+ *               studentId: { type: string }
+ *               decision: { type: string, enum: [approve, reject] }
+ *               comment: { type: string }
+ *     responses:
+ *       200:
+ *         description: Decision recorded and notification sent
+ */
 router.post('/decide-request', protect, officeAuth, asyncHandler(async (req, res) => {
     const { studentId, decision, comment, officeId } = req.body;
     const student = await User.findById(studentId);
@@ -362,7 +532,29 @@ router.get('/pending-agreements', protect, officeAuth, asyncHandler(async (req, 
     res.json(await User.find({ status: { $in: ['Agreement Submitted - Self', 'Agreement Submitted - University Assigned'] }, role: 'student' }).select('-profilePicture'));
 }));
 
-// @route   POST api/office/decide-agreement
+/**
+ * @swagger
+ * /office/decide-agreement:
+ *   post:
+ *     summary: Final decision on the official internship agreement document
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId, decision]
+ *             properties:
+ *               studentId: { type: string }
+ *               decision: { type: string, enum: [approve, reject] }
+ *               comment: { type: string }
+ *     responses:
+ *       200:
+ *         description: Agreement processed and placement data synced
+ */
 router.post('/decide-agreement', protect, officeAuth, asyncHandler(async (req, res) => {
     const { studentId, decision, comment } = req.body;
     const user = await User.findById(studentId);
@@ -418,7 +610,30 @@ router.get('/assigned-students', protect, officeAuth, asyncHandler(async (req, r
     res.json(await User.find({ status: 'Assigned', role: 'student' }).populate('assignedFaculty', 'name'));
 }));
 
-// @route   POST api/office/assign-student
+/**
+ * @swagger
+ * /office/assign-student:
+ *   post:
+ *     summary: Officially assign a student to a faculty member and placement company
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId, facultyId, companyName, siteSupervisor]
+ *             properties:
+ *               studentId: { type: string }
+ *               facultyId: { type: string }
+ *               companyName: { type: string }
+ *               siteSupervisor: { type: object, properties: { name: { type: string }, email: { type: string } } }
+ *     responses:
+ *       200:
+ *         description: Student assigned and notification emails dispatched
+ */
 router.post('/assign-student', protect, officeAuth, asyncHandler(async (req, res) => {
     const { studentId, facultyId, companyName, siteSupervisor, officeId } = req.body;
     const [student, faculty] = await Promise.all([User.findById(studentId), User.findById(facultyId)]);
@@ -596,7 +811,28 @@ router.post('/edit-site-supervisor/:id', protect, officeAuth, asyncHandler(async
     res.json({ message: 'Updated.' });
 }));
 
-// @route   POST api/office/remove-site-supervisor
+/**
+ * @swagger
+ * /office/remove-site-supervisor:
+ *   post:
+ *     summary: Unlink a site supervisor from a company registry entry
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, companyId]
+ *             properties:
+ *               email: { type: string }
+ *               companyId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Supervisor unlinked from the company
+ */
 router.post('/remove-site-supervisor', protect, officeAuth, asyncHandler(async (req, res) => {
     const { email, companyId } = req.body;
     const company = await Company.findById(companyId);
@@ -624,7 +860,34 @@ router.post('/onboard-faculty', protect, officeAuth, asyncHandler(async (req, re
     res.status(201).json({ message: 'Faculty onboarded.' });
 }));
 
-// @route   POST api/office/onboard-student
+/**
+ * @swagger
+ * /office/onboard-student:
+ *   post:
+ *     summary: Manually onboard a new student account
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, reg, email]
+ *             properties:
+ *               name: { type: string }
+ *               reg: { type: string }
+ *               email: { type: string }
+ *               semester: { type: integer }
+ *               fatherName: { type: string }
+ *               whatsappNumber: { type: string }
+ *               section: { type: string }
+ *               cgpa: { type: number }
+ *     responses:
+ *       201:
+ *         description: Student created and activation email dispatched
+ */
 router.post('/onboard-student', protect, officeAuth, asyncHandler(async (req, res) => {
     const { name, reg, email, semester, fatherName, whatsappNumber, section, cgpa } = req.body;
     const mail = email?.toLowerCase()?.trim(), r = reg?.toUpperCase()?.trim();
@@ -696,7 +959,18 @@ router.post('/delete-company/:id', protect, officeAuth, asyncHandler(async (req,
     res.json({ message: 'Deactivated.' });
 }));
 
-// @route   POST api/office/create-assignment
+/**
+ * @swagger
+ * /office/create-assignment:
+ *   post:
+ *     summary: Office-level creation of a new internship assignment or task
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Assignment created and logged
+ */
 router.post('/create-assignment', protect, officeAuth, asyncHandler(async (req, res) => {
     const a = new Assignment({ ...req.body, createdBy: req.user._id });
     await a.save();
@@ -736,7 +1010,18 @@ router.get('/all-marks', protect, officeAuth, asyncHandler(async (req, res) => {
     res.json(marks.filter(m => m.student));
 }));
 
-// @route   POST api/office/bulk-update-marks
+/**
+ * @swagger
+ * /office/bulk-update-marks:
+ *   post:
+ *     summary: Office override for bulk student grading
+ *     tags: [Office]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bulk grades processed
+ */
 router.post('/bulk-update-marks', protect, officeAuth, asyncHandler(async (req, res) => {
     const { assignmentId, facultyId, marksData, officeId } = req.body;
     const a = await Assignment.findById(assignmentId);
@@ -795,11 +1080,16 @@ router.get('/aggregated-marks', protect, officeAuth, asyncHandler(async (req, re
     res.json(results);
 }));
 
-// @route   GET api/office/archives
+/**
+ * @swagger
+ * /office/archives:
+ *   get:
+ *     summary: Retrieve seasonal archive list with live preview support
+ *     tags: [Office]
+ */
 router.get('/archives', protect, officeAuth, asyncHandler(async (req, res) => {
     const archives = await Archive.find().sort({ createdAt: -1 }).lean();
     
-    // Inject Live Snapshot if phase is 4 or 5
     const activePhase = await Phase.findOne({ status: 'active' }).lean();
     if (activePhase && (activePhase.order === 4 || activePhase.order === 5)) {
         try {
@@ -814,8 +1104,8 @@ router.get('/archives', protect, officeAuth, asyncHandler(async (req, res) => {
                 rawSnapshot: snapshot.rawSnapshot,
                 isLive: true,
                 createdAt: new Date(),
-                pdfUrl: null, // No PDF yet
-                excelUrl: null // No Excel yet
+                pdfUrl: null,
+                excelUrl: null
             };
             archives.unshift(liveSnapshot);
         } catch (err) {

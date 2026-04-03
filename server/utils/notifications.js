@@ -1,8 +1,24 @@
+/**
+ * @fileoverview System Notification Dispatcher.
+ * This module handles the creation of persistent in-app notifications
+ * for both individual users and bulk groups.
+ */
+
 import Notification from '../models/Notification.js';
 import { logError } from './logger.js';
 
 /**
- * Create a notification for a user
+ * Dispatches a single in-app notification.
+ * 
+ * @param {Object} options - Notification details.
+ * @param {string} options.recipient - ID of the target user.
+ * @param {string} options.sender - ID of the originating user/system.
+ * @param {string} options.type - Category of notification.
+ * @param {string} options.title - Short, descriptive title.
+ * @param {string} options.message - Full notification body content.
+ * @param {string} [options.link] - Optional URL for the notification target.
+ * @param {string} [options.relatedId] - Associated entity ID for referencing.
+ * @returns {Promise<Object>} The saved notification document.
  */
 export const createNotification = async ({ recipient, sender, type, title, message, link, relatedId }) => {
     try {
@@ -15,7 +31,12 @@ export const createNotification = async ({ recipient, sender, type, title, messa
 };
 
 /**
- * Bulk create notifications
+ * Efficiently dispatches high-volume notifications to multiple recipients.
+ * Uses MongoDB batch operations for optimized throughput.
+ * 
+ * @param {string[]} recipients - List of user IDs.
+ * @param {Object} data - Shared metadata for all notifications.
+ * @returns {Promise<void>}
  */
 export const createBulkNotifications = async (recipients, data) => {
     try {
@@ -25,3 +46,4 @@ export const createBulkNotifications = async (recipients, data) => {
         await logError(err, null, 'BULK_NOTIFICATION_CREATE_ERROR');
     }
 };
+

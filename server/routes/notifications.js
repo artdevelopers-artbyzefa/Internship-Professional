@@ -5,8 +5,25 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-// @route   GET api/notifications
-// @desc    Get all notifications for the current user
+/**
+ * @swagger
+ * tags:
+ *   name: Notifications
+ *   description: User notification delivery and management
+ */
+
+/**
+ * @swagger
+ * /notifications:
+ *   get:
+ *     summary: Retrieve recent notifications for the logged-in user
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of the 20 most recent notifications
+ */
 router.get('/', protect, asyncHandler(async (req, res) => {
     const notifications = await Notification.find({ recipient: req.user._id })
         .sort({ createdAt: -1 })
@@ -14,8 +31,13 @@ router.get('/', protect, asyncHandler(async (req, res) => {
     res.json(notifications);
 }));
 
-// @route   PATCH api/notifications/mark-read
-// @desc    Mark all notifications as read for current user
+/**
+ * @swagger
+ * /notifications/mark-read:
+ *   patch:
+ *     summary: Bulk mark all unread notifications as read
+ *     tags: [Notifications]
+ */
 router.patch('/mark-read', protect, asyncHandler(async (req, res) => {
     await Notification.updateMany(
         { recipient: req.user._id, read: false },
@@ -24,8 +46,17 @@ router.patch('/mark-read', protect, asyncHandler(async (req, res) => {
     res.json({ message: 'Notifications marked as read' });
 }));
 
-// @route   PATCH api/notifications/:id/read
-// @desc    Mark a single notification as read
+/**
+ * @swagger
+ * /notifications/{id}/read:
+ *   patch:
+ *     summary: Mark a specific notification as read
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ */
 router.patch('/:id/read', protect, asyncHandler(async (req, res) => {
     const notification = await Notification.findOne({
         _id: req.params.id,

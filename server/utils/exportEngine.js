@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Export Engine Utility.
+ * This module provides high-performance generation of institutional documents 
+ * in both PDF and Excel formats. It uses pdfmake for complex PDF layouts 
+ * and exceljs for structured data spreadsheets.
+ */
+
 import PdfPrinter from 'pdfmake/js/Printer.js';
 import ExcelJS from 'exceljs';
 import path from 'path';
@@ -8,6 +15,7 @@ import { getPKTTime, getPKTDate } from './time.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Standard fonts configuration for PDF generation
 const fonts = {
     Roboto: {
         normal: 'Helvetica',
@@ -19,25 +27,45 @@ const fonts = {
 
 const printer = new (PdfPrinter.default || PdfPrinter)(fonts);
 
-// 🎨 Helper for status colors
+/**
+ * Returns the mapping of status to consistent theme colors.
+ * @param {string} st - The status string.
+ * @returns {string} Hex color code.
+ */
 const statusColor = (st) => st === 'Pass' ? '#059669' : st === 'Fail' ? '#dc2626' : '#64748b';
+
+/**
+ * Safe string converter.
+ * @param {any} v - Value to convert.
+ * @returns {string} Converted string or 'N/A'.
+ */
 const s = (v) => (v == null ? 'N/A' : String(v));
 
+/**
+ * Loads the institutional logo and converts it to Base64 for PDF embedding.
+ * @returns {string|null} Base64 data URI or null if not found.
+ */
 const getLogo = () => {
     const logoPath = path.join(__dirname, '../../public/cuilogo.png');
     return fs.existsSync(logoPath) ? `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}` : null;
 };
 
 /**
- * Generates the Institutional PDF Dossier as a Buffer
+ * Generates the Institutional PDF Dossier.
+ * Creates a professional, audit-ready document with branding and high-density data.
+ * 
+ * @param {Object} data - Input data for the report.
+ * @param {Object} data.stats - KPI statistics.
+ * @param {Array} data.tables - Multi-dimensional data for tables.
+ * @returns {Promise<Buffer>} The generated PDF as a Buffer.
  */
 export const generatePdfBuffer = async (data) => {
     const { stats, charts, tables } = data;
     const logoBase64 = getLogo();
-    const successRate = Math.round(((stats.passed || 0) / (stats.participating || 1)) * 100);
 
     const docDefinition = {
-        pageSize: 'A4', pageMargins: [30, 45, 30, 55],
+        pageSize: 'A4', 
+        pageMargins: [30, 45, 30, 55],
         background: (currentPage, pageSize) => ({
             canvas: [
                 { type: 'rect', x: 0, y: 0, w: pageSize.width, h: 8, color: '#1e3a8a' },
@@ -65,8 +93,20 @@ export const generatePdfBuffer = async (data) => {
                 table: {
                     widths: ['*', '*', '*', '*', '*'],
                     body: [
-                        [{ text: 'TOTAL ENROLLED', style: 'kpiLabel' }, { text: 'PARTICIPATING', style: 'kpiLabel' }, { text: 'PHYSICAL', style: 'kpiLabel' }, { text: 'FREELANCE', style: 'kpiLabel' }, { text: 'INELIGIBLE', style: 'kpiLabel' }],
-                        [{ text: s(stats.total), style: 'kpiValue' }, { text: s(stats.participating), style: 'kpiValue', color: '#1e3a8a' }, { text: s(stats.physical), style: 'kpiValue' }, { text: s(stats.freelance), style: 'kpiValue' }, { text: s(stats.ineligible), style: 'kpiValue', color: '#dc2626' }]
+                        [
+                            { text: 'TOTAL ENROLLED', style: 'kpiLabel' }, 
+                            { text: 'PARTICIPATING', style: 'kpiLabel' }, 
+                            { text: 'PHYSICAL', style: 'kpiLabel' }, 
+                            { text: 'FREELANCE', style: 'kpiLabel' }, 
+                            { text: 'INELIGIBLE', style: 'kpiLabel' }
+                        ],
+                        [
+                            { text: s(stats.total), style: 'kpiValue' }, 
+                            { text: s(stats.participating), style: 'kpiValue', color: '#1e3a8a' }, 
+                            { text: s(stats.physical), style: 'kpiValue' }, 
+                            { text: s(stats.freelance), style: 'kpiValue' }, 
+                            { text: s(stats.ineligible), style: 'kpiValue', color: '#dc2626' }
+                        ]
                     ]
                 },
                 layout: 'lightHorizontalLines',
@@ -74,9 +114,21 @@ export const generatePdfBuffer = async (data) => {
             },
             {
                 table: {
-                    headerRows: 1, widths: [48, 65, 55, 60, 60, 48, 22, 18, 18, 30],
+                    headerRows: 1, 
+                    widths: [48, 65, 55, 60, 60, 48, 22, 18, 18, 30],
                     body: [
-                        [{ text: 'REG. NO', style: 'tableHeader' }, { text: 'NAME', style: 'tableHeader' }, { text: 'EMAIL', style: 'tableHeader' }, { text: 'ACAD SUP.', style: 'tableHeader' }, { text: 'SITE SUP.', style: 'tableHeader' }, { text: 'COMPANY', style: 'tableHeader' }, { text: 'MODE', style: 'tableHeader' }, { text: 'AVG', style: 'tableHeader' }, { text: '%', style: 'tableHeader' }, { text: 'STATUS', style: 'tableHeader' }],
+                        [
+                            { text: 'REG. NO', style: 'tableHeader' }, 
+                            { text: 'NAME', style: 'tableHeader' }, 
+                            { text: 'EMAIL', style: 'tableHeader' }, 
+                            { text: 'ACAD SUP.', style: 'tableHeader' }, 
+                            { text: 'SITE SUP.', style: 'tableHeader' }, 
+                            { text: 'COMPANY', style: 'tableHeader' }, 
+                            { text: 'MODE', style: 'tableHeader' }, 
+                            { text: 'AVG', style: 'tableHeader' }, 
+                            { text: '%', style: 'tableHeader' }, 
+                            { text: 'STATUS', style: 'tableHeader' }
+                        ],
                         ...tables.students.map((row, idx) => {
                             const bg = idx % 2 !== 0 ? '#f8fafc' : null;
                             return [
@@ -121,7 +173,12 @@ export const generatePdfBuffer = async (data) => {
 };
 
 /**
- * Generates the Institutional Excel Workbook as a Buffer
+ * Generates the Institutional Excel Workbook.
+ * Creates a structured ledger containing detailed audit data for each student.
+ * 
+ * @param {Object} data - Input data for the workbook.
+ * @param {Array} data.students - Unified list of student archival data.
+ * @returns {Promise<Buffer>} The generated Excel workbook as a Buffer.
  */
 export const generateExcelBuffer = async (data) => {
     const { students } = data;
@@ -142,6 +199,7 @@ export const generateExcelBuffer = async (data) => {
         { header: 'STATUS', key: 'status', width: 15 }
     ];
 
+    // Format header row
     sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
 
@@ -163,3 +221,4 @@ export const generateExcelBuffer = async (data) => {
 
     return await workbook.xlsx.writeBuffer();
 };
+

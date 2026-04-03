@@ -23,6 +23,8 @@ import monitoringRoutes from './routes/monitoring.js';
 import { getPKTTime } from './utils/time.js';
 import { seedPhases } from './routes/phases.js';
 import { logError } from './utils/logger.js';
+import { setupSwagger } from './swagger.js';
+import { runAutoPhaseChecker } from './utils/phaseEngine.js';
 
 dotenv.config();
 
@@ -49,30 +51,6 @@ mongoose.connection.on('error', async (err) => {
 const app = express();
 app.set('trust proxy', 1);
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ limit: '2mb', extended: true }));
-const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "https://internship-professional-ie1e.vercel.app"
-];
-
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || origin.startsWith('http')) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
-}));
-app.use(cookieParser());
-// Morgan removed for production log silence. All tracking is in System Monitoring.
-app.use(compression());
-
 const connectDB = async (req, res, next) => {
     if (mongoose.connection.readyState >= 1) return next();
 
@@ -89,7 +67,28 @@ const connectDB = async (req, res, next) => {
     }
 };
 
-app.use(connectDB);
+app.use(cors({
+    origin: (origin, callback) => {
+        const allowed = [
+            'http://localhost:5173',
+            'http://localhost:5174',
+            'https://internship-professional.vercel.app',
+            'https://internshipcscuiatd.artdevelopers.site'
+        ];
+        if (!origin || allowed.includes(origin)) callback(null, true);
+        else callback(new Error('CORS blocked'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+app.use(cookieParser());
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
+app.use(compression());
+
+setupSwagger(app);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -188,9 +187,14 @@ app.use(async (err, req, res, next) => {
     });
 });
 
+
+
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`));
+    app.listen(PORT, () => {
+        console.log(`Server: http://localhost:${PORT}`);
+        setInterval(runAutoPhaseChecker, 60000);
+    });
 }
 
 export default app;
