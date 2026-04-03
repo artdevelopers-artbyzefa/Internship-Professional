@@ -40,7 +40,7 @@ export default function PendingAgreements() {
       setSelectedAgreement(null);
       fetchAgreements();
     } catch (err) {
-      alert(err.message);
+      // Error handled by apiRequest
     } finally {
       setDeciding(null);
     }

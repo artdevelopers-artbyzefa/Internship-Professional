@@ -20,7 +20,7 @@ const noticeSchema = new mongoose.Schema({
     attachments: [attachmentSchema],
     targetType: {
         type: String,
-        enum: ['all_students', 'all_supervisors', 'specific_student', 'specific_supervisor'],
+        enum: ['all_students', 'all_supervisors', 'specific_student', 'specific_supervisor', 'system_landing'],
         required: true
     },
     targetId: {

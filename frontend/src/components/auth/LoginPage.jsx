@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Button from '../ui/Button.jsx';
-import { FormGroup, TextInput, SelectInput } from '../ui/FormInput.jsx';
+import { 
+  Mail, 
+  Lock, 
+  UserCircle, 
+  ArrowLeft, 
+  ShieldCheck, 
+  Loader2, 
+  Eye, 
+  EyeOff,
+  LogIn,
+  BadgeCheck,
+  University
+} from 'lucide-react';
+import { FormGroup } from '../ui/FormInput.jsx';
 import Alert from '../ui/Alert.jsx';
 import { apiRequest } from '../../utils/api.js';
 import { validate } from '../../utils/validation.js';
@@ -18,11 +30,11 @@ export default function LoginPage({ onLogin }) {
   const [apiError, setApiError] = useState('');
 
   const roles = [
-    { id: 'student', label: 'Student' },
-    { id: 'hod', label: 'HOD' },
-    { id: 'internship_office', label: 'Internship Office' },
-    { id: 'faculty_supervisor', label: 'Faculty Supervisor' },
-    { id: 'site_supervisor', label: 'Site Supervisor' }
+    { id: 'student', label: 'Student', icon: <UserCircle className="w-4 h-4" /> },
+    { id: 'hod', label: 'HOD', icon: <BadgeCheck className="w-4 h-4" /> },
+    { id: 'internship_office', label: 'Internship Office', icon: <University className="w-4 h-4" /> },
+    { id: 'faculty_supervisor', label: 'Faculty Supervisor', icon: <ShieldCheck className="w-4 h-4" /> },
+    { id: 'site_supervisor', label: 'Site Supervisor', icon: <ShieldCheck className="w-4 h-4" /> }
   ];
 
   const handleValidation = () => {
@@ -32,7 +44,6 @@ export default function LoginPage({ onLogin }) {
     setErrors(e);
     return Object.keys(e).length === 0;
   };
-
 
   const handleLogin = async () => {
     if (!handleValidation()) return;
@@ -78,40 +89,45 @@ export default function LoginPage({ onLogin }) {
 
   if (otpMode) {
     return (
-      <div className="min-h-screen bg-primary flex items-center justify-center p-5">
-        <div className="bg-white rounded-3xl p-10 w-full max-w-md shadow-2xl shadow-black/20 text-center">
-          <div className="mb-7">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-sm text-2xl">
-              <i className="fas fa-shield-halved"></i>
+      <div className="min-h-screen bg-[#1e3a8a] flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl p-10 w-full max-w-md shadow-2xl">
+          <div className="text-center mb-10">
+            <div className="w-20 h-20 bg-blue-50 text-blue-700 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <ShieldCheck className="w-10 h-10" />
             </div>
-            <h2 className="text-xl font-black text-gray-800 tracking-tight">Secondary Login</h2>
-            <p className="text-sm text-gray-400 mt-2 leading-relaxed">
-              For security, we sent a 6-digit code to <br />
-              <span className="text-primary font-bold">{form.email}</span>
+            <h2 className="text-2xl font-bold text-gray-900">Security Check</h2>
+            <p className="text-sm text-gray-500 mt-3 leading-relaxed">
+              We've sent a 6-digit confirmation code to <br />
+              <span className="text-blue-700 font-semibold">{form.email}</span>
             </p>
           </div>
 
-          {apiError && <Alert type="warning" className="mb-4">{apiError}</Alert>}
+          {apiError && <Alert type="warning" className="mb-6">{apiError}</Alert>}
 
-          <FormGroup label="Verification Code">
-            <TextInput
-              iconLeft="fa-key"
+          <FormGroup label="Verification Code" uppercase>
+            <input
+              type="text"
               placeholder="000000"
-              className="text-center text-xl tracking-[1em] font-black"
+              className="w-full border border-gray-200 rounded-xl py-3.5 px-4 text-center text-3xl tracking-[12px] font-bold text-gray-900 outline-none focus:border-blue-600 transition-all placeholder:tracking-normal placeholder:text-gray-300"
               value={otp}
               onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
             />
           </FormGroup>
 
-          <Button variant="primary" block onClick={handleVerifySecondary} disabled={loading} className="mt-4">
-            {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'Verify & Sign In'}
-          </Button>
+          <button
+            onClick={handleVerifySecondary}
+            disabled={loading}
+            className="w-full bg-[#1e3a8a] text-white rounded-xl py-4 font-semibold text-base hover:bg-blue-900 transition-all disabled:opacity-70 flex items-center justify-center gap-3 mt-4"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
+            Confirm & Continue
+          </button>
 
           <button
-            className="mt-6 text-sm font-bold text-gray-400 hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto"
+            className="mt-8 text-sm font-semibold text-gray-400 hover:text-blue-700 transition-colors flex items-center justify-center gap-2 mx-auto"
             onClick={() => { setOtpMode(false); setApiError(''); }}
           >
-            <i className="fas fa-arrow-left text-[10px]"></i> Back to Login
+            <ArrowLeft className="w-4 h-4" /> Back to Login
           </button>
         </div>
       </div>
@@ -119,71 +135,138 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen bg-primary flex items-center justify-center p-5">
-      <div className="bg-white rounded-2xl p-10 w-full max-w-md shadow-2xl shadow-black/20">
+    <main className="min-h-screen bg-[#1e3a8a] flex items-center justify-center p-6">
+      <div className="w-full max-w-[480px]">
+        <div className="bg-white rounded-3xl p-10 shadow-2xl">
 
-        {/* Back to Home */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-primary transition-colors mb-6 group bg-transparent border-0 cursor-pointer p-0"
-        >
-          <i className="fas fa-arrow-left text-[10px] group-hover:-translate-x-0.5 transition-transform" />
-          Back to Home
-        </button>
+          {/* Back Action */}
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-blue-700 transition-colors mb-6"
+              aria-label="Back to home page"
+            >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Home
+          </button>
 
-        <div className="text-center mb-7">
-          <img src="/cuilogo.png" alt="CUI Logo" className="h-20 mx-auto mb-3"
-            onError={(e) => e.target.style.display = 'none'} />
-          <h1 className="text-xl font-bold text-primary">CUI Abbottabad</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Digital Internship Management System</p>
-        </div>
+          <div className="text-center mb-8">
+            <img
+              src="/cuilogo.png"
+              alt="COMSATS University Islamabad Logo"
+              width={80}
+              height={80}
+              fetchpriority="high"
+              loading="eager"
+              decoding="sync"
+              className="h-20 w-auto mx-auto mb-4 drop-shadow"
+              onError={(e) => e.target.style.display = 'none'}
+            />
+            <h1 className="text-2xl font-black text-[#1e3a8a] tracking-tight mb-1">CUI Abbottabad</h1>
+            <p className="text-sm font-medium text-gray-500">Digital Internship Management System</p>
+          </div>
 
+          {apiError && <Alert type="warning" className="mb-5">{apiError}</Alert>}
 
-        {apiError && <Alert type="warning">{apiError}</Alert>}
-
-        <FormGroup label="Select Role">
-          <SelectInput
-            iconLeft="fa-id-badge"
-            value={form.role}
-            onChange={e => {
-              setForm({ ...form, role: e.target.value });
-              setApiError('');
-              setErrors({});
-            }}
+          <form 
+            onSubmit={(e) => { e.preventDefault(); handleLogin(); }}
+            className="space-y-4"
           >
-            {roles.map(r => (
-              <option key={r.id} value={r.id}>{r.label}</option>
-            ))}
-          </SelectInput>
-        </FormGroup>
+            <FormGroup label="Select Role" htmlFor="login-role">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <UserCircle className="w-4 h-4" />
+                </div>
+                <select
+                  id="login-role"
+                  value={form.role}
+                  onChange={e => {
+                    setForm({ ...form, role: e.target.value });
+                    setApiError('');
+                    setErrors({});
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-8 text-sm font-semibold text-gray-700 outline-none focus:border-blue-600 appearance-none cursor-pointer transition-all"
+                >
+                  {roles.map(r => (
+                    <option key={r.id} value={r.id}>{r.label}</option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">-</div>
+              </div>
+            </FormGroup>
 
-        <FormGroup label="Email Address" error={errors.email}>
-          <TextInput iconLeft="fa-envelope" type="email" placeholder="Enter your email"
-            value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-        </FormGroup>
+            <FormGroup label="Email Address" error={errors.email} htmlFor="login-email">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  id="login-email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm font-medium text-gray-700 outline-none focus:border-blue-600 transition-all"
+                />
+              </div>
+            </FormGroup>
 
-        <FormGroup label="Password" error={errors.password}>
-          <TextInput iconLeft="fa-lock" iconRight={showPw ? 'fa-eye-slash' : 'fa-eye'}
-            onToggleRight={() => setShowPw(!showPw)}
-            type={showPw ? 'text' : 'password'} placeholder="Enter your password"
-            value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-        </FormGroup>
+            <FormGroup label="Password" error={errors.password} htmlFor="login-password">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  id="login-password"
+                  type={showPw ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-10 text-sm font-medium text-gray-700 outline-none focus:border-blue-600 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-700 transition-colors"
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
+                >
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </FormGroup>
 
-        <div className="flex items-center justify-between mb-5">
-          <label className="flex items-center gap-1.5 text-sm cursor-pointer text-gray-500">
-            <input type="checkbox" className="rounded" /> Remember me
-          </label>
-          <button className="text-sm text-secondary underline bg-transparent border-0 cursor-pointer font-medium"
-            onClick={() => navigate('/forgot-password')}>Forgot Password?</button>
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 border border-gray-300 rounded accent-blue-700" />
+                <span className="text-gray-500 font-medium">Remember me</span>
+              </label>
+              <button
+                onClick={() => navigate('/forgot-password')}
+                className="text-sm text-blue-700 font-bold hover:underline transition-all"
+              >
+                Forgot Password?
+              </button>
+            </div>
+
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              className="w-full bg-[#1e3a8a] text-white rounded-xl py-3.5 font-bold text-base hover:bg-blue-900 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Verifying account...
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
         </div>
-
-        <Button variant="primary" block onClick={handleLogin} disabled={loading} className="mb-4">
-          {loading
-            ? <><i className="fas fa-circle-notch fa-spin mr-2"></i> Verifying...</>
-            : <><i className="fas fa-right-to-bracket mr-2"></i> Sign In</>}
-        </Button>
-
       </div>
-    </div>
+    </main>
   );
 }

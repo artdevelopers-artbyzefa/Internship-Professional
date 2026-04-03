@@ -76,7 +76,7 @@ export default function OfficeReports({ user }) {
         setActivePhase(phase);
         setRegStats(stats);
       } catch (err) {
-        console.error('Init Error:', err);
+        // Error handled by apiRequest
       } finally {
         setLoadingStats(false);
       }
@@ -271,19 +271,11 @@ export default function OfficeReports({ user }) {
       // ─── Send to PDF generator ───
       const safeTitle = (payload.reportTitle || 'Report').replace(/[^\x00-\x7F]/g, '-').replace(/[\s/]+/g, '_');
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/reports/generate-pdf`, {
+      const blob = await apiRequest('/reports/generate-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload)
+        body: payload,
+        responseType: 'blob'
       });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || `Server Error (${response.status})`);
-      }
-
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -294,8 +286,7 @@ export default function OfficeReports({ user }) {
       window.URL.revokeObjectURL(url);
       showToast.success(`Report downloaded successfully.`);
     } catch (err) {
-      console.error('Report Error:', err);
-      showToast.error(`Failed to generate report: ${err.message}`);
+      // Error handled by apiRequest
     } finally {
       setLoading(false);
     }

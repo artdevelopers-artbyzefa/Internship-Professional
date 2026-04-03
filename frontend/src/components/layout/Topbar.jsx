@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, getInitials } from '../../utils/helpers.js';
 import { apiRequest } from '../../utils/api.js';
+
 function PhaseChip({ activePhase }) {
   const calc = useCallback(() => {
     if (!activePhase?.scheduledEndAt) return null;
@@ -27,9 +28,9 @@ function PhaseChip({ activePhase }) {
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
       </span>
-      <span className="truncate max-w-32">{activePhase.label}</span>
+      <span>{activePhase.label}</span>
       {rem && (
-        <span className="text-emerald-500 font-black">
+        <span className="text-emerald-500 font-bold">
           · {rem.days > 0 ? `${rem.days}d ` : ''}{rem.hours}h {rem.mins}m left
         </span>
       )}
@@ -37,7 +38,6 @@ function PhaseChip({ activePhase }) {
   );
 }
 
-// ── Main Topbar ────────────────────────────────────────────────────────────
 export default function Topbar({ user, activePage, navItems, onLogout, showDD, setShowDD, showNotif, setShowNotif, onMenuToggle }) {
   const navigate = useNavigate();
   const initials = getInitials(user.name);
@@ -51,15 +51,16 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
     apiRequest('/notifications').then(data => {
       setNotifications(data || []);
       setUnreadCount((data || []).filter(n => !n.read).length);
-    }).catch(() => { });
+    }).catch(err => {
+      //handeled by API 
+    });
   }, []);
 
   useEffect(() => {
-    const fetchPhase = () => apiRequest('/phases/current').then(d => setActivePhase(d)).catch(() => { });
+    const fetchPhase = () => apiRequest('/phases/current').then(d => setActivePhase(d)).catch(() => {});
     fetchPhase();
     fetchNotifications();
     
-    // Sync phase status and notifications every 3 minutes
     const interval = setInterval(() => {
         fetchPhase();
         fetchNotifications();
@@ -70,20 +71,24 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
 
   const handleMarkAllRead = async () => {
     try {
-      await apiRequest('/notifications/mark-read', 'PATCH');
+      await apiRequest('/notifications/mark-read', { method: 'PATCH' });
       fetchNotifications();
-    } catch (err) { }
+    } catch (err) {
+      // Handled by apiRequest
+    }
   };
 
   const handleNotifClick = async (notif) => {
     try {
       if (!notif.read) {
-        await apiRequest(`/notifications/${notif._id}/read`, 'PATCH');
+        await apiRequest(`/notifications/${notif._id}/read`, { method: 'PATCH' });
         fetchNotifications();
       }
       if (notif.link) navigate(notif.link);
       setShowNotif(false);
-    } catch (err) { }
+    } catch (err) {
+      // Handled by apiRequest
+    }
   };
 
   const rolePaths = {
@@ -109,7 +114,6 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
 
   return (
     <div className="bg-white border-b border-gray-100 px-3 md:px-6 h-14 md:h-16 flex items-center justify-between shadow-sm flex-shrink-0 z-[30] gap-3">
-      {/* Left */}
       <div className="flex items-center gap-2 md:gap-3 min-w-0">
         <button
           onClick={onMenuToggle}
@@ -122,9 +126,9 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
         </div>
       </div>
 
-      {/* Right */}
       <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
-        {/* Notifications */}
+        <PhaseChip activePhase={activePhase} />
+        
         <div className="relative">
           <button
             onClick={() => { setShowNotif(!showNotif); setShowDD(false); }}
@@ -134,13 +138,14 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             )}
           </button>
+          
           {showNotif && (
             <div className="absolute right-0 top-11 bg-white border border-gray-100 rounded-2xl w-80 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
               <div className="px-4 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-                <span className="text-[11px] font-black text-primary uppercase tracking-wider">Notifications</span>
+                <span className="text-[11px] font-bold text-primary">Notifications</span>
                 {unreadCount > 0 && (
                   <button onClick={handleMarkAllRead} className="text-[10px] font-bold text-secondary hover:underline bg-transparent border-0 cursor-pointer">
-                    Mark all as read
+                    Mark all read
                   </button>
                 )}
               </div>
@@ -168,7 +173,7 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
                       <div className="min-w-0 flex-1">
                         <p className={`text-xs leading-snug ${!n.read ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>{n.title}</p>
                         <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{n.message}</p>
-                        <p className="text-[9px] text-gray-300 font-bold uppercase mt-1.5 tracking-tighter">
+                        <p className="text-[9px] text-gray-300 font-bold mt-1.5">
                           {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(n.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                         </p>
                       </div>
@@ -185,35 +190,31 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
           )}
         </div>
 
-        {/* User dropdown */}
         <div className="relative">
           <button
             onClick={() => { setShowDD(!showDD); setShowNotif(false); }}
             className="flex items-center gap-2 p-1 md:px-2.5 md:py-1.5 bg-gray-50 rounded-xl cursor-pointer border border-gray-100 hover:bg-blue-50 hover:border-blue-100 transition-all">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden flex-shrink-0">
-              {user.profilePicture
-                ? <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                : initials}
+              {user.profilePicture ? <img src={user.profilePicture} className="w-full h-full object-cover" alt="" /> : initials}
             </div>
             <div className="text-left hidden sm:block">
-              <div className="text-xs font-semibold text-gray-800 leading-tight truncate max-w-28">{user.name}</div>
-              <div className="text-[9px] text-gray-400 leading-tight font-medium uppercase tracking-tight">{roleLabel}</div>
+              <div className="text-xs font-bold text-gray-800 leading-tight truncate max-w-28">{user.name}</div>
+              <div className="text-[10px] text-gray-400 leading-tight font-bold">{roleLabel}</div>
             </div>
-            <i className="fas fa-chevron-down text-gray-400 ml-0.5 hidden sm:block" style={{ fontSize: 9 }} />
+            <i className="fas fa-chevron-down text-gray-400 ml-0.5 hidden sm:block text-[9px]" />
           </button>
 
           {showDD && (
             <div className="absolute right-0 top-12 bg-white border border-gray-100 rounded-xl p-2 min-w-48 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
-              {/* Mobile name header */}
               <div className="px-3 py-2 sm:hidden border-b border-gray-50 mb-1">
                 <div className="text-xs font-bold text-gray-800">{user.name}</div>
-                <div className="text-[10px] text-gray-400 uppercase">{roleLabel}</div>
+                <div className="text-[10px] text-gray-400 font-bold">{roleLabel}</div>
               </div>
-              <div onClick={handleProfileClick} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-600 cursor-pointer transition-colors">
+              <div onClick={handleProfileClick} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-600 cursor-pointer transition-colors" role="menuitem">
                 <i className="fas fa-user-circle w-4 text-primary" /> My Profile
               </div>
               <hr className="my-1 border-gray-100" />
-              <div onClick={onLogout} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-sm text-red-500 cursor-pointer transition-colors">
+              <div onClick={onLogout} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-sm text-red-500 cursor-pointer transition-colors" role="menuitem">
                 <i className="fas fa-power-off w-4" /> Sign Out
               </div>
             </div>

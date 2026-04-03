@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /private/
+Disallow: /api/
+
+# Sitemap does not exist yet, removing to avoid robots.txt errors
+# Sitemap: https://ims.cuiatd.edu.pk/sitemap.xml

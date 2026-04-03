@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
 
 export default function AppLayout({ user, onLogout, activePage, setActivePage, navItems, children, disableSidebar = false, hideLogout = false }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  useEffect(() => {
+    if (window.innerWidth >= 1024 && window.innerWidth < 1280) {
+      setCollapsed(true);
+    }
+  }, []);
   const [showDD, setShowDD] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden relative bg-lightbg selection:bg-secondary/20">
       <Sidebar
+        aria-label="Main navigation"
         user={user}
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
@@ -24,7 +31,6 @@ export default function AppLayout({ user, onLogout, activePage, setActivePage, n
         hideLogout={hideLogout}
       />
 
-      {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
         <div
           className="fixed inset-0 bg-black/50 z-[40] lg:hidden backdrop-blur-sm"
@@ -66,13 +72,15 @@ export default function AppLayout({ user, onLogout, activePage, setActivePage, n
             }
           }}
         />
-        <div
-          className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8 bg-lightbg scroll-smooth"
+        <main
+          role="main"
+          aria-label="Page content"
+          className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-5 lg:p-6 bg-lightbg scroll-smooth"
           onClick={() => { setShowDD(false); setShowNotif(false); }}>
           <div className="max-w-[1600px] mx-auto w-full">
             {children}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

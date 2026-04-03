@@ -27,7 +27,7 @@ export default function OfficeDashboard({ user }) {
           setReqStats(reqData);
         }
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        // Error handled by apiRequest
       } finally {
         setLoading(false);
       }
@@ -55,7 +55,7 @@ export default function OfficeDashboard({ user }) {
       {activePhase?.order >= 1 && regStats && (
         <div className="bg-white rounded-2xl shadow-sm border-2 border-primary/20 p-4 md:p-8 overflow-hidden relative mb-6">
           <div className="absolute top-0 right-0 p-3">
-            <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full tracking-widest uppercase">
+            <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full tracking-widest ">
               Phase: Registration
             </span>
           </div>
@@ -97,11 +97,6 @@ export default function OfficeDashboard({ user }) {
       {/* ── Phase 2: Placement & Approvals ── */}
       {activePhase?.order >= 2 && reqStats && (
         <div className="bg-white rounded-2xl shadow-sm border-2 border-secondary/20 p-4 md:p-8 overflow-hidden relative mb-6">
-          <div className="absolute top-0 right-0 p-3">
-            <span className="px-3 py-1 bg-secondary/10 text-secondary text-[10px] font-black rounded-full tracking-widest uppercase">
-              Placement Activity
-            </span>
-          </div>
           <div className="flex items-center gap-4 mb-6 md:mb-8 mt-4 md:mt-0">
             <div className="w-10 h-10 md:w-12 md:h-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary text-lg md:text-xl">
               <i className="fas fa-file-arrow-up"></i>

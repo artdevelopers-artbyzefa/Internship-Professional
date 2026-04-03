@@ -1,14 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import NotFoundPage from '../NotFoundPage.jsx';
 import AppLayout from '../../components/layout/AppLayout.jsx';
-import StudentDashboard from './StudentDashboard.jsx';
-import StudentProfile from './StudentProfile.jsx';
-import InternshipRequestForm from './InternshipRequestForm.jsx';
-import StudentAgreementForm from './StudentAgreementForm.jsx';
-import StudentAssignments from './StudentAssignments.jsx';
-import StudentResults from './StudentResults.jsx';
-import InternshipStatus from './InternshipStatus.jsx';
 import { apiRequest } from '../../utils/api.js';
+
+// Eagerly load dashboard for immediate first-paint
+import StudentDashboard from './StudentDashboard.jsx';
+
+// Lazy-load all other pages
+const StudentProfile         = lazy(() => import('./StudentProfile.jsx'));
+const InternshipRequestForm   = lazy(() => import('./InternshipRequestForm.jsx'));
+const StudentAgreementForm    = lazy(() => import('./StudentAgreementForm.jsx'));
+const StudentAssignments      = lazy(() => import('./StudentAssignments.jsx'));
+const StudentResults          = lazy(() => import('./StudentResults.jsx'));
+const InternshipStatus        = lazy(() => import('./InternshipStatus.jsx'));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center py-32" role="status" aria-live="polite">
+    <div className="w-10 h-10 border-3 border-gray-100 border-t-primary rounded-full animate-spin" />
+    <span className="sr-only">Loading page...</span>
+  </div>
+);
+
+const LazyWrap = ({ children }) => (
+  <Suspense fallback={<PageLoader />}>{children}</Suspense>
+);
 
 export default function StudentPortal({ user, onLogout, onUpdateUser }) {
   const navigate = useNavigate();
@@ -28,7 +44,8 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
           setActivePhase(phase);
           setEligibility(eligData);
         })
-        .catch(() => {
+        .catch((err) => {
+          // Error handled by apiRequest
           setActivePhase(null);
           setEligibility({ eligible: true, hardCriteriaMet: true });
         });
@@ -156,17 +173,17 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
         <Routes>
           {/* Dashboard & Profile — always accessible */}
           <Route path="dashboard" element={<StudentDashboard user={user} eligibility={eligibility} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} hardCriteriaMet={hardCriteriaMet} isProfileComplete={isProfileComplete} activePhase={activePhase} />} />
-          <Route path="profile" element={<StudentProfile user={user} onUpdate={onUpdateUser} eligibility={eligibility} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} activePhase={activePhase} />} />
+          <Route path="profile" element={<LazyWrap><StudentProfile user={user} onUpdate={onUpdateUser} eligibility={eligibility} isEligible={isEligible} isPhase1={isPhase1} isPendingSetup={isPendingSetup} activePhase={activePhase} /></LazyWrap>} />
 
           {/* Institutional Workflow Routes */}
           <Route path="internship-assessment" element={
-            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipRequestForm user={user} activePhase={activePhase} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <LazyWrap><InternshipRequestForm user={user} activePhase={activePhase} /></LazyWrap>
           } />
           <Route path="internship-status" element={
-            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <InternshipStatus user={user} activePhase={activePhase} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <LazyWrap><InternshipStatus user={user} activePhase={activePhase} /></LazyWrap>
           } />
           <Route path="agreement-form" element={
-            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <StudentAgreementForm user={user} />
+            isPhase1 || showPhase3Nav ? <Navigate to="../dashboard" replace /> : <LazyWrap><StudentAgreementForm user={user} /></LazyWrap>
           } />
 
           {/* Backward compatibility for Phase 2 workflow trigger link */}
@@ -174,13 +191,13 @@ export default function StudentPortal({ user, onLogout, onUpdateUser }) {
 
           {/* Protected Routes (for later phases) */}
           <Route path="assignments" element={
-            isProfileComplete && showPhase3Nav ? <StudentAssignments user={user} /> : <Navigate to="../dashboard" replace />
+            isProfileComplete && showPhase3Nav ? <LazyWrap><StudentAssignments user={user} /></LazyWrap> : <Navigate to="../dashboard" replace />
           } />
           <Route path="results" element={
-            isProfileComplete && showPhase3Nav ? <StudentResults user={user} /> : <Navigate to="../dashboard" replace />
+            isProfileComplete && showPhase3Nav ? <LazyWrap><StudentResults user={user} /></LazyWrap> : <Navigate to="../dashboard" replace />
           } />
 
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
     </AppLayout>

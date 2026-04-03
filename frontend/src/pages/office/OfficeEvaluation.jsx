@@ -20,7 +20,7 @@ export default function OfficeEvaluation() {
       const data = await apiRequest('/office/evaluations');
       setEvaluations(data || []);
     } catch (err) {
-      console.error(err);
+      // Error handled by apiRequest
     } finally {
       setLoading(false);
     }

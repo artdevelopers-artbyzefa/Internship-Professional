@@ -1,386 +1,302 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import nodemailer from 'nodemailer';
+import { logError } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-import nodemailer from 'nodemailer';
-
-/**
- * Central transporter logic using institutional SMTP relay
- */
 const getTransporter = () => {
-    // 1. Check SMTP_USER, 2. Fallback to SENDER_EMAIL
     const smtpUser = (process.env.SMTP_USER || process.env.SENDER_EMAIL || '').trim();
     const apiKey = (process.env.BREVO_API_KEY || '').trim();
-    
-    if (!apiKey) {
-        console.error('[EMAIL ERROR] BREVO_API_KEY is missing!');
-    }
-    
-    console.log(`[EMAIL] [v2-FIX] Trying SMTP login with user: ${smtpUser}`);
-
-    return nodemailer.createTransport({
-        host: 'smtp-relay.brevo.com',
-        port: 587,
-        secure: false,
-        auth: {
-            user: smtpUser,
-            pass: apiKey
-        }
-    });
+    return nodemailer.createTransport({ host: 'smtp-relay.brevo.com', port: 587, secure: false, auth: { user: smtpUser, pass: apiKey } });
 };
+
+const wrapTemplate = (title, name, message, buttonLabel, buttonUrl, secondaryText = '') => {
+  const brandColor = '#2563eb';
+  const textColor = '#1e293b';
+  const mutedColor = '#64748b';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap');
+        
+        body { font-family: 'Outfit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; -webkit-font-smoothing: antialiased; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f1f5f9; padding-bottom: 40px; padding-top: 40px; }
+        .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-spacing: 0; color: ${textColor}; border-radius: 28px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); }
+        
+        /* Animated Gradient Header */
+        .header { 
+            background: linear-gradient(-45deg, #1e3a8a, #3b82f6, #2563eb, #1d4ed8);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            padding: 70px 40px; 
+            text-align: center; 
+            position: relative; 
+        }
+        
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header h1 { color: #ffffff; margin: 0; font-size: 34px; letter-spacing: -1.5px; font-weight: 600; text-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .content { padding: 56px 48px; line-height: 1.7; }
+        .content h2 { font-size: 26px; color: #0f172a; margin-bottom: 20px; font-weight: 600; letter-spacing: -0.5px; }
+        .content p { font-size: 17px; color: ${mutedColor}; margin-bottom: 28px; }
+        
+        .btn-container { text-align: center; margin-top: 36px; margin-bottom: 36px; }
+        
+        /* Pulsing Animated Button */
+        .btn { 
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); 
+            color: #ffffff !important; 
+            padding: 20px 42px; 
+            border-radius: 18px; 
+            text-decoration: none; 
+            font-weight: 600; 
+            display: inline-block; 
+            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
+            transition: transform 0.3s ease;
+        }
+        
+        .footer { text-align: center; padding: 40px; font-size: 13px; color: #94a3b8; background-color: #fafafa; }
+        .footer-line { border-top: 1px solid #f1f5f9; margin: 0 40px; }
+        
+        .badge { 
+            display: inline-block; 
+            padding: 8px 16px; 
+            border-radius: 30px; 
+            background: rgba(37, 99, 235, 0.08); 
+            color: #2563eb; 
+            font-size: 13px; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            margin-bottom: 24px; 
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animated { animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <table class="main animated" role="presentation">
+            <tr>
+                <td class="header">
+                    <div style="background: rgba(255,255,255,0.12); backdrop-filter: blur(8px); display: inline-block; padding: 14px 28px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                        <h1>${process.env.SENDER_NAME || 'DIMS Portal'}</h1>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="content">
+                    <span class="badge">${title}</span>
+                    ${name ? `<h2>Hello ${name},</h2>` : ''}
+                    <p style="margin-bottom: 32px;">${message}</p>
+                    ${buttonUrl ? `
+                    <div class="btn-container">
+                        <a href="${buttonUrl}" class="btn">${buttonLabel}</a>
+                    </div>
+                    ` : ''}
+                    ${secondaryText ? `<div style="padding: 24px; background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; text-align: center; margin-top: 32px;">${secondaryText}</div>` : ''}
+                </td>
+            </tr>
+            <tr>
+                <td class="footer">
+                    <p style="margin-bottom: 12px; font-weight: 600; color: #64748b;">Enterprise Internship Management</p>
+                    <p>&copy; 2026 DIMS Portal | All Rights Reserved</p>
+                    <p style="margin-top: 8px; font-style: italic;">Innovation in professional placement.</p>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>
+  `;
+};
+
 
 const brevoSend = async (to, subject, html) => {
-  const SENDER_NAME = process.env.SENDER_NAME;
-  const SENDER_EMAIL = process.env.SENDER_EMAIL;
+    const SENDER_NAME = process.env.SENDER_NAME;
+    const SENDER_EMAIL = process.env.SENDER_EMAIL;
+    if (!process.env.BREVO_API_KEY || !SENDER_NAME || !SENDER_EMAIL) return { success: false, error: 'SMTP config missing' };
 
-  if (!process.env.BREVO_API_KEY || !SENDER_NAME || !SENDER_EMAIL) {
-    console.error(`[EMAIL ERROR] SMTP configuration missing!`);
-    return { success: false, error: 'SMTP config missing' };
-  }
-
-  try {
-    const transporter = getTransporter();
-    const info = await transporter.sendMail({
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-        to,
-        subject,
-        html
-    });
-
-    console.log(`[EMAIL SUCCESS] Sent to: ${to} (MessageId: ${info.messageId})`);
-    return { success: true };
-  } catch (error) {
-    console.error('[EMAIL ERROR] SMTP failed:', error);
-    
-    // Self-healing: If it's an auth error and we haven't tried the hardcoded fallback, try one more time
-    if (error.message.includes('535') && !process.env.SMTP_USER) {
-        console.log('[EMAIL] Auth failed with SENDER_EMAIL. Retrying with institutional SMTP ID...');
-        try {
-            const retryTransporter = nodemailer.createTransport({
-                host: 'smtp-relay.brevo.com',
-                port: 587,
-                secure: false,
-                auth: {
-                    user: 'a4dd03001@smtp-brevo.com',
-                    pass: process.env.BREVO_API_KEY
-                }
-            });
-            const info = await retryTransporter.sendMail({
-                from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-                to,
-                subject,
-                html
-            });
-            console.log(`[EMAIL SUCCESS] Fixed via retry! Sent to: ${to}`);
-            return { success: true };
-        } catch (retryError) {
-            console.error('[EMAIL ERROR] Retry also failed:', retryError);
-            return { success: false, error: retryError.message };
+    try {
+        const transporter = getTransporter();
+        await transporter.sendMail({ from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`, to, subject, html });
+        return { success: true };
+    } catch (error) {
+        if (error.message.includes('535') && !process.env.SMTP_USER) {
+            try {
+                const retryTransporter = nodemailer.createTransport({ host: 'smtp-relay.brevo.com', port: 587, secure: false, auth: { user: 'a4dd03001@smtp-brevo.com', pass: process.env.BREVO_API_KEY } });
+                await retryTransporter.sendMail({ from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`, to, subject, html });
+                return { success: true };
+            } catch (retryError) {
+                await logError(retryError, null, `RETRY_MAIL_FAIL: ${to}`);
+                return { success: false, error: retryError.message };
+            }
         }
+        await logError(error, null, `MAIL_SEND_FAIL: ${to}`);
+        return { success: false, error: error.message };
     }
-    
-    return { success: false, error: error.message };
-  }
 };
 
-/**
- * Sends a professional verification email to students
- */
 export const sendVerificationEmail = async (email, token) => {
-  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${token}`;
-
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9fafb; padding: 40px; border-radius: 16px;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #1e3a8a; margin: 0; font-size: 24px;">Digital Internship Management System</h1>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">COMSATS University Islamabad, Abbottabad Campus</p>
-      </div>
-      <div style="background-color: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-        <h2 style="color: #111827; font-size: 18px; margin-bottom: 16px;">Verify your email address</h2>
-        <p style="color: #374151; font-size: 15px; line-height: 24px;">
-          Hello,<br/><br/>
-          Thank you for registering on the DIMS Portal. To activate your student account, please confirm your email address by clicking the button below. 
-          <br/><br/>
-          <strong>Note:</strong> This link will expire in <strong>24 hours</strong>.
-        </p>
-        <div style="text-align: center; margin: 35px 0;">
-          <a href="${verificationUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
-            Verify Email Address
-          </a>
-        </div>
-        <p style="color: #6b7280; font-size: 12px; line-height: 20px;">
-          If the button doesn't work, copy and paste this link into your browser:<br/>
-          <a href="${verificationUrl}" style="color: #2563eb; word-break: break-all;">${verificationUrl}</a>
-        </p>
-      </div>
-      <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
-        <p>This is an automated system message. Please do not reply to this email.</p>
-        <p>&copy; 2026 CUI Abbottabad - Department of Computer Science</p>
-      </div>
-    </div>
-  `;
-  return await brevoSend(email, 'Action Required: Verify Your DIMS Account', html);
+    const url = `${process.env.FRONTEND_URL}/verify-email/${token}`;
+    const html = wrapTemplate(
+      'Account Verification',
+      'User',
+      'Thank you for joining the DIMS portal. To unlock your full access and start your internship journey, please verify your email address.',
+      'Verify My Account',
+      url
+    );
+    return await brevoSend(email, 'Action Required: Verify Your DIMS Account', html);
 };
 
-/**
- * Sends a nomination email to Faculty Supervisors
- */
 export const sendFacultyNominationEmail = async (email, token, name) => {
-  const activationUrl = `${process.env.FRONTEND_URL}/faculty/activate/${token}`;
-
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #eff6ff; padding: 40px; border-radius: 16px; border: 1px solid #dbeafe;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #1e3a8a; margin: 0; font-size: 24px;">Internship Management System</h1>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">COMSATS University Islamabad, Abbottabad Campus</p>
-      </div>
-      <div style="background-color: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <h2 style="color: #111827; font-size: 18px; margin-bottom: 16px;">Formal Nomination</h2>
-        <p style="color: #374151; font-size: 15px; line-height: 24px;">
-          Dear <strong>${name}</strong>,<br/><br/>
-          The Internship Office has officially nominated you as a <strong>Faculty Internship Supervisor</strong> for the upcoming semester. 
-          <br/><br/>
-          To accept this nomination and access the supervision portal, please set up your secure account password using the link below.
-          <br/><br/>
-          <strong style="color: #991b1b;">Security Notice:</strong> This activation link is valid for <strong>24 hours</strong> and can be used only once.
-        </p>
-        <div style="text-align: center; margin: 35px 0;">
-          <a href="${activationUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
-            Set Password & Activate
-          </a>
-        </div>
-        <p style="color: #6b7280; font-size: 12px; line-height: 20px;">
-          If the button doesn't work, copy and paste this link into your browser:<br/>
-          <a href="${activationUrl}" style="color: #2563eb; word-break: break-all;">${activationUrl}</a>
-        </p>
-      </div>
-    </div>
-  `;
-  return await brevoSend(email, 'Official Nomination: Faculty Internship Supervisor', html);
+    const url = `${process.env.FRONTEND_URL}/faculty/activate/${token}`;
+    const html = wrapTemplate(
+      'Faculty Nomination',
+      name,
+      'You have been officially nominated as a Faculty Internship Supervisor. Your expertise is vital to our students\' success. Please set your password to activate your administration dashboard.',
+      'Activate Supervisor Account',
+      url
+    );
+    return await brevoSend(email, 'Official Nomination: Faculty Internship Supervisor', html);
 };
 
-/**
- * Sends a professional assignment confirmation email to the student
- */
-export const sendAssignmentConfirmationEmail = async (studentEmail, studentName, assignmentDetails) => {
-  const { companyName, siteSupervisor, facultySupervisor } = assignmentDetails;
-
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 40px; border-radius: 16px; border: 1px solid #e2e8f0;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #1e3a8a; margin: 0; font-size: 24px;">Internship Management System</h1>
-        <p style="color: #64748b; font-size: 14px; margin-top: 5px;">CUI Abbottabad Campus</p>
-      </div>
-      <div style="background-color: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <h2 style="color: #0f172a; font-size: 18px; margin-bottom: 16px;">Internship Assignment Details</h2>
-        <p style="color: #334155; font-size: 15px; line-height: 24px;">
-          Dear <strong>${studentName}</strong>,<br/><br/>
-          Your internship placement has been officially confirmed. Below are the details.
-        </p>
-        <div style="margin-top: 25px; border-top: 1px solid #f1f5f9; padding-top: 20px;">
-          <h3 style="color: #1e40af; font-size: 14px; text-transform: uppercase;">Placement Information</h3>
-          <p><strong>Company:</strong> ${companyName}</p>
-          <p><strong>Site Supervisor:</strong> ${siteSupervisor.name}</p>
-          <p><strong>Faculty Supervisor:</strong> ${facultySupervisor.name}</p>
-        </div>
-      </div>
-    </div>
-  `;
-  return await brevoSend(studentEmail, 'Official Notification: Internship Assignment Confirmed', html);
+export const sendAssignmentConfirmationEmail = async (email, name, details) => {
+    const html = wrapTemplate(
+      'Placement Confirmed',
+      name,
+      `Great news! Your internship placement at <b>${details.companyName}</b> has been officially confirmed. The next chapter of your professional career begins now.`,
+      'View Placement Details',
+      `${process.env.FRONTEND_URL}/dashboard`
+    );
+    return await brevoSend(email, 'Official Notification: Internship Assignment Confirmed', html);
 };
 
-/**
- * Sends a temporary password to the faculty supervisor
- */
-export const sendFacultyPasswordResetEmail = async (email, tempPassword, name) => {
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background-color: #f8fafc;">
-      <h2>Password Reset Notice</h2>
-      <p>Dear ${name}, your DIMS account password has been reset.</p>
-      <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; text-align: center; border: 1px dashed #cbd5e1;">
-        <p>Your temporary password is:</p>
-        <p style="font-size: 24px; font-weight: bold; color: #1e40af;">${tempPassword}</p>
-      </div>
-      <p style="font-size: 12px; color: #64748b;">Please change this immediately after logging in.</p>
-    </div>
-  `;
-  return await brevoSend(email, 'Administrative Action: Password Reset for DIMS', html);
+export const sendFacultyAssignmentNotificationEmail = async (email, name, details) => {
+    const html = wrapTemplate(
+      'New Student Assigned',
+      name,
+      `A new student, <b>${details.studentName}</b>, has been assigned to your supervision for their tenure at <b>${details.companyName}</b>. You can now monitor their progress through your dashboard.`,
+      'Go to Dashboard',
+      `${process.env.FRONTEND_URL}/faculty`
+    );
+    return await brevoSend(email, `Student Assigned: ${details.studentName}`, html);
 };
 
-/**
- * Sends a 6-digit verification code for password reset or secondary login
- */
+export const sendSupervisorAssignmentNotificationEmail = async (email, name, details) => {
+    const html = wrapTemplate(
+      'Official Placement',
+      name,
+      `We represent to you <b>${details.studentName}</b>, who has been officially assigned to your supervision at <b>${details.companyName}</b>. We look forward to a productive collaboration.`,
+      'Manage Placement',
+      `${process.env.FRONTEND_URL}/supervisor`
+    );
+    return await brevoSend(email, `Official Placement: ${details.studentName} at ${details.companyName}`, html);
+};
+
+export const sendFacultyPasswordResetEmail = async (email, pw, name) => {
+    const html = wrapTemplate(
+      'Administrative Reset',
+      name,
+      `Your account password has been reset by the administration. Please use the temporary credentials provided below to log in and immediately update your password.`,
+      'Log In Now',
+      `${process.env.FRONTEND_URL}/login`,
+      `Temporary Password: <b>${pw}</b>`
+    );
+    return await brevoSend(email, 'Administrative Action: Password Reset for DIMS', html);
+};
+
 export const sendPasswordResetCode = async (email, code) => {
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 40px; border: 1px solid #e2e8f0; border-radius: 16px; text-align: center;">
-      <h2 style="color: #1e3a8a;">Verification Code</h2>
-      <p style="color: #334155;">To continue, use the 6-digit verification code below. This code is valid for <strong>10 minutes</strong>.</p>
-      <div style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 30px 0;">
-        <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; color: #1e40af; letter-spacing: 8px;">${code}</span>
-      </div>
-      <p style="color: #94a3b8; font-size: 11px;">If you did not request this, please ignore this email.</p>
-    </div>
-  `;
-  return await brevoSend(email, 'Your Verification Code - DIMS Security', html);
+    const html = wrapTemplate(
+      'Security Verification',
+      '',
+      'We received a request to reset your DIMS portal password. Use the security code below to proceed. If you did not request this, please secure your account immediately.',
+      null,
+      null,
+      `<div style="font-size: 42px; font-weight: 600; color: #2563eb; letter-spacing: 4px; margin: 30px 0;">${code}</div>`
+    );
+    return await brevoSend(email, 'Your Verification Code - DIMS Security', html);
 };
 
-/**
- * Sends a 6-digit verification code for linking a secondary email
- */
 export const sendSecondaryEmailVerificationCode = async (email, code) => {
-    const html = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 40px; border: 1px solid #e2e8f0; border-radius: 16px; text-align: center;">
-        <h2 style="color: #10b981;">Secondary Email Link</h2>
-        <p style="color: #334155;">Use the verification code below to link this email to your DIMS portal account. This code is valid for <strong>5 minutes</strong>.</p>
-        <div style="background-color: #f0fdf4; border: 2px solid #dcfce7; border-radius: 12px; padding: 20px; margin: 30px 0;">
-          <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; color: #059669; letter-spacing: 8px;">${code}</span>
-        </div>
-        <p style="color: #94a3b8; font-size: 11px;">If you are not trying to link this email, please ignore this message.</p>
-      </div>
-    `;
+    const html = wrapTemplate(
+      'Email Linking',
+      '',
+      'You are attempting to link a secondary email to your DIMS profile. Please enter the verification code below to confirm this action.',
+      null,
+      null,
+      `<div style="font-size: 42px; font-weight: 600; color: #2563eb; letter-spacing: 4px; margin: 30px 0;">${code}</div>`
+    );
     return await brevoSend(email, 'Verify Your Secondary Email - DIMS', html);
 };
 
-/**
- * Sends a confirmation email after successfully linking a secondary email
- */
-export const sendSecondaryEmailLinkedConfirmation = async (email, primaryEmail) => {
-    const html = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 550px; margin: 0 auto; background-color: #ffffff; padding: 40px; border: 1px solid #e2e8f0; border-radius: 20px;">
-        <div style="text-align: center; margin-bottom: 25px;">
-            <div style="width: 60px; hieght: 60px; background-color: #ecfdf5; color: #10b981; border-radius: 100%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
-                <i style="font-size: 30px;">✓</i>
-            </div>
-            <h2 style="color: #064e3b; margin: 0;">Email Linked Successfully</h2>
-        </div>
-        <p style="color: #374151; font-size: 15px; line-height: 24px;">
-          This is to confirm that <strong>${email}</strong> has been successfully registered as a secondary email for your DIMS account (${primaryEmail}).
-        </p>
-        <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; margin: 25px 0;">
-            <h4 style="color: #111827; margin: 0 0 10px 0; font-size: 14px;">What this means:</h4>
-            <ul style="color: #4b5563; font-size: 13px; margin: 0; padding-left: 20px; line-height: 20px;">
-                <li>You can now log in using this email address.</li>
-                <li>You can receive recovery OTPs on this email if you lose access to your primary email.</li>
-                <li>Dual-access security is now active for your profile.</li>
-            </ul>
-        </div>
-        <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 30px;">
-          If you did not perform this action, please contact the Internship Office immediately.
-        </p>
-      </div>
-    `;
+export const sendSecondaryEmailLinkedConfirmation = async (email, primary) => {
+    const html = wrapTemplate(
+      'Linking Successful',
+      'User',
+      `Success! Your email <b>${email}</b> has been successfully linked to your primary account <b>${primary}</b>. You can now use either email for portal notifications.`,
+      'Go to Profile',
+      `${process.env.FRONTEND_URL}/profile`
+    );
     return await brevoSend(email, 'Success: Secondary Email Linked to DIMS', html);
 };
 
-/**
- * Sends activation link to manually onboarded student
- */
 export const sendStudentActivationEmail = async (email, token, name) => {
-  const activationLink = `${process.env.FRONTEND_URL}/verify-email/${token}`;
-  const html = `
-    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-      <div style="background-color: #1e3a8a; padding: 30px; text-align: center;">
-        <h1 style="color: #ffffff; font-size: 24px;">Welcome to DIMS Portal</h1>
-      </div>
-      <div style="padding: 40px; background-color: #ffffff; text-align: center;">
-        <h2>Hello, ${name}!</h2>
-        <p>Your student account has been pre-registered. Activate it by clicking below:</p>
-        <p style="color: #6b7280; font-size: 12px;"><strong>Note:</strong> This link is valid for <strong>24 hours</strong>.</p>
-        <a href="${activationLink}" style="background-color: #1e3a8a; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block; margin: 20px 0;">Activate Account</a>
-      </div>
-    </div>
-  `;
-  return await brevoSend(email, 'Portal Access: Student Internship Management System', html);
+    const url = `${process.env.FRONTEND_URL}/verify-email/${token}`;
+    const html = wrapTemplate(
+      'Welcome to DIMS',
+      name,
+      'Welcome to the official Internship Management System! We are thrilled to help you land your dream placement. Click the button below to activate your account and start applying.',
+      'Activate My Account',
+      url
+    );
+    return await brevoSend(email, 'Portal Access: Student Internship Management System', html);
 };
-/**
- * Sends a formal activation email to Site Supervisors (MOU Companies)
- */
-export const sendCompanySupervisorActivationEmail = async (email, token, name, companyName) => {
-  const activationUrl = `${process.env.FRONTEND_URL}/supervisor/activate/${token}`;
 
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f0f9ff; padding: 40px; border-radius: 20px; border: 1px solid #e0f2fe;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #0369a1; margin: 0; font-size: 26px; font-weight: 800;">Digital Internship Portal</h1>
-        <p style="color: #64748b; font-size: 14px; margin-top: 5px; font-weight: 600;">COMSATS University Islamabad, Abbottabad Campus</p>
-      </div>
-      <div style="background-color: #ffffff; padding: 35px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
-        <h2 style="color: #0f172a; font-size: 20px; margin-bottom: 20px; font-weight: 700;">Partner Onboarding: Site Supervisor</h2>
-        <p style="color: #334155; font-size: 15px; line-height: 26px;">
-          Dear <strong>${name}</strong>,<br/><br/>
-          Welcome to the official internship network of COMSATS University. Your organization, <strong>${companyName}</strong>, has been registered as an institutional partner.
-          <br/><br/>
-          You have been nominated as a <strong>Site Supervisor</strong>. Please complete your registration and secure your account by setting a password using the link below.
-          <br/><br/>
-          <strong style="color: #0284c7;">Security Note:</strong> This link is personal to your email and is valid for <strong>24 hours</strong>.
-        </p>
-        <div style="text-align: center; margin: 40px 0;">
-          <a href="${activationUrl}" style="background-color: #0284c7; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 700; display: inline-block; box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.3);">
-            Activate Supervisor Account
-          </a>
-        </div>
-        <p style="color: #94a3b8; font-size: 12px; line-height: 20px; text-align: center;">
-          If the button above does not work, please copy and paste this link into your browser:<br/>
-          <a href="${activationUrl}" style="color: #0284c7; word-break: break-all;">${activationUrl}</a>
-        </p>
-      </div>
-      <div style="text-align: center; margin-top: 30px; color: #94a3b8; font-size: 11px; font-weight: 500;">
-        <p>This is a system-generated communication for official university partners.</p>
-        <p>&copy; 2026 CUI Abbottabad - Internship Management Office</p>
-      </div>
-    </div>
-  `;
-  return await brevoSend(email, `Official Onboarding: Site Supervisor for ${companyName}`, html);
+export const sendCompanySupervisorActivationEmail = async (email, token, name, company) => {
+    const url = `${process.env.FRONTEND_URL}/supervisor/activate/${token}`;
+    const html = wrapTemplate(
+      'Site Onboarding',
+      name,
+      `Welcome to the DIMS network. You have been registered as the Official Site Supervisor for <b>${company}</b>. Please activate your account to begin managing student placements.`,
+      'Activate Supervisor Account',
+      url
+    );
+    return await brevoSend(email, `Official Onboarding: Site Supervisor for ${company}`, html);
 };
-/**
- * Sends a custom bulk email to multiple recipients
- * Uses bcc for privacy if sending the same message to everyone
- */
+
 export const sendBulkEmailService = async (recipients, subject, content) => {
-  const SENDER_NAME = process.env.SENDER_NAME;
-  const SENDER_EMAIL = process.env.SENDER_EMAIL;
-
-  if (!process.env.BREVO_API_KEY) return { success: false, error: 'SMTP config missing' };
-
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
-      <div style="background-color: #1e3a8a; padding: 30px; text-align: center;">
-        <h2 style="color: #ffffff; margin: 0; font-size: 20px;">DIMS Official Communication</h2>
-        <p style="color: #bfdbfe; font-size: 12px; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Internship Office - CUI Abbottabad</p>
-      </div>
-      <div style="padding: 40px; color: #334155; line-height: 1.6; font-size: 15px;">
-        ${content.replace(/\n/g, '<br/>')}
-      </div>
-      <div style="background-color: #f8fafc; padding: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-        <p style="color: #94a3b8; font-size: 11px; margin: 0;">
-          This is an official institutional announcement sent via the Digital Internship Management System.
-        </p>
-        <p style="color: #94a3b8; font-size: 11px; margin-top: 5px;">
-          &copy; 2026 COMSATS University Islamabad, Abbottabad Campus
-        </p>
-      </div>
-    </div>
-  `;
-
-  try {
-    const transporter = getTransporter();
-    const info = await transporter.sendMail({
-        from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-        to: SENDER_EMAIL, // Primary recipient is the sender
-        bcc: recipients,
-        subject,
-        html
-    });
-
-    console.log(`[BULK SUCCESS] Sent to ${recipients.length} recipients. MessageId: ${info.messageId}`);
-    return { success: true };
-  } catch (error) {
-    console.error('[BULK EMAIL ERROR]', error);
-    return { success: false, error: error.message };
-  }
+    const SENDER_NAME = process.env.SENDER_NAME;
+    const SENDER_EMAIL = process.env.SENDER_EMAIL;
+    try {
+        const html = wrapTemplate(
+          'Official Announcement',
+          '',
+          content,
+          'Visit Portal',
+          process.env.FRONTEND_URL
+        );
+        const transporter = getTransporter();
+        await transporter.sendMail({ from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`, to: SENDER_EMAIL, bcc: recipients, subject, html });
+        return { success: true };
+    } catch (error) {
+        await logError(error, null, 'BULK_MAIL_FAIL');
+        return { success: false, error: error.message };
+    }
 };
+
+

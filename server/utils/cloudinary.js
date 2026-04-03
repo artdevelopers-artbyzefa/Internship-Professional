@@ -34,5 +34,23 @@ const storage = new CloudinaryStorage({
     },
 });
 
+export const uploadCloudinaryBuffer = (buffer, filename, folder = 'dims/archives') => {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            { 
+                resource_type: 'raw', 
+                public_id: filename.split('.')[0] + '_' + Date.now(),
+                folder: folder,
+                format: filename.split('.').pop()
+            },
+            (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+            }
+        );
+        uploadStream.end(buffer);
+    });
+};
+
 export const uploadCloudinary = multer({ storage: storage });
 export { cloudinary };

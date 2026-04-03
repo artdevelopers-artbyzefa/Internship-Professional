@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Card from '../../components/ui/Card.jsx';
 import Button from '../../components/ui/Button.jsx';
 import { apiRequest } from '../../utils/api.js';
@@ -40,6 +41,10 @@ function calcStats(marks, localScores, isFreelance) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function FacultyEvaluation({ user, activePhase }) {
   const isPhase4 = activePhase?.order >= 4;
+  const [searchParams] = useSearchParams();
+  const isFaculty = user?.role === 'faculty_supervisor';
+  const rolePrefix = isFaculty ? '/faculty' : '/supervisor';
+
   const [students, setStudents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,27 +56,58 @@ export default function FacultyEvaluation({ user, activePhase }) {
   useEffect(() => { fetchStudents(); }, []);
 
   const fetchStudents = async () => {
-    try { setStudents((await apiRequest('/faculty/my-students')) || []); }
-    catch { } finally { setLoading(false); }
+    try { 
+      const data = (await apiRequest(`${rolePrefix}/my-students`)) || [];
+      setStudents(data); 
+
+      // Auto-select if studentId in URL
+      const studentId = searchParams.get('studentId');
+      if (studentId) {
+        const found = data.find(s => (s.id || s._id) === studentId);
+        if (found) handleSelect(found);
+      }
+    }
+    catch (err) {
+      // Error handled by apiRequest
+    } finally { setLoading(false); }
   };
 
-  const handleDownload = (mark) => {
-    if (!mark.submission?.fileUrl) return;
-    const name = mark.assignment?.title || 'Report';
-    const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}_Report`;
-    const proxyUrl = `${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(mark.submission.fileUrl)}&filename=${cleanName}.pdf`;
-    window.location.assign(proxyUrl);
+  const handleDownload = async (fileUrl, baseName) => {
+    if (!fileUrl) return;
+    try {
+      const cleanName = `${baseName.replace(/[^a-z0-9]/gi, '_')}`;
+      
+      const blob = await apiRequest(`/auth/download-proxy?url=${encodeURIComponent(fileUrl)}&filename=${cleanName}.pdf`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${cleanName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
   const handleSelect = async (s) => {
     setSelected(s); setFetchingEval(true); setScores({});
     try {
-      const data = await apiRequest(`/faculty/weekly-evaluations/${s.id || s._id}`);
+      const data = await apiRequest(`${rolePrefix}/weekly-evaluations/${s.id || s._id}`);
       setWeeklyMarks(data || []);
       const init = {};
-      data.forEach(m => { init[m._id] = m.facultyMarks !== null && m.facultyMarks !== undefined ? m.facultyMarks : ''; });
+      data.forEach(m => { 
+        const val = isFaculty ? m.facultyMarks : m.siteSupervisorMarks;
+        init[m._id] = val !== null && val !== undefined ? val : ''; 
+      });
       setScores(init);
-    } catch { } finally { setFetchingEval(false); }
+    } catch (err) {
+      // Error handled by apiRequest
+    } finally { setFetchingEval(false); }
   };
 
   const handleScoreChange = (id, val) => {
@@ -88,7 +124,7 @@ export default function FacultyEvaluation({ user, activePhase }) {
       .filter(id => scores[id] !== '' && scores[id] !== null)
       .map(id => ({
         markId: id,
-        facultyMarks: Number(scores[id])
+        [isFaculty ? 'facultyMarks' : 'siteSupervisorMarks']: Number(scores[id])
       }));
 
     if (gradesToSend.length === 0) {
@@ -98,14 +134,32 @@ export default function FacultyEvaluation({ user, activePhase }) {
 
     setSubmitting(true);
     try {
-      await apiRequest(`/faculty/weekly-evaluations/${selected.id || selected._id}`, {
+      await apiRequest(`${rolePrefix}/weekly-evaluations/${selected.id || selected._id}`, {
         method: 'POST',
         body: { grades: gradesToSend }
       });
-      showToast.success('Weekly grades saved successfully.');
+      showToast.success('Grades saved successfully.');
       handleSelect(selected);
     } catch (err) { showToast.error(err.message); }
     finally { setSubmitting(false); }
+  };
+
+  const handleDownloadMarkSheet = async (student) => {
+    try {
+      const id = student.id || student._id;
+      const blob = await apiRequest(`/faculty/mark-sheet/${id}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${student.reg}_MarkSheet.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast.success('Mark sheet generated successfully.');
+    } catch (err) {
+      // Error managed by apiRequest
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center py-24"><div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin" /></div>;
@@ -133,8 +187,8 @@ export default function FacultyEvaluation({ user, activePhase }) {
           </p>
         </div>
         {selected && (
-          <Button variant="outline" onClick={() => { setSelected(null); setWeeklyMarks([]); }} className="w-full md:w-auto rounded-xl font-bold uppercase tracking-widest text-[10px] md:text-xs">
-            <i className="fas fa-arrow-left mr-2" /> Back to Interns
+          <Button variant="outline" onClick={() => { setSelected(null); setWeeklyMarks([]); }} className="w-full md:w-auto rounded-xl font-bold capitalize tracking-widest text-[10px] md:text-xs">
+            <i className="fas fa-arrow-left mr-2" /> Back to interns
           </Button>
         )}
       </div>
@@ -167,9 +221,14 @@ export default function FacultyEvaluation({ user, activePhase }) {
                 render: (_, s) => s.status === 'Fail' ? (
                   <span className="text-[10px] font-black text-red-400 uppercase tracking-widest bg-red-50 px-3 py-2 rounded-xl border border-red-100 italic">No Submissions</span>
                 ) : (
-                  <Button size="sm" variant={isPhase4 ? 'outline' : 'primary'} onClick={() => handleSelect(s)} className="rounded-xl font-black uppercase tracking-widest text-[9px] w-full md:w-auto">
-                    {isPhase4 ? 'View Result' : 'Grade Intern'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant={isPhase4 ? 'outline' : 'primary'} onClick={() => handleSelect(s)} className="rounded-xl font-black capitalize tracking-widest text-[9px] w-full md:w-auto">
+                      {isPhase4 ? 'View result' : 'Grade intern'}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleDownloadMarkSheet(s)} className="rounded-xl font-black capitalize tracking-widest text-[9px] border-emerald-100 text-emerald-600 hover:bg-emerald-50">
+                      <i className="fas fa-file-excel mr-1" /> Mark sheet
+                    </Button>
+                  </div>
                 )
               }
             ]}
@@ -193,14 +252,17 @@ export default function FacultyEvaluation({ user, activePhase }) {
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{selected.reg}</p>
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
-                  {weeklyMarks.length > 0 && weeklyMarks.some(m => !m.isFacultyGraded) && !isPhase4 && (
-                    <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting} className="w-full sm:w-auto rounded-xl font-bold tracking-widest uppercase text-[9px] md:text-[10px] px-6 h-9 shadow-lg shadow-primary/10">
-                      Save Grades
+                  <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">All grades out of 10</span>
+                    <Button variant="outline" size="sm" onClick={() => handleDownloadMarkSheet(selected)} className="rounded-xl font-bold tracking-widest capitalize text-[9px] md:text-[10px] px-4 h-9 border-emerald-100 text-emerald-600 hover:bg-emerald-50">
+                      <i className="fas fa-file-excel mr-1" /> Mark sheet
                     </Button>
-                  )}
-                </div>
+                    {weeklyMarks.length > 0 && !isPhase4 && (
+                      <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting} className="w-full sm:w-auto rounded-xl font-bold tracking-widest capitalize text-[9px] md:text-[10px] px-6 h-9 shadow-lg shadow-primary/10">
+                        Save grades
+                      </Button>
+                    )}
+                  </div>
               </div>
 
               {fetchingEval ? (
@@ -223,29 +285,52 @@ export default function FacultyEvaluation({ user, activePhase }) {
                                 <span className="w-6 h-6 bg-gray-100 text-gray-500 text-[9px] font-black rounded-lg flex items-center justify-center flex-shrink-0">{idx + 1}</span>
                                 <p className="font-bold text-gray-800 text-sm md:text-base truncate leading-tight">{mark.assignment?.title}</p>
                             </div>
-                            {mark.submission && (
-                              <button
-                                onClick={() => handleDownload(mark)}
-                                className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary text-white hover:bg-black border-0 flex items-center justify-center cursor-pointer flex-shrink-0 shadow-lg shadow-primary/20 transition-all hover:scale-105"
-                                title="Download Submission"
-                              >
-                                <i className="fas fa-arrow-down text-sm" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {mark.assignment?.fileUrl && (
+                                <button
+                                  onClick={() => handleDownload(mark.assignment.fileUrl, `${mark.assignment.title}_Instruction`)}
+                                  className="h-9 px-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 border-0 flex items-center gap-2 cursor-pointer transition-all font-black text-[9px] capitalize tracking-widest shadow-sm"
+                                  title="Download Task Instructions"
+                                >
+                                  <i className="fas fa-file-contract text-xs opacity-70" />
+                                  <span className="hidden sm:inline">Task instructions</span>
+                                  <span className="sm:hidden">Task</span>
+                                </button>
+                              )}
+                              {mark.submission?.fileUrl && (
+                                <button
+                                  onClick={() => handleDownload(mark.submission.fileUrl, `${selected.name}_${mark.assignment?.title}_Report`)}
+                                  className="h-9 px-3 rounded-xl bg-primary text-white hover:bg-black border-0 flex items-center gap-2 cursor-pointer transition-all font-black text-[9px] capitalize tracking-widest shadow-lg shadow-primary/20"
+                                  title="Download Student Submission"
+                                >
+                                  <i className="fas fa-arrow-down text-xs" />
+                                  <span className="hidden sm:inline">Student submission</span>
+                                  <span className="sm:hidden">Submission</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
-                            {mark.isSiteSupervisorGraded && mark.siteSupervisorRemarks !== 'Freelance Track - Auto bypassed site supervisor' ? (
+                            {isFaculty && mark.isSiteSupervisorGraded && mark.siteSupervisorRemarks !== 'Freelance Track - Auto bypassed site supervisor' && (
                                 <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
                                     <i className="fas fa-check-circle text-[8px]"></i>
                                     Site Supervisor: {mark.siteSupervisorMarks} / 10
                                 </p>
-                            ) : mark.siteSupervisorRemarks?.includes('Freelance') ? (
+                            )}
+                            {!isFaculty && mark.isFacultyGraded && (
+                              <p className="text-[10px] text-indigo-600 font-bold flex items-center gap-1">
+                                <i className="fas fa-university text-[8px]"></i>
+                                Faculty Evaluation: {mark.facultyMarks} / 10
+                              </p>
+                            )}
+                            {isFaculty && mark.siteSupervisorRemarks?.includes('Freelance') && (
                                 <p className="text-[10px] text-indigo-500 font-bold flex items-center gap-1">
                                     <i className="fas fa-bolt text-[8px]"></i>
                                     Freelance Track — no site supervisor
                                 </p>
-                            ) : (
+                            )}
+                            {isFaculty && !mark.isSiteSupervisorGraded && !mark.siteSupervisorRemarks?.includes('Freelance') && (
                                 <p className="text-[10px] text-gray-400 flex items-center gap-1">
                                     <i className="fas fa-clock text-[8px]"></i>
                                     Site supervisor hasn't graded yet.
@@ -277,11 +362,11 @@ export default function FacultyEvaluation({ user, activePhase }) {
                             <div className="relative">
                                 <input
                                 type="number" min="0" max="10"
-                                className={`w-16 h-12 text-center border-2 rounded-xl outline-none font-black text-lg transition-colors ${mark.isFacultyGraded || isPhase4 ? 'bg-white border-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 focus:border-primary text-primary shadow-sm'}`}
+                                className={`w-16 h-12 text-center border-2 rounded-xl outline-none font-black text-lg transition-colors ${isPhase4 ? 'bg-white border-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 focus:border-primary text-primary shadow-sm'}`}
                                 value={myScore}
                                 onChange={e => handleScoreChange(mark._id, e.target.value)}
                                 placeholder="—"
-                                disabled={mark.isFacultyGraded || isPhase4}
+                                disabled={isPhase4}
                                 />
                                 <span className="absolute -bottom-4 left-0 right-0 text-center text-[8px] font-bold text-gray-300">/ 10</span>
                             </div>
@@ -290,7 +375,7 @@ export default function FacultyEvaluation({ user, activePhase }) {
                           {gradeRow && (
                             <div className="flex flex-col items-center gap-1 min-w-[50px]">
                               <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${gc.bg} ${gc.text} ${gc.border}`}>{gradeRow}</span>
-                              {mark.isFacultyGraded && <span className="text-[7px] font-black text-gray-300 uppercase tracking-widest">Finalized</span>}
+                              {((isFaculty && mark.isFacultyGraded) || (!isFaculty && mark.isSiteSupervisorGraded)) && <span className="text-[7px] font-black text-gray-300 uppercase tracking-widest">Finalized</span>}
                             </div>
                           )}
                         </div>
@@ -331,7 +416,7 @@ export default function FacultyEvaluation({ user, activePhase }) {
                   </div>
                   <div className="text-center space-y-2">
                     <GradeBadge grade={grade} />
-                    <p className="text-[10px] font-bold text-gray-400">Grade Points: {gradePointsFromPct(pct)}</p>
+                    <p className="text-[10px] font-bold text-gray-400">Grade points: {gradePointsFromPct(pct)}</p>
                     <span className={`inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full text-[10px] font-black border ${pct >= 50 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
                       <i className={`fas text-[8px] ${pct >= 50 ? 'fa-check' : 'fa-times'}`} />{pct >= 50 ? 'Pass' : 'Fail'}
                     </span>

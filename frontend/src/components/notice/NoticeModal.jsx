@@ -16,7 +16,7 @@ export default function NoticeModal() {
                     setIsOpen(true);
                 }
             } catch (err) {
-                console.error('Modal Fetch Error:', err);
+                // Handled by apiRequest
             } finally {
                 setLoading(false);
             }

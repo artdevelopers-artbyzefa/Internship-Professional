@@ -23,7 +23,6 @@
   }
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -37,7 +36,6 @@
   border-radius: 3px;
 }
 
-/* Sidebar nav scrollbar */
 .sidebar-nav::-webkit-scrollbar {
   width: 4px;
 }
@@ -47,7 +45,6 @@
   border-radius: 2px;
 }
 
-/* SweetAlert2 Toast Close Button */
 .swal2-toast .swal2-close {
   display: flex !important;
   font-size: 1.25rem !important;
@@ -72,4 +69,44 @@
 
 .swal2-toast .swal2-title {
   padding-right: 25px !important;
+}
+
+@layer utilities {
+  .overflow-x-auto table {
+    @apply w-full md:min-w-full;
+  }
+
+  .overflow-x-auto th, 
+  .overflow-x-auto td {
+    @apply px-1 sm:px-2 md:px-4 py-2 md:py-4;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    @apply scroll-smooth;
+  }
+
+  @media (max-width: 640px) {
+    .overflow-x-auto {
+      @apply !overflow-x-hidden;
+      overflow-x: hidden !important;
+    }
+    .overflow-x-auto table {
+      @apply !table-fixed !w-full;
+      table-layout: fixed !important;
+      width: 100% !important;
+      min-width: unset !important;
+    }
+    .overflow-x-auto th {
+      @apply text-[7px] tracking-tighter leading-tight p-1 whitespace-normal break-words;
+    }
+    .overflow-x-auto td {
+      @apply text-[8px] p-1 leading-tight break-all;
+    }
+    .overflow-x-auto td div,
+    .overflow-x-auto td span {
+      @apply !text-[8px];
+      font-size: 8px !important;
+    }
+  }
 }

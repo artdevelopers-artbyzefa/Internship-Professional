@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card.jsx';
 import Button from '../../components/ui/Button.jsx';
 import { apiRequest } from '../../utils/api.js';
-import { showToast } from '../../utils/notifications.jsx';
+import { showToast, showAlert } from '../../utils/notifications.jsx';
 
 export default function AddAssignment({ user }) {
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,9 @@ export default function AddAssignment({ user }) {
     try {
       const data = await apiRequest('/faculty/my-created-assignments');
       setAssignments(data);
-    } catch (err) { }
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
   const handleFileChange = (e) => {
@@ -71,12 +73,15 @@ export default function AddAssignment({ user }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this assignment?')) return;
+    const confirmed = await showAlert.confirm('Delete Assignment?', 'Are you sure you want to delete this assignment?', 'Yes, Delete');
+    if (!confirmed) return;
     try {
       await apiRequest(`/faculty/delete-assignment/${id}`, { method: 'DELETE' });
       showToast.success('Assignment deleted successfully');
       fetchAssignments();
-    } catch (err) { }
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -117,6 +122,7 @@ export default function AddAssignment({ user }) {
       resetForm();
       fetchAssignments();
     } catch (err) {
+      // Error handled by apiRequest
     } finally {
       setLoading(false);
     }

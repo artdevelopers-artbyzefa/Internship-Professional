@@ -6,153 +6,93 @@ import { FormGroup, TextInput, SelectInput } from '../../components/ui/FormInput
 import { validate } from '../../utils/validation.js';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
 
+import { useNavigate } from 'react-router-dom';
+
 // Inline expandable student list per supervisor row
 function SupervisorRow({ sup, onEdit, onDelete }) {
-    const [open, setOpen] = useState(false);
-    const [students, setStudents] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [fetched, setFetched] = useState(false);
+    const navigate = useNavigate();
 
-    const toggle = async () => {
-        if (!open && !fetched) {
-            setLoading(true);
-            try {
-                let params = new URLSearchParams();
-                if (sup.email) params.append('email', sup.email);
-                if (sup.name) params.append('supervisor', sup.name);
-
-                const data = await apiRequest(`/office/supervisor-students?${params.toString()}`);
-                setStudents(data || []);
-                setFetched(true);
-            } catch { /* handled */ }
-            finally { setLoading(false); }
+    const handleViewRoster = () => {
+        if (sup.assignedStudents > 0) {
+            const params = new URLSearchParams();
+            if (sup.email) params.append('email', sup.email);
+            if (sup.name) params.append('name', sup.name);
+            params.append('type', 'site');
+            navigate(`/office/supervisor-management/${sup._id || 'details'}/students?${params.toString()}`, { state: { supervisor: sup } });
         }
-        setOpen(o => !o);
     };
 
     return (
-        <>
-            <tr className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs flex-shrink-0">
-                            {sup.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-sm font-bold text-gray-800">{sup.name}</span>
-                            {sup.whatsappNumber && (
-                                <span className="text-[10px] text-gray-400 font-medium">
-                                    <i className="fab fa-whatsapp mr-1 text-emerald-500"></i>{sup.whatsappNumber}
-                                </span>
-                            )}
-                        </div>
+        <tr className="border-b border-slate-50 hover:bg-slate-50 transition-all duration-200">
+            <td className="px-6 py-6 transition-all">
+                <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-xs shrink-0 border border-primary/5 transition-colors group-hover:bg-primary group-hover:text-white">
+                        {sup.name?.charAt(0).toUpperCase()}
                     </div>
-                </td>
-                <td className="px-5 py-4">
                     <div className="flex flex-col">
-                        <span className="text-xs text-gray-500 font-medium">{sup.email || 'No email provided'}</span>
+                        <span className="text-sm font-black text-slate-800 tracking-tight">{sup.name}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 whitespace-nowrap">Site Supervisor</span>
                     </div>
-                </td>
-                <td className="px-5 py-4">
+                </div>
+            </td>
+            <td className="px-6 py-6">
+                <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-600 font-bold flex items-center gap-2">
+                        <i className="fas fa-envelope text-primary/40 text-[9px]"></i>
+                        {sup.email || 'No email provided'}
+                    </span>
+                    {sup.whatsappNumber && (
+                        <span className="text-[10px] text-slate-400 font-black tracking-tight flex items-center gap-2">
+                            <i className="fab fa-whatsapp text-emerald-400 text-[10px]"></i>
+                            {sup.whatsappNumber}
+                        </span>
+                    )}
+                </div>
+            </td>
+            <td className="px-6 py-6">
+                <button
+                    onClick={handleViewRoster}
+                    disabled={sup.assignedStudents === 0 || (!sup.email && !sup.companies?.[0]?.name)}
+                    className={`h-9 px-4 rounded-xl flex items-center gap-2.5 transition-all font-black text-[10px] w-max ${sup.assignedStudents > 0
+                        ? 'bg-primary text-white shadow-md shadow-primary/10 hover:bg-blue-800'
+                        : 'bg-slate-50 text-slate-300 border border-slate-100 cursor-default'}`}
+                    title={sup.assignedStudents > 0 ? 'Click to view assigned students' : 'No placements yet'}
+                >
+                    <i className="fas fa-external-link-alt text-[9px]"></i>
+                    {sup.assignedStudents || 0} Assigned
+                </button>
+            </td>
+            <td className="px-6 py-6">
+                <div className="flex flex-wrap gap-1.5">
+                    {sup.companies.map((c, i) => (
+                        <span key={i} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[9px] uppercase tracking-wider border border-blue-100">
+                            {c.name}
+                        </span>
+                    ))}
+                </div>
+            </td>
+            <td className="px-6 py-6 text-right">
+                <div className="flex items-center gap-3">
                     <button
-                        onClick={toggle}
-                        disabled={sup.assignedStudents === 0 || (!sup.email && !sup.companies?.[0]?.name)}
-                        className={`h-7 px-3 rounded-lg flex items-center gap-1.5 transition-all font-black text-[10px] ${sup.assignedStudents > 0
-                            ? 'bg-primary text-white shadow-sm hover:scale-105 cursor-pointer'
-                            : 'bg-gray-100 text-gray-300 cursor-default'}`}
-                        title={sup.assignedStudents > 0 ? 'Click to view assigned students' : 'No placements yet'}
+                        onClick={() => onEdit(sup)}
+                        className="w-11 h-11 rounded-2xl flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-sm"
+                        title="Edit Details"
                     >
-                        <i className={`fas ${open ? 'fa-chevron-up' : 'fa-users-rectangle'} text-[9px]`}></i>
-                        {sup.assignedStudents || 0}
+                        <i className="fas fa-edit text-sm"></i>
                     </button>
-                </td>
-                <td className="px-5 py-4">
-                    <div className="flex flex-wrap gap-1">
-                        {sup.companies.map((c, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold text-[10px] whitespace-nowrap">
-                                {c.name}
-                            </span>
-                        ))}
-                    </div>
-                </td>
-                <td className="px-5 py-4">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => onEdit(sup)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-100 text-gray-400 hover:text-primary hover:border-primary transition-all shadow-sm"
-                            title="Edit Details"
-                        >
-                            <i className="fas fa-pen-nib text-xs"></i>
-                        </button>
-                        <button
-                            onClick={() => onDelete(sup)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white border border-gray-100 text-gray-400 hover:text-danger hover:border-danger transition-all shadow-sm"
-                            title="Remove Supervisor"
-                        >
-                            <i className="fas fa-trash-can text-xs"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-
-            {/* Inline expandable student list */}
-            {open && (
-                <tr>
-                    <td colSpan={5} className="px-5 pb-4 pt-0">
-                        <div className="bg-gray-50/70 rounded-2xl border border-gray-100 p-4 animate-in slide-in-from-top-2 duration-200">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
-                                <i className="fas fa-user-graduate mr-1.5"></i>
-                                Assigned Students — {sup.name}
-                            </p>
-                            {loading ? (
-                                <div className="py-6 text-center">
-                                    <i className="fas fa-circle-notch fa-spin text-primary text-xl"></i>
-                                </div>
-                            ) : students.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
-                                        <thead>
-                                            <tr className="border-b border-gray-100">
-                                                <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Information</th>
-                                                <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Registration</th>
-                                                <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Email</th>
-                                                <th className="px-3 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {students.map((s, idx) => (
-                                                <tr key={idx} className="border-b border-gray-50/50 hover:bg-white transition-colors">
-                                                    <td className="px-3 py-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">
-                                                                {s.name?.charAt(0)}
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[11px] font-bold text-gray-800">{s.name}</span>
-                                                                <span className="text-[9px] text-gray-400 font-medium">Semester {s.semester}</span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 py-3 text-[10px] text-gray-600 font-bold">{s.reg}</td>
-                                                    <td className="px-3 py-3 text-[10px] text-gray-500 font-medium">{s.email}</td>
-                                                    <td className="px-3 py-3">
-                                                        <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded-full font-black text-[8px] uppercase tracking-wider">Active</span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <p className="text-xs text-gray-400 font-medium text-center py-4">No students assigned yet.</p>
-                            )}
-                        </div>
-                    </td>
-                </tr>
-            )}
-        </>
+                    <button
+                        onClick={() => onDelete(sup)}
+                        className="w-11 h-11 rounded-2xl flex items-center justify-center bg-white border border-slate-200 text-slate-300 hover:bg-rose-500 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                        title="Remove Supervisor"
+                    >
+                        <i className="fas fa-trash-alt text-sm"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
     );
 }
+
 
 export default function SiteSupervisorManagement({ user }) {
     const [companies, setCompanies] = useState([]);
@@ -194,7 +134,7 @@ export default function SiteSupervisorManagement({ user }) {
             setSupervisors(supResp.data || []);
             setTotalPages(supResp.pages || 1);
         } catch (err) {
-            console.error(err);
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -280,181 +220,175 @@ export default function SiteSupervisorManagement({ user }) {
             <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Syncing Supervisor Registry...</p>
         </div>
     );
-
     return (
-        <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                    <div>
-                        <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Site Supervisor Management</h2>
-                        <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Onboard and manage industrial mentors from institutional partner companies.</p>
-                    </div>
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                        <div className="relative w-full md:w-64">
-                            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                            <input 
-                                type="text"
-                                placeholder="Search supervisors..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                            />
+        <div className="max-w-[1400px] mx-auto space-y-8 pb-20">
+            {/* Professional Header */}
+            <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                <div className="space-y-4">
+                    <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                            <i className="fas fa-building-user text-xl"></i>
                         </div>
-                        <Button
-                            variant={showAddForm ? 'outline' : 'primary'}
-                            onClick={() => setShowAddForm(!showAddForm)}
-                            className="rounded-xl px-6 h-11 shadow-lg shadow-blue-600/10 font-black text-[10px] uppercase tracking-widest whitespace-nowrap"
-                        >
-                            {showAddForm
-                                ? <><i className="fas fa-times mr-2"></i> Close</>
-                                : <><i className="fas fa-user-plus mr-1.5"></i> Deploy Mentor</>
-                            }
-                        </Button>
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Site Supervisors</h2>
+                            <p className="text-xs text-slate-400 font-bold mt-1">  Mentors & Institutional Partners</p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Add Form */}
-                <div className={`transition-all duration-500 ease-in-out ${showAddForm ? 'max-h-[600px] opacity-100 mb-10' : 'max-h-0 opacity-0 pointer-events-none overflow-hidden'}`}>
-                    <div className="bg-gray-50 rounded-[32px] p-8 border border-gray-100 shadow-inner">
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="w-10 h-10 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center">
-                                <i className="fas fa-user-check"></i>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-black text-gray-800 tracking-tight">Onboard New Mentor</h3>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">A formal invitation will be dispatched to the provided email.</p>
-                            </div>
-                        </div>
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <FormGroup label="Professional Full Name" error={errorDictionary.name} className="lg:col-span-2">
-                                    <TextInput required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Dr. Salman Ahmed" />
-                                </FormGroup>
-                                <FormGroup label="Official Company Email" error={errorDictionary.email} className="lg:col-span-2">
-                                    <TextInput type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="salman@company.com" />
-                                </FormGroup>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormGroup label="Affiliated Partner Company" error={errorDictionary.companyId}>
-                                    <SelectInput required value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })}>
-                                        <option value="">Select Company Partnership...</option>
-                                        {companies.map(c => (
-                                            <option key={c._id} value={c._id}>{c.name}</option>
-                                        ))}
-                                    </SelectInput>
-                                </FormGroup>
-                                <FormGroup label="WhatsApp / Contact Number" error={errorDictionary.whatsappNumber}>
-                                    <TextInput required value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} placeholder="+92 3XX XXXXXXX" />
-                                </FormGroup>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4">
-                                <Button variant="outline" onClick={() => setShowAddForm(false)} className="rounded-xl px-8 h-12">Discard</Button>
-                                <Button variant="primary" type="submit" loading={submitting} className="rounded-xl px-12 h-12 bg-gray-900 border-0">Authorize & Invite</Button>
-                            </div>
-                        </form>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+                    <div className="relative w-full sm:w-80">
+                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
+                        <input
+                            type="text"
+                            placeholder="Search supervisors..."
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:ring-4 focus:ring-primary/5 outline-none transition-all"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
                     </div>
+                    <button
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl font-black text-[11px] transition-all w-full lg:w-auto ${showAddForm ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-primary text-white hover:bg-blue-800 shadow-lg shadow-primary/20'}`}
+                    >
+                        <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`}></i>
+                        {showAddForm ? 'Discard Changes' : 'Deploy Mentor'}
+                    </button>
                 </div>
+            </div>
 
-                {/* Table */}
-                <div className="border-t border-gray-50 pt-8 overflow-x-auto">
-                    {supervisors.length === 0 ? (
-                        <div className="text-center py-20 text-gray-400">
-                            <i className="fas fa-user-slash text-4xl mb-4 block"></i>
-                            <p className="font-bold">No supervisors registered yet.</p>
-                        </div>
-                    ) : (
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="border-b border-gray-100">
-                                    {['Full Name', 'Official Email', 'Interns', 'Affiliated Company', 'Actions'].map(h => (
-                                        <th key={h} className="px-5 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+            {/* Add Form */}
+            {showAddForm && (
+                <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 p-8 lg:p-10 animate-in slide-in-from-top-4 duration-500">
+                    <h3 className="text-sm font-black text-slate-800 mb-8 pb-4 border-b border-slate-50">Onboard New Mentor</h3>
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <FormGroup label="Professional Full Name" error={errorDictionary.name}>
+                                <TextInput required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} iconLeft="fa-user-tie" placeholder="e.g. Dr. Salman Ahmed" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0" />
+                            </FormGroup>
+                            <FormGroup label="WhatsApp / Contact Number" error={errorDictionary.whatsappNumber}>
+                                <TextInput required value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} iconLeft="fa-phone" placeholder="+92 3XX XXXXXXX" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0" />
+                            </FormGroup>
+                            <FormGroup label="Official Company Email" error={errorDictionary.email}>
+                                <TextInput type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} iconLeft="fa-envelope" placeholder="salman@company.com" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0" />
+                            </FormGroup>
+                            <FormGroup label="Affiliated Partner Company" error={errorDictionary.companyId}>
+                                <SelectInput required value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })} className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0">
+                                    <option value="">Select Company Partnership...</option>
+                                    {companies.map(c => (
+                                        <option key={c._id} value={c._id}>{c.name}</option>
                                     ))}
+                                </SelectInput>
+                            </FormGroup>
+                        </div>
+                        <div className="flex justify-end pt-4">
+                            <button type="submit" disabled={submitting} className="px-12 py-3.5 rounded-2xl font-black bg-primary text-white hover:bg-blue-800 transition-all text-[11px] shadow-lg shadow-primary/20 disabled:opacity-50 tracking-widest uppercase">
+                                {submitting ? 'Authorizing...' : 'Authorize & Invite Mentor'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {/* Student Table */}
+            <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto min-h-[400px]">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-slate-50/50 border-b border-slate-100">
+                                {['Full Name', 'Contact Details', 'Interns', 'Affiliated Company', 'Actions'].map(h => (
+                                    <th key={h} className="px-6 py-8 text-[11px] font-black text-slate-500 whitespace-nowrap uppercase tracking-wider">{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {supervisors.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="py-32 text-center space-y-6">
+                                        <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto border border-slate-100">
+                                            <i className="fas fa-user-slash text-slate-200 text-3xl"></i>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-slate-500 font-extrabold text-lg">No Supervisors Found</h4>
+                                            <p className="text-slate-400 text-xs font-bold mt-2">Try a different search or deploy a new mentor</p>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {supervisors.map((sup, i) => (
+                            ) : (
+                                supervisors.map((sup, i) => (
                                     <SupervisorRow
                                         key={sup.email || i}
                                         sup={sup}
                                         onEdit={handleEditInit}
                                         onDelete={handleDeleteSupervisor}
                                     />
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            Page {page} of {totalPages}
-                        </p>
-                        <div className="flex gap-2">
-                            <button
-                                disabled={page === 1}
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
-                            >
-                                <i className="fas fa-chevron-left text-[10px]"></i>
-                            </button>
-                            <button
-                                disabled={page === totalPages}
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
-                            >
-                                <i className="fas fa-chevron-right text-[10px]"></i>
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="p-8 bg-slate-50/50 flex items-center justify-between border-t border-slate-100 rounded-b-[32px]">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 mb-1 uppercase tracking-wider">Page Statistics</span>
+                        <span className="text-xs font-black text-slate-800 mt-1">Page {page} <span className="text-slate-300 font-medium mx-1 text-[10px]">OF</span> {totalPages}</span>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            disabled={page === 1}
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary transition-all disabled:opacity-30"
+                        >
+                            <i className="fas fa-chevron-left text-xs"></i>
+                        </button>
+                        <button
+                            disabled={page === totalPages}
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary transition-all disabled:opacity-30"
+                        >
+                            <i className="fas fa-chevron-right text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Edit Modal */}
             {showEditModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
-                                    <i className="fas fa-user-pen text-xl"></i>
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-black text-gray-800 tracking-tight">Edit Supervisor</h3>
-                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Modifying: {editingSupervisor?.name}</p>
-                                </div>
+                <Modal onClose={() => setShowEditModal(false)}>
+                    <div className="p-4 py-6 space-y-8">
+                        <div className="flex items-center gap-4 pb-6 border-b border-slate-50">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                <i className="fas fa-user-edit text-lg"></i>
                             </div>
-                            <button onClick={() => setShowEditModal(false)} className="w-10 h-10 rounded-xl hover:bg-white flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
-                                <i className="fas fa-times"></i>
-                            </button>
+                            <div>
+                                <ModalTitle>Update Supervisor Profile</ModalTitle>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]">Editing: {editingSupervisor?.name}</p>
+                            </div>
                         </div>
-                        <div className="p-8">
-                            <form onSubmit={handleEditSubmit} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <FormGroup label="Full Name" error={errorDictionary.name}>
-                                        <TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-                                    </FormGroup>
-                                    <FormGroup label="Email Address (Locked)">
-                                        <TextInput type="email" value={form.email} disabled className="bg-gray-50 text-gray-400 cursor-not-allowed" />
-                                    </FormGroup>
-                                    <FormGroup label="WhatsApp / Contact" error={errorDictionary.whatsappNumber}>
-                                        <TextInput value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} />
-                                    </FormGroup>
-                                    <FormGroup label="Affiliated Company" error={errorDictionary.companyId}>
-                                        <SelectInput value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })}>
-                                            <option value="">Update Company...</option>
-                                            {companies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                        </SelectInput>
-                                    </FormGroup>
-                                </div>
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <Button variant="outline" onClick={() => setShowEditModal(false)} className="rounded-xl px-8 h-12">Cancel</Button>
-                                    <Button variant="primary" type="submit" loading={submitting} className="rounded-xl px-12 h-12 bg-gray-900 border-0">Update Record</Button>
-                                </div>
-                            </form>
-                        </div>
+
+                        <form onSubmit={handleEditSubmit} className="space-y-8">
+                            <FormGroup label="Full Name" error={errorDictionary.name}>
+                                <TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} iconLeft="fa-user-cog" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm" />
+                            </FormGroup>
+                            <FormGroup label="WhatsApp / Contact" error={errorDictionary.whatsappNumber}>
+                                <TextInput value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} iconLeft="fa-phone-alt" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm" />
+                            </FormGroup>
+                            <FormGroup label="Affiliated Company" error={errorDictionary.companyId}>
+                                <SelectInput value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })} className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm mb-2">
+                                    <option value="">Update Company...</option>
+                                    {companies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                </SelectInput>
+                            </FormGroup>
+                            <div className="flex gap-4 pt-4">
+                                <Button variant="outline" className="flex-1 !rounded-2xl !font-black !py-4 !text-[10px]" onClick={() => setShowEditModal(false)}>Cancel</Button>
+                                <Button variant="primary" className="flex-1 !rounded-2xl !font-black !py-4 !text-[10px]" type="submit" loading={submitting}>Save Changes</Button>
+                            </div>
+                        </form>
                     </div>
-                </div>
+                </Modal>
             )}
         </div>
     );

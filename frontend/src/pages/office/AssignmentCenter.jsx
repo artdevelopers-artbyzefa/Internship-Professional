@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button.jsx';
 import Alert from '../../components/ui/Alert.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
 import { SelectInput, TextInput } from '../../components/ui/FormInput.jsx';
+import { showToast } from '../../utils/notifications.jsx';
 import Card from '../../components/ui/Card.jsx';
 
 export default function AssignmentCenter({ user }) {
@@ -64,7 +65,7 @@ export default function AssignmentCenter({ user }) {
         const data = assignments[student._id] || {};
         const isSelf = student.internshipRequest?.type === 'Self';
 
-        if (!data.facultyId) return alert('Please select a Faculty Supervisor');
+        if (!data.facultyId) return showToast.error('Please select a Faculty Supervisor');
 
         let payload = {
             studentId: student._id,
@@ -80,8 +81,8 @@ export default function AssignmentCenter({ user }) {
                 whatsappNumber: student.internshipAgreement.whatsappNumber
             };
         } else {
-            if (!data.companyId) return alert('Please select an MOU Company');
-            if (data.siteSupervisorIndex === '') return alert('Please select a Site Supervisor');
+            if (!data.companyId) return showToast.error('Please select an MOU Company');
+            if (data.siteSupervisorIndex === '') return showToast.error('Please select a Site Supervisor');
 
             const company = mouCompanies.find(c => c._id === data.companyId);
             const supervisor = company.siteSupervisors[data.siteSupervisorIndex];
@@ -102,7 +103,7 @@ export default function AssignmentCenter({ user }) {
             delete newAssigns[student._id];
             setAssignments(newAssigns);
         } catch (err) {
-            alert(err.message);
+            // Error handled by apiRequest
         } finally {
             setSubmitting(null);
         }

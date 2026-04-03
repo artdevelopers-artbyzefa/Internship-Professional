@@ -23,11 +23,10 @@ export default function StudentManagement({ user }) {
     const initialForm = { name: '', reg: '', email: '', semester: '7', fatherName: '', whatsappNumber: '', section: '', cgpa: '' };
     const [form, setForm] = useState(initialForm);
 
-    // Debounced fetch
     useEffect(() => {
         const timer = setTimeout(() => {
             fetchStudents();
-        }, search ? 500 : 0); // debounce search
+        }, search ? 500 : 0);
         return () => clearTimeout(timer);
     }, [page, search]);
 
@@ -41,8 +40,7 @@ export default function StudentManagement({ user }) {
                 setTotalPages(data.pages);
             }
         } catch (err) {
-            console.error('[FETCH_REGISTRY_ERROR]', err);
-            showToast.error('Failed to load student records.');
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -65,7 +63,7 @@ export default function StudentManagement({ user }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (submitting) return; // double-submit protection
+        if (submitting) return;
         if (!validateForm()) return;
 
         setSubmitting(true);
@@ -80,7 +78,6 @@ export default function StudentManagement({ user }) {
             setPage(1); 
             fetchStudents();
         } catch (err) {
-            // Error is handled by apiRequest (toast)
         } finally {
             setSubmitting(false);
         }
@@ -95,7 +92,6 @@ export default function StudentManagement({ user }) {
             });
             showToast.success('Activation link resent to student.');
         } catch (err) {
-            // toast handled
         } finally {
             setResendingId(null);
         }
@@ -139,36 +135,33 @@ export default function StudentManagement({ user }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div className="bg-white rounded-[24px] md:rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-5 md:p-6 lg:p-7">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
-                        <h2 className="text-3xl font-black text-gray-900 tracking-tight">Student Registry</h2>
-                        <p className="text-sm text-gray-400 font-medium mt-1">Institutional records for all active and pending student accounts.</p>
+                        <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Student Registry</h2>
+                        <p className="text-xs md:text-sm text-gray-400 font-medium mt-1">Institutional records for all active and pending student accounts.</p>
                     </div>
                     <Button
                         variant={showForm ? 'outline' : 'primary'}
                         onClick={() => setShowForm(!showForm)}
-                        className="rounded-2xl px-6 h-12 font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/10 flex-shrink-0"
+                        className="rounded-2xl px-5 md:px-6 h-10 md:h-12 font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/10 flex-shrink-0 w-full sm:w-auto"
                     >
                         {showForm ? <><i className="fas fa-xmark mr-2"></i>Close</> : <><i className="fas fa-user-plus mr-2"></i>Onboard Student</>}
                     </Button>
                 </div>
 
-                {/* Onboarding Form */}
-                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showForm ? 'max-h-[800px] opacity-100 mb-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none'}`}>
-                    <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 shadow-inner">
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
-                                <i className="fas fa-id-card-clip text-xl"></i>
+                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showForm ? 'max-h-[1200px] opacity-100 mb-8 pt-2' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                    <div className="bg-slate-50 rounded-[20px] md:rounded-3xl p-4 sm:p-5 md:p-6 border border-slate-100 shadow-inner">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 md:mb-8">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-primary text-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
+                                <i className="fas fa-id-card-clip text-lg md:text-xl"></i>
                             </div>
                             <div>
-                                <h3 className="text-lg font-black text-gray-800">Manual Registration</h3>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-primary">Pre-filling eligibility data for internship cycle</p>
+                                <h3 className="text-base md:text-lg font-black text-gray-800">Manual Registration</h3>
+                                <p className="text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest text-primary">Pre-filling eligibility data for internship cycle</p>
                             </div>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-8">
-                            {/* Row 1: Core Identity */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <FormGroup label="Full Name" error={errorDictionary.name}>
                                     <TextInput iconLeft="fa-user" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Student's Legal Name" />
@@ -186,7 +179,6 @@ export default function StudentManagement({ user }) {
                                 </FormGroup>
                             </div>
 
-                            {/* Row 2: Eligibility & Contact */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <FormGroup label="Father's Name">
                                     <TextInput iconLeft="fa-user-tie" value={form.fatherName} onChange={e => setForm({ ...form, fatherName: e.target.value })} placeholder="Parent/Guardian Name" />
@@ -216,18 +208,17 @@ export default function StudentManagement({ user }) {
                     </div>
                 </div>
 
-                {/* Search + count */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-primary">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-primary flex-shrink-0">
                              <i className="fas fa-users text-xs"></i>
                         </div>
-                        <div className="text-sm font-bold text-gray-400">
+                        <div className="text-xs md:text-sm font-bold text-gray-400">
                              Total Records: <span className="text-gray-900">{total}</span>
-                             {search && <span className="ml-2 font-medium text-blue-500 hover:underline cursor-pointer" onClick={() => setSearch('')}>(Clear Filter)</span>}
+                             {search && <span className="ml-0 sm:ml-2 mt-1 sm:mt-0 font-medium text-blue-500 hover:underline cursor-pointer block sm:inline" onClick={() => setSearch('')}>(Clear Filter)</span>}
                         </div>
                     </div>
-                    <div className="relative group lg:w-96">
+                    <div className="relative group w-full lg:w-96">
                         <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 text-xs transition-colors group-focus-within:text-primary"></i>
                         <input
                             type="text"
@@ -239,64 +230,60 @@ export default function StudentManagement({ user }) {
                     </div>
                 </div>
 
-                {/* Table */}
                 <div className="min-h-[400px]">
                     {loading ? (
                          <div className="py-24 text-center">
                             <i className="fas fa-circle-notch fa-spin text-3xl text-primary opacity-20 mb-4"></i>
-                            <p className="text-xs font-black text-gray-300 uppercase tracking-widest">Retrieving Records...</p>
+                            <p className="text-xs font-black text-gray-300  tracking-widest">Retrieving Records...</p>
                          </div>
                     ) : students.length === 0 ? (
                         <div className="py-24 text-center bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100">
                             <i className="fas fa-folder-open text-gray-200 text-5xl mb-4"></i>
-                            <p className="text-sm font-black text-gray-400 uppercase">No students found in registry</p>
+                            <p className="text-sm font-black text-gray-400 ">No students found in registry</p>
                         </div>
                     ) : (
                         <DataTable columns={columns} data={students} hover striped={false} />
                     )}
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 mt-8 border-t border-gray-50">
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
-                            Page <span className="text-gray-900">{page}</span> of {totalPages} • Showing {students.length} of {total} records
-                        </p>
-                        <div className="flex gap-1.5">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="w-10 h-10 rounded-xl border border-gray-100 text-gray-400 flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all"
-                            >
-                                <i className="fas fa-chevron-left text-xs"></i>
-                            </button>
-                            
-                            {/* Simple pagination numbers */}
-                            {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                                .map((p, i, arr) => (
-                                    <React.Fragment key={p}>
-                                        {i > 0 && arr[i - 1] !== p - 1 && <span className="px-2 text-gray-300 self-center">...</span>}
-                                        <button
-                                            onClick={() => setPage(p)}
-                                            className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${p === page ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'border border-gray-100 text-gray-400 hover:border-primary hover:text-primary bg-white'}`}
-                                        >
-                                            {p}
-                                        </button>
-                                    </React.Fragment>
-                                ))
-                            }
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 md:pt-8 mt-6 md:mt-8 border-t border-gray-50">
+                    <p className="text-[10px] md:text-xs text-gray-400 font-bold tracking-wider text-center md:text-left">
+                        Page <span className="text-gray-900">{page}</span> of {Math.max(1, totalPages)} • Showing {students.length} of {total} records
+                    </p>
+                    <div className="flex gap-1 flex-wrap justify-center sm:gap-1.5">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page <= 1 || loading}
+                            className="w-10 h-10 rounded-xl border border-gray-100 text-gray-400 flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all cursor-pointer"
+                        >
+                            <i className="fas fa-chevron-left text-xs"></i>
+                        </button>
+                        
+                        {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === Math.max(1, totalPages) || Math.abs(p - page) <= 1)
+                            .map((p, i, arr) => (
+                                <React.Fragment key={p}>
+                                    {i > 0 && arr[i - 1] !== p - 1 && <span className="px-2 text-gray-300 self-center">...</span>}
+                                    <button
+                                        onClick={() => setPage(p)}
+                                        disabled={loading}
+                                        className={`w-10 h-10 rounded-xl text-xs font-black transition-all cursor-pointer ${p === page ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'border border-gray-100 text-gray-400 hover:border-primary hover:text-primary bg-white disabled:opacity-50'}`}
+                                    >
+                                        {p}
+                                    </button>
+                                </React.Fragment>
+                            ))
+                        }
 
-                            <button
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
-                                className="w-10 h-10 rounded-xl border border-gray-100 text-gray-400 flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all"
-                            >
-                                <i className="fas fa-chevron-right text-xs"></i>
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => setPage(p => Math.min(Math.max(1, totalPages), p + 1))}
+                            disabled={page >= Math.max(1, totalPages) || loading}
+                            className="w-10 h-10 rounded-xl border border-gray-100 text-gray-400 flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all cursor-pointer"
+                        >
+                            <i className="fas fa-chevron-right text-xs"></i>
+                        </button>
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );

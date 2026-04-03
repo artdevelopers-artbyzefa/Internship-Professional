@@ -30,7 +30,9 @@ export default function SupervisorAssignments({ user }) {
         try {
             const data = await apiRequest('/supervisor/interns');
             setInterns(data);
-        } catch (err) { }
+        } catch (err) {
+            // Error handled by apiRequest
+        }
     };
 
     const fetchAssignments = async () => {
@@ -38,6 +40,7 @@ export default function SupervisorAssignments({ user }) {
             const data = await apiRequest('/supervisor/assignments');
             setAssignments(data);
         } catch (err) {
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -73,7 +76,9 @@ export default function SupervisorAssignments({ user }) {
             setNewAssignment({ title: '', description: '', startDate: '', deadline: '', totalMarks: 10, targetStudents: [] });
             setSelectedFile(null);
             fetchAssignments();
-        } catch (err) { }
+        } catch (err) {
+            // Error handled by apiRequest
+        }
     };
 
     const toggleStudent = (id) => {
@@ -232,7 +237,7 @@ export default function SupervisorAssignments({ user }) {
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-gray-800">No Assignments Yet</h3>
-                            <p className="text-sm text-gray-500 font-medium">You haven't assigned any industrial tasks to your interns yet.</p>
+                            <p className="text-sm text-gray-500 font-medium">You haven't assigned any   tasks to your interns yet.</p>
                         </div>
                     </div>
                 ) : (
@@ -276,7 +281,9 @@ export default function SupervisorAssignments({ user }) {
                                                                 await apiRequest(`/supervisor/assignments/${a._id}`, { method: 'DELETE' });
                                                                 showToast.success('Assignment purged successfully.');
                                                                 fetchAssignments();
-                                                            } catch (err) { }
+                                                            } catch (err) {
+                                                                // Error handled by apiRequest
+                                                            }
                                                         }
                                                     }}
                                                     className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center border-0 cursor-pointer"

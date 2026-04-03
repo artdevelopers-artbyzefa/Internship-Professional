@@ -9,11 +9,26 @@ export default function StudentResults() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleDownload = (url, name = 'Submission') => {
+  const handleDownload = async (url, name = 'Submission') => {
     if (!url) return;
-    const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}_Report`;
-    const proxyUrl = `${import.meta.env.VITE_API_URL}/auth/download-proxy?url=${encodeURIComponent(url)}&filename=${cleanName}.pdf`;
-    window.location.assign(proxyUrl);
+    try {
+      const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}_Report`;
+      const filename = `${cleanName}.pdf`;
+      const blob = await apiRequest('/auth/download-proxy', {
+        params: { url, filename },
+        responseType: 'blob'
+      });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
   const fetchData = async () => {
@@ -26,8 +41,9 @@ export default function StudentResults() {
       setMarks(marksData || []);
       setEvaluations(evalData || []);
       setGradeSummary(summaryData);
-    } catch (_) { }
-    finally { setLoading(false); }
+    } catch (err) {
+      // Error handled by apiRequest
+    } finally { setLoading(false); }
   };
 
   const pctColor = (p) => {

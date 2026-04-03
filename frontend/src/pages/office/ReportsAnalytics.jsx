@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, RadarChart, Radar, PolarGrid,
+  PieChart, Pie, Cell, RadarChart, Radar, PolarGrid,
   PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
 import { apiRequest } from '../../utils/api.js';
@@ -92,7 +92,7 @@ export default function ReportsAnalytics() {
         setCriteriaData(crit);
         setCompanyData(compDist);
       } catch (err) {
-        console.error('Analytics fetch failed', err);
+        // Error handled by apiRequest
       } finally {
         setLoadingGlobal(false);
       }
@@ -130,7 +130,7 @@ export default function ReportsAnalytics() {
         });
         setProgramData(Object.values(byProgram));
       } catch (err) {
-        console.error('Analysis fetch failed', err);
+        // Error handled by apiRequest
       } finally {
         setLoadingAnalysis(false);
       }
@@ -155,7 +155,7 @@ export default function ReportsAnalytics() {
         setReportData({ type: 'supervisors', supervisors: data });
       }
     } catch (err) {
-      console.error('Report generation failed', err);
+      // Error handled by apiRequest
     } finally {
       setLoadingReport(false);
     }

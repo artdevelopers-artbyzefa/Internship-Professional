@@ -3,11 +3,8 @@ import { apiRequest } from '../../utils/api.js';
 import { gradeFromPct, gradeColor, gradePointsFromPct } from '../../utils/helpers.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis,
-  LineChart, Line, ReferenceLine
+  PieChart, Pie, Cell, ReferenceLine
 } from 'recharts';
-import jsPDF from 'jspdf';
-import { toPng } from 'html-to-image';
 
 // ── Palette ─────────────────────────────────────────────────────────────────
 const GRADE_COLORS = {
@@ -18,7 +15,7 @@ const TIP = { contentStyle: { borderRadius: 12, border: 'none', boxShadow: '0 10
 
 function GradeBadge({ grade }) {
   const c = gradeColor(grade);
-  return <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-black tracking-widest border ${c.bg} ${c.text} ${c.border}`}>{grade}</span>;
+  return <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold border ${c.bg} ${c.text} ${c.border}`}>{grade}</span>;
 }
 
 function StatCard({ label, value, sub, color = 'blue' }) {
@@ -26,7 +23,7 @@ function StatCard({ label, value, sub, color = 'blue' }) {
   return (
     <div className={`p-5 rounded-2xl border ${map[color]} flex flex-col gap-1`}>
       <div className="text-3xl font-black">{value}</div>
-      <div className="text-[10px] font-black uppercase tracking-widest opacity-80">{label}</div>
+      <div className="text-[10px] font-bold text-slate-500">{label}</div>
       {sub && <div className="text-[9px] font-bold opacity-60 mt-0.5">{sub}</div>}
     </div>
   );
@@ -41,7 +38,9 @@ export default function HODReports() {
   useEffect(() => {
     apiRequest('/office/aggregated-marks')
       .then(d => setResults(d || []))
-      .catch(console.error)
+      .catch(err => {
+        // Error handled by apiRequest
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -96,98 +95,44 @@ export default function HODReports() {
     .sort((a, b) => b.percentage - a.percentage)
     .slice(0, 8);
 
-  const prepareExportData = async () => {
-    const grabChart = async (id) => {
-      const el = document.getElementById(id);
-      if (!el) return null;
-      try {
-        return await toPng(el, {
-          cacheBust: true,
-          backgroundColor: '#ffffff',
-          pixelRatio: 3,
-          skipFonts: true,           // skip remote web-font embedding (avoids CORS crash)
-          fontEmbedCSS: '',          // don't try to inline any CSS fonts
-          includeQueryParams: false
-        });
-      } catch (err) {
-        console.warn(`Chart capture failed for #${id}:`, err.message);
-        return null;
-      }
-    };
-
-    const charts = {
-      chartDist: await grabChart('chart-dist'),
-      chartPie: await grabChart('chart-pie'),
-      chartTop: await grabChart('chart-top'),
-      chartFaculty: await grabChart('chart-faculty')
-    };
-
-    // 2. Prepare Detailed Tables Structure
-    const studentData = results.map(r => [
-      r.student.reg,
-      r.student.name,
-      r.student.phone || 'N/A',
-      r.student.secondaryEmail || 'N/A',
-      `${r.faculty?.name || 'N/A'}\n(${r.faculty?.phone || 'N/A'})`,
-      `${r.siteSupervisor?.name || 'N/A'}\n(${r.siteSupervisor?.phone || 'N/A'})`,
-      r.company,
-      r.mode,
-      `${r.averageMarks}/10`,
-      `${r.percentage}%`,
-      r.grade,
-      r.reportStatus
-    ]);
-
-    const facultyTableData = facultyData.map(f => [
-      f.name,
-      f.students.toString(),
-      `${f.avgPct}%`,
-      gradeFromPct(f.avgPct)
-    ]);
-
-    return {
-      stats: {
-        total, passed, failed, avgPct, avgGrade,
-        physical: physicalCount,
-        freelance: freelanceCount,
-        ineligible: ineligibleCount,
-        participating: participatingCount,
-        pending: results.filter(r => r.assignmentsCount === 0 && r.reportStatus !== 'Ineligible').length,
-        totalFaculty: facultyData.length
-      },
-      charts,
-      tables: {
-        students: studentData,
-        faculty: facultyTableData,
-        companies: [] // Handled by backend aggregation if needed
-      }
-    };
-  };
-
-  const handleExport = async (type) => {
+  const handleExportExcel = async () => {
     setLoadingExport(true);
     try {
-      const payload = await prepareExportData();
-      const endpoint = type === 'pdf' ? '/reports/hod-full-report' : '/reports/hod-excel-report';
-      
-      const res = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'include'
-      });
+      // Prepare detailed table structure for Excel
+      const studentData = results.map(r => [
+        r.student.reg,
+        r.student.name,
+        r.student.phone || 'N/A',
+        r.student.secondaryEmail || 'N/A',
+        `${r.faculty?.name || 'N/A'}`,
+        `${r.siteSupervisor?.name || 'N/A'}`,
+        r.company,
+        r.mode,
+        r.percentage,
+        r.grade,
+        r.reportStatus
+      ]);
 
-      const blob = await res.blob();
+      const payload = {
+        stats: { total, passed, failed, avgPct, avgGrade },
+        tables: { students: studentData }
+      };
+
+      const blob = await apiRequest('/reports/hod-excel-report', {
+        method: 'POST',
+        body: payload,
+        responseType: 'blob'
+      });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `HOD_Full_Analysis_${new Date().toISOString().slice(0, 10)}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
+      a.download = `HOD_Internship_Ledger_${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      console.error(e);
+      // Error handled by apiRequest
     } finally {
       setLoadingExport(false);
     }
@@ -211,38 +156,37 @@ export default function HODReports() {
             <h2 className="text-3xl font-black text-gray-800 tracking-tight italic">Performance Analytics</h2>
           </div>
           <p className="text-sm text-gray-500 font-medium max-w-lg">
-            High-fidelity institutional reporting and cohort analysis. Export data for departmental review and archival.
+            High-fidelity institutional reporting and cohort analysis. Generate audit-ready departmental records.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 relative z-10">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 relative z-10 w-full md:w-auto">
           <button
-            onClick={() => handleExport('pdf')}
-            disabled={loadingExport || results.length === 0}
-            className="flex items-center gap-2.5 px-6 py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+            onClick={() => window.open('/hod/premium-report-preview', '_blank')}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-6 py-4 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-black hover:-translate-y-0.5 active:translate-y-0 transition-all"
           >
-            {loadingExport ? <i className="fas fa-circle-notch fa-spin" /> : <i className="fas fa-file-pdf" />}
-            Export PDF Report
+            <i className="fas fa-crown text-amber-400" />
+            <span>Generate Premium Report</span>
           </button>
           <button
-            onClick={() => handleExport('excel')}
+            onClick={handleExportExcel}
             disabled={loadingExport || results.length === 0}
-            className="flex items-center gap-2.5 px-6 py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-600/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-700/20 hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50"
           >
             {loadingExport ? <i className="fas fa-circle-notch fa-spin" /> : <i className="fas fa-file-excel" />}
-            Download Data (XLSX)
+            <span>Download Data Ledger</span>
           </button>
         </div>
       </div>
 
       {/* KPI Cards ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <StatCard label="Total Evaluated" value={total} color="blue" />
-        <StatCard label="Pass Ratio" value={passed} sub={`${total ? Math.round(passed / total * 100) : 0}% Success`} color="emerald" />
-        <StatCard label="Failures" value={failed} sub={`${total ? Math.round(failed / total * 100) : 0}% Cohort`} color="rose" />
-        <StatCard label="Academic Avg" value={`${avgPct}%`} sub={`Batch Grade: ${avgGrade}`} color="indigo" />
-        <StatCard label="Incomplete" value={total === 0 ? '—' : results.filter(r => r.assignmentsCount === 0).length} color="amber" />
-        <StatCard label="Faculty" value={facultyData.length} color="purple" />
+        <StatCard label="Total students" value={total} color="blue" />
+        <StatCard label="Success cases" value={passed} sub={`${total ? Math.round(passed / total * 100) : 0}% success rate`} color="emerald" />
+        <StatCard label="Failure cases" value={failed} sub={`${total ? Math.round(failed / total * 100) : 0}% of cohort`} color="rose" />
+        <StatCard label="Batch average" value={`${avgPct}%`} sub={`Academic grade: ${avgGrade}`} color="indigo" />
+        <StatCard label="Incomplete files" value={total === 0 ? '—' : results.filter(r => r.assignmentsCount === 0).length} color="amber" />
+        <StatCard label="Academic faculty" value={facultyData.length} color="purple" />
       </div>
 
       {/* Charts Row 1 ───────────────────────────────────────────────────── */}
@@ -251,7 +195,7 @@ export default function HODReports() {
         {/* Grade Distribution */}
         <div id="chart-dist" className="md:col-span-2 bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
           <div className="flex items-center justify-between mb-8">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Cohort Grade Distribution</h4>
+            <h4 className="text-[10px] font-bold text-slate-500">Cohort grade distribution</h4>
             <div className="flex items-center gap-1">
               {['A','B','C','D','F'].map(l => (
                   <span key={l} className="w-2 h-2 rounded-full" style={{ backgroundColor: GRADE_COLORS[l] || '#eee'}} />
@@ -275,7 +219,7 @@ export default function HODReports() {
 
         {/* Pass / Fail Pie */}
         <div id="chart-pie" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8 flex flex-col items-center justify-center">
-          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 w-full text-left">Quality Control</h4>
+          <h4 className="text-[10px] font-bold text-slate-500 mb-4 w-full text-left">Completion analysis</h4>
           <div className="relative w-full aspect-square max-w-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -288,11 +232,11 @@ export default function HODReports() {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-3xl font-black text-gray-800">{total ? Math.round(passed / total * 100) : 0}%</span>
-              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Pass Rate</span>
+              <span className="text-[10px] font-bold text-emerald-500">Pass rate</span>
             </div>
           </div>
           <div className="mt-6 flex flex-col gap-2 w-full">
-            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
                 <span>Pass: {passed}</span>
                 <span>Fail: {failed}</span>
             </div>
@@ -310,7 +254,7 @@ export default function HODReports() {
         {/* Top Performers */}
         <div id="chart-top" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
           <div className="flex items-center justify-between mb-8">
-             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Academic Excellence (Top 8)</h4>
+             <h4 className="text-[10px] font-bold text-slate-500">Academic performance (Top 8)</h4>
              <i className="fas fa-crown text-amber-400" />
           </div>
           <div className="h-[280px]">
@@ -332,8 +276,8 @@ export default function HODReports() {
         {/* Faculty avg performance */}
         <div id="chart-faculty" className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-white p-8">
           <div className="flex items-center justify-between mb-8">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Supervisor Efficacy Index</h4>
-            <span className="px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[9px] font-black tracking-widest uppercase">Target 70%+</span>
+            <h4 className="text-[10px] font-bold text-slate-500">Supervisor performance metrics</h4>
+            <span className="px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[9px] font-bold">Standard: 70%+</span>
           </div>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -353,9 +297,9 @@ export default function HODReports() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center"><i className="fas fa-book-open text-sm" /></div>
-            <h3 className="font-black text-gray-800">Departmental Performance Ledger</h3>
-            <span className="text-[10px] font-black bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full border border-gray-100 uppercase tracking-widest">{filtered.length} Students tracked</span>
+            <div className="w-8 h-8 bg-primary/10 text-primary rounded-xl flex items-center justify-center"><i className="fas fa-graduation-cap text-sm" /></div>
+            <h3 className="font-bold text-gray-800">Departmental academic record</h3>
+            <span className="text-[10px] font-bold bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full border border-gray-100">{filtered.length} students enrolled</span>
           </div>
           <div data-html2canvas-ignore="true">
             <input
@@ -368,15 +312,15 @@ export default function HODReports() {
         {filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
             <i className="fas fa-inbox text-3xl opacity-40 block mb-3" />
-            <p className="text-sm font-bold">No results matching your current filters.</p>
+            <p className="text-sm font-bold">No results found matching search criteria.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left">
               <thead>
-                <tr className="bg-gray-50/60">
-                  {['Reg. #', 'Student', 'Academic Supervisor', 'Site Supervisor', 'Company', 'Mode', 'Tasks', 'Avg / 10', '%', 'GRD', 'Status'].map(h => (
-                    <th key={h} className="px-5 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 whitespace-nowrap">{h}</th>
+                <tr className="bg-gray-50/60 text-[9px] font-bold text-slate-500">
+                  {['Reg. #', 'Student', 'Academic supervisor', 'Site supervisor', 'Company', 'Mode', 'Tasks', 'Avg / 10', '%', 'GRD', 'Status'].map(h => (
+                    <th key={h} className="px-5 py-3 border-b border-gray-100 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -384,7 +328,7 @@ export default function HODReports() {
                 {filtered.map((r, i) => {
                   return (
                     <tr key={i} className={`hover:bg-gray-50/50 transition-colors ${r.reportStatus === 'Ineligible' ? 'opacity-60 bg-gray-50/20' : ''}`}>
-                      <td className="px-5 py-4 text-[10px] font-bold text-gray-400 font-mono whitespace-nowrap uppercase">{r.student.reg}</td>
+                      <td className="px-5 py-4 text-[10px] font-bold text-gray-400 font-mono whitespace-nowrap">{r.student.reg}</td>
                       <td className="px-5 py-4 whitespace-nowrap">
                         <div className="flex flex-col">
                             <span className="font-bold text-gray-800 text-sm">{r.student.name}</span>
@@ -403,29 +347,29 @@ export default function HODReports() {
                             <span className="text-[10px] text-gray-400 font-medium">{r.siteSupervisor?.phone}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-xs text-gray-500 font-medium uppercase font-mono">{r.company}</td>
+                      <td className="px-5 py-4 text-xs text-gray-500 font-medium font-mono">{r.company}</td>
                       <td className="px-5 py-4">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black tracking-tight border ${r.mode === 'Freelance' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${r.mode === 'Freelance' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                             {r.mode}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <span className="px-2.5 py-1 bg-gray-50 text-gray-600 rounded-full text-[10px] font-black border border-gray-100">{r.assignmentsCount}</span>
+                        <span className="px-2.5 py-1 bg-gray-50 text-gray-600 rounded-full text-[10px] font-bold border border-gray-100">{r.assignmentsCount}</span>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-12 h-1 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${r.percentage}%`, backgroundColor: GRADE_COLORS[r.grade] || '#94a3b8' }} />
                           </div>
-                          <span className="text-[11px] font-black text-gray-800">{r.averageMarks}</span>
+                          <span className="text-[11px] font-bold text-gray-800">{r.averageMarks}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`text-sm font-black ${r.percentage >= 75 ? 'text-emerald-600' : r.percentage >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{r.percentage}%</span>
+                        <span className={`text-sm font-bold ${r.percentage >= 75 ? 'text-emerald-600' : r.percentage >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{r.percentage}%</span>
                       </td>
                       <td className="px-5 py-4"><GradeBadge grade={r.grade} /></td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
                             r.reportStatus === 'Pass' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
                             r.reportStatus === 'Fail' ? 'bg-red-50 text-red-700 border-red-100' : 
                             'bg-gray-100 text-gray-500 border-gray-200'

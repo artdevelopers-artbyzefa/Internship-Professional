@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import WelcomeBanner from '../../components/ui/WelcomeBanner.jsx';
 import { apiRequest } from '../../utils/api.js';
 import RegistrationDetails from '../../components/management/RegistrationDetails.jsx';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 const CHART_TOOLTIP_STYLE = {
@@ -43,7 +43,7 @@ export default function HODDashboard() {
           setComStats(commencementData);
         }
       } catch (error) {
-        console.error('HOD Dashboard Error:', error);
+        // Error handled by apiRequest
       } finally {
         setLoading(false);
       }
@@ -287,7 +287,7 @@ export default function HODDashboard() {
             </div>
             <div>
               <h3 className="text-base md:text-lg font-black text-gray-800">Internship Commencement Analytics</h3>
-              <p className="text-[10px] md:text-sm text-gray-400 font-medium tracking-tight">Active tracking of industrial engagement and evaluation progress.</p>
+              <p className="text-[10px] md:text-sm text-gray-400 font-medium tracking-tight">Active tracking of   engagement and evaluation progress.</p>
             </div>
           </div>
 

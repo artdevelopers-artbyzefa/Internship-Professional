@@ -25,7 +25,7 @@ export default function StudentProfileDetail() {
         const data = await apiRequest(`/faculty/student-profile/${studentId}`);
         setStudent(data);
       } catch (error) {
-        console.error('Error fetching student details:', error);
+        // Error handled by apiRequest
       } finally {
         setLoading(false);
       }

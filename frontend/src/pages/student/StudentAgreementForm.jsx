@@ -4,6 +4,7 @@ import { FormGroup, TextInput, SelectInput, TextareaInput } from '../../componen
 import Alert from '../../components/ui/Alert.jsx';
 import { apiRequest } from '../../utils/api.js';
 import { validate } from '../../utils/validation.js';
+import SearchInput from '../../components/ui/SearchInput.jsx';
 
 export default function StudentAgreementForm({ user }) {
   const [loading, setLoading] = useState(false);
@@ -190,7 +191,27 @@ export default function StudentAgreementForm({ user }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormGroup label="Company/Organization Name">
-                    <TextInput value={form.companyName} onChange={e => setForm({ ...form, companyName: e.target.value })} iconLeft="fa-building" required />
+                    <SearchInput
+                      placeholder="e.g. Google, Private Venture"
+                      value={form.companyName}
+                      onChange={v => setForm({ ...form, companyName: v })}
+                      onSelect={item => {
+                        setForm({
+                            ...form,
+                            companyName: item.name,
+                            companyAddress: item.address || form.companyAddress,
+                            companyRegNo: item.regNo || form.companyRegNo,
+                            companyScope: item.scope || form.companyScope,
+                            companyHREmail: item.hrEmail || form.companyHREmail,
+                            companySupervisorName: item.siteSupervisors?.[0]?.name || form.companySupervisorName,
+                            companySupervisorEmail: item.siteSupervisors?.[0]?.email || form.companySupervisorEmail,
+                            whatsappNumber: item.siteSupervisors?.[0]?.whatsappNumber || form.whatsappNumber
+                        });
+                      }}
+                      endpoint="/entities/search-company"
+                      iconLeft="fa-building"
+                      required
+                    />
                   </FormGroup>
                   <FormGroup label="Internship Duration">
                     <SelectInput value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} iconLeft="fa-clock">
@@ -210,7 +231,23 @@ export default function StudentAgreementForm({ user }) {
                     <TextInput type="email" required value={form.companyHREmail} onChange={e => setForm({ ...form, companyHREmail: e.target.value })} iconLeft="fa-envelope-circle-check" />
                   </FormGroup>
                   <FormGroup label="Company Supervisor Name">
-                    <TextInput required value={form.companySupervisorName} onChange={e => setForm({ ...form, companySupervisorName: e.target.value })} iconLeft="fa-user-tie" />
+                    <SearchInput
+                      placeholder="Supervisor Name"
+                      value={form.companySupervisorName}
+                      onChange={v => setForm({ ...form, companySupervisorName: v })}
+                      onSelect={item => {
+                        setForm({
+                            ...form,
+                            companySupervisorName: item.name,
+                            companySupervisorEmail: item.email || form.companySupervisorEmail,
+                            whatsappNumber: item.phone || form.whatsappNumber,
+                            companyName: item.company || form.companyName
+                        });
+                      }}
+                      endpoint="/entities/search-mentor"
+                      iconLeft="fa-user-tie"
+                      required
+                    />
                   </FormGroup>
                   <FormGroup label="Supervisor Email">
                     <TextInput type="email" required value={form.companySupervisorEmail} onChange={e => setForm({ ...form, companySupervisorEmail: e.target.value })} iconLeft="fa-at" />

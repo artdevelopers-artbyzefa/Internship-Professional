@@ -57,14 +57,18 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
     try {
       const data = await apiRequest('/student/assignments');
       setAssignments(data || []);
-    } catch (_) { }
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
   const fetchGrade = async () => {
     try {
       const data = await apiRequest('/student/my-grade');
       setGradeInfo(data);
-    } catch (_) { }
+    } catch (err) {
+      // Error handled by apiRequest
+    }
   };
 
 
@@ -72,7 +76,9 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
   const [allPhases, setAllPhases] = useState([]);
   useEffect(() => {
     const fetchPhases = () => {
-      apiRequest('/phases').then(d => setAllPhases(d || [])).catch(() => { });
+      apiRequest('/phases').then(d => setAllPhases(d || [])).catch((err) => {
+        // Error handled by apiRequest
+      });
     };
     fetchPhases();
     const interval = setInterval(fetchPhases, 300000); // 5 mins
@@ -255,7 +261,7 @@ export default function StudentDashboard({ user, eligibility, isEligible, isPhas
 
           <div className="text-right flex-1 lg:flex-none ml-4">
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Phase Progress</p>
-            <p className="text-xs md:text-sm font-black text-primary truncate max-w-[120px]">{activePhase?.label || 'Active'}</p>
+            <p className="text-xs md:text-sm font-black text-primary">{activePhase?.label || 'Active'}</p>
             <div className="mt-2 w-full lg:w-36 bg-gray-200 h-1.5 rounded-full overflow-hidden">
               <div className="bg-primary h-full transition-all duration-1000" style={{ width: `${(phaseOrder / 5) * 100}%` }} />
             </div>

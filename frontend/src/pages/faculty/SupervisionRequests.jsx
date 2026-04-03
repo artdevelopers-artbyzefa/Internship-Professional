@@ -17,7 +17,7 @@ export default function SupervisionRequests({ user }) {
             const data = await apiRequest('/faculty/pending-requests');
             setRequests(data);
         } catch (err) {
-            console.error('Failed to fetch requests:', err);
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -32,7 +32,7 @@ export default function SupervisionRequests({ user }) {
             showToast.success(`Request ${action.toLowerCase()}ed successfully`);
             fetchRequests();
         } catch (err) {
-            showToast.error(err.message);
+            // Error handled by apiRequest
         }
     };
 

@@ -55,7 +55,7 @@ export default function NoticeManagement({ user }) {
             const data = await apiRequest('/notices/supervisors');
             setSupervisors(data);
         } catch (err) {
-            console.error(err);
+            // Error handled by apiRequest
         }
     };
 
@@ -64,7 +64,7 @@ export default function NoticeManagement({ user }) {
             const data = await apiRequest(`/notices/students/${supId}`);
             setStudents(data);
         } catch (err) {
-            console.error(err);
+            // Error handled by apiRequest
         }
     };
 
@@ -115,22 +115,17 @@ export default function NoticeManagement({ user }) {
             const url = editingId ? `/notices/${editingId}` : '/notices';
             const method = editingId ? 'PUT' : 'POST';
 
-            // Raw fetch for FormData
-            const response = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
+            await apiRequest(url, {
                 method,
-                body: formData,
-                credentials: 'include'
+                body: formData
             });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Action failed');
 
             showToast.success(editingId ? 'Notice updated' : 'Notice posted');
             resetForm();
             setShowAddForm(false);
             fetchNotices();
         } catch (err) {
-            setError(err.message);
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -194,9 +189,11 @@ export default function NoticeManagement({ user }) {
                         if (showAddForm) resetForm();
                         setShowAddForm(!showAddForm);
                     }}
+                    aria-label={showAddForm ? 'Close announcement editor' : 'Create new announcement'}
+                    aria-expanded={showAddForm}
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all h-fit ${showAddForm ? 'bg-gray-100 text-gray-600' : 'bg-primary text-white shadow-lg shadow-blue-600/20'}`}
                 >
-                    <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`}></i>
+                    <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`} aria-hidden="true"></i>
                     <span className="text-sm">{showAddForm ? 'Close Editor' : 'Post Announcement'}</span>
                 </button>
             </div>
@@ -238,6 +235,7 @@ export default function NoticeManagement({ user }) {
                                             <option value="all_supervisors">All Faculty Supervisors</option>
                                             <option value="specific_supervisor">Specific Supervisor</option>
                                             <option value="specific_student">Specific Student</option>
+                                            <option value="system_landing"> Landing Page (Public)</option>
                                         </SelectInput>
                                     </FormGroup>
 
@@ -299,10 +297,14 @@ export default function NoticeManagement({ user }) {
                                                 const nl = [...form.links]; nl[idx].url = e.target.value; setForm({ ...form, links: nl });
                                             }}
                                         />
-                                        <button type="button" className="w-10 h-10 border-0 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all cursor-pointer" onClick={() => {
-                                            const nl = [...form.links]; nl.splice(idx, 1); setForm({ ...form, links: nl });
-                                        }}>
-                                            <i className="fas fa-times"></i>
+                                        <button 
+                                            type="button" 
+                                            aria-label="Remove link"
+                                            className="w-10 h-10 border-0 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all cursor-pointer" 
+                                            onClick={() => {
+                                                const nl = [...form.links]; nl.splice(idx, 1); setForm({ ...form, links: nl });
+                                            }}>
+                                            <i className="fas fa-times" aria-hidden="true"></i>
                                         </button>
                                     </div>
                                 ))}
@@ -336,10 +338,11 @@ export default function NoticeManagement({ user }) {
                                             </div>
                                             <button
                                                 type="button"
-                                                className="text-red-400 hover:text-red-600 bg-transparent border-0 cursor-pointer p-2"
+                                                aria-label="Remove attachment"
+                                                className="text-red-400 hover:text-red-700 bg-transparent border-0 cursor-pointer p-2"
                                                 onClick={() => handleRemoveAttachment(idx)}
                                             >
-                                                <i className="fas fa-trash"></i>
+                                                <i className="fas fa-trash" aria-hidden="true"></i>
                                             </button>
                                         </div>
                                     ))}
@@ -372,15 +375,15 @@ export default function NoticeManagement({ user }) {
                             </div>
                         </div>
                         <h3 className="font-bold text-gray-800 line-clamp-1 mb-2">{n.title}</h3>
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-4">{n.content}</p>
-                        <div className="flex flex-col gap-1 text-[10px] text-gray-400 border-t pt-4">
+                        <p className="text-xs text-gray-600 line-clamp-2 mb-4">{n.content}</p>
+                        <div className="flex flex-col gap-1 text-[10px] text-gray-500 border-t pt-4">
                             <div className="flex justify-between items-center">
-                                <span><i className="far fa-calendar mr-1"></i> Posted: {new Date(n.createdAt).toLocaleDateString()}</span>
-                                <span><i className="fas fa-paperclip mr-1"></i> {n.attachments.length} files</span>
+                                <span><i className="far fa-calendar mr-1" aria-hidden="true"></i> Posted: {new Date(n.createdAt).toLocaleDateString()}</span>
+                                <span><i className="fas fa-paperclip mr-1" aria-hidden="true"></i> {n.attachments.length} files</span>
                             </div>
                             {n.updatedAt !== n.createdAt && (
-                                <div className="text-secondary font-medium">
-                                    <i className="fas fa-history mr-1"></i> Last Update: {new Date(n.updatedAt).toLocaleString()}
+                                <div className="text-gray-600 font-medium">
+                                    <i className="fas fa-history mr-1" aria-hidden="true"></i> Last Update: {new Date(n.updatedAt).toLocaleString()}
                                 </div>
                             )}
                         </div>

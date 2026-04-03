@@ -35,7 +35,7 @@ export default function RegistrationDetails() {
                 setRegSummary(stats);
             }
         } catch (error) {
-            console.error('Failed to fetch registration details:', error);
+            // Error handled by apiRequest
         } finally {
             setLoading(false);
         }
@@ -117,7 +117,7 @@ export default function RegistrationDetails() {
                                             <button
                                                 key={tab.id}
                                                 onClick={() => { setActiveTab(tab.id); setPage(1); }}
-                                                className={`group flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300 border-0 cursor-pointer whitespace-nowrap
+                                                className={`group flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-[10px] sm:text-[11px] font-black tracking-[0.1em] transition-all duration-300 border-0 cursor-pointer whitespace-nowrap
                                                     ${isActive
                                                         ? 'bg-white text-primary shadow-[0_4px_12px_-2px_rgba(30,64,175,0.12)] ring-1 ring-slate-200/60 scale-[1.02]'
                                                         : 'bg-transparent text-slate-400 hover:text-slate-600 hover:bg-white/50'
@@ -145,7 +145,7 @@ export default function RegistrationDetails() {
                             {loading && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] z-10 rounded-xl">
                                     <div className="w-10 h-10 border-4 border-gray-100 border-t-primary rounded-full animate-spin mb-3"></div>
-                                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Updating Records...</p>
+                                    <p className="text-xs font-black text-gray-400 tracking-widest">Updating Records...</p>
                                 </div>
                             )}
 
@@ -163,7 +163,7 @@ export default function RegistrationDetails() {
 
                         {/* Pagination */}
                         <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-gray-50 gap-4">
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none">
+                            <div className="text-[10px] font-black text-gray-400 tracking-[0.2em] leading-none">
                                 Showing Page <span className="text-primary">{page}</span> of <span className="text-gray-800">{totalPages}</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -195,13 +195,13 @@ export default function RegistrationDetails() {
                             <h4 className="text-sm font-black text-gray-800 uppercase tracking-widest leading-none">
                                 {activeTab === 'students' ? 'Record Analytics' : 'Active Participants'}
                             </h4>
-                            <p className="text-[10px] text-gray-400 font-bold mt-2 leading-tight uppercase tracking-wider">
+                            <p className="text-[10px] text-gray-400 font-bold mt-2 leading-tight tracking-wider">
                                 {activeTab === 'students' ? 'Real-time eligibility breakdown' : 'Departmental mix distribution'}
                             </p>
                         </div>
 
-                        <div className="h-[240px] relative w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-[240px] relative w-full" style={{ minHeight: 200 }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                                 {activeTab === 'students' ? (
                                     <BarChart data={eligibilityData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -244,7 +244,7 @@ export default function RegistrationDetails() {
                                     <div className="text-3xl font-black text-gray-800 leading-none">
                                         {regSummary ? (regSummary.total + regSummary.facultyCount + regSummary.siteSupervisorCount) : 0}
                                     </div>
-                                    <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1.5 opacity-60">Total Base</div>
+                                    <div className="text-[9px] font-black text-gray-400 tracking-widest mt-1.5 opacity-60">Total Base</div>
                                 </div>
                             )}
                         </div>
@@ -254,7 +254,7 @@ export default function RegistrationDetails() {
                                 <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/50 border border-gray-100 group hover:border-primary/20 hover:bg-white transition-all duration-300">
                                     <div className="flex items-center gap-3">
                                         <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: activeTab === 'students' ? item.fill : COLORS[i] }}></div>
-                                        <span className="text-[11px] font-black text-gray-500 uppercase tracking-wider group-hover:text-primary transition-colors">{item.name}</span>
+                                        <span className="text-[11px] font-black text-gray-500 tracking-wider group-hover:text-primary transition-colors">{item.name}</span>
                                     </div>
                                     <span className="text-sm font-black text-gray-800">{item.value}</span>
                                 </div>
