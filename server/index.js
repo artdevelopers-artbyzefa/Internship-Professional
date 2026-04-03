@@ -53,6 +53,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
 const allowedOrigins = [
     "http://localhost:5173",
+    "http://localhost:5174",
     "https://internship-professional-ie1e.vercel.app"
 ];
 

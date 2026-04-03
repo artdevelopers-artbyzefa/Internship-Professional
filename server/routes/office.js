@@ -810,6 +810,8 @@ router.get('/archives', protect, officeAuth, asyncHandler(async (req, res) => {
                 year: snapshot.year,
                 statistics: snapshot.statistics,
                 students: snapshot.students,
+                phases: snapshot.phases,
+                rawSnapshot: snapshot.rawSnapshot,
                 isLive: true,
                 createdAt: new Date(),
                 pdfUrl: null, // No PDF yet

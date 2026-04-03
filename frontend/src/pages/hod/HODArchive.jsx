@@ -55,6 +55,62 @@ function Pagination({ page, totalPages, setPage }) {
     );
 }
 
+const formatDateTime = (dateStr) => {
+    if (!dateStr) return 'Not Started';
+    const date = new Date(dateStr);
+    return date.toLocaleString(undefined, { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit'
+    });
+};
+
+function SupervisorCard({ name, role, icon, colorClass, badgeText, badgeColor, subText, interns }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    return (
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden transition-all">
+            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50/50" onClick={() => setIsExpanded(!isExpanded)}>
+                <div className="flex items-center gap-4">
+                    <div className={`w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center ${colorClass} border border-gray-100 text-sm`}>
+                        <i className={`fas ${icon}`} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-gray-800 leading-none">{name}</p>
+                        <p className="text-[10px] text-gray-400 mt-1 uppercase font-medium">{role}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-right">
+                        <p className={`text-xs font-bold ${badgeColor}`}>{badgeText}</p>
+                        {subText && <p className="text-[8px] font-black text-gray-300 uppercase leading-none mt-1 tracking-tight">{subText}</p>}
+                    </div>
+                    <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'} text-gray-300 text-[10px] transition-transform`} />
+                </div>
+            </div>
+
+            {isExpanded && (
+                <div className="p-4 bg-gray-50/30 border-t border-gray-50 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                    {interns.length > 0 ? interns.map((s, i) => (
+                        <div key={i} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-100/50">
+                            <div>
+                                <p className="text-xs font-bold text-gray-800 truncate">{s.name}</p>
+                                <p className="text-[9px] font-bold text-primary uppercase tracking-tight">{s.reg}</p>
+                            </div>
+                            <div className="text-[9px] font-bold px-2 py-0.5 bg-gray-50 text-gray-400 rounded uppercase">
+                                {s.grade || 'N/A'}
+                            </div>
+                        </div>
+                    )) : (
+                        <p className="text-[10px] text-gray-400 text-center py-2 italic font-medium uppercase tracking-widest">No assigned records found.</p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function HODArchive() {
     const [archives, setArchives] = useState([]);
     const [selected, setSelected] = useState(null);
@@ -62,6 +118,8 @@ export default function HODArchive() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const [searchTerm, setSearchTerm] = useState('');
+    const [exportingPDF, setExportingPDF] = useState(false);
+    const [exportingExcel, setExportingExcel] = useState(false);
 
     useEffect(() => {
         apiRequest('/office/archives')
@@ -78,103 +136,189 @@ export default function HODArchive() {
 
     const studentList = useMemo(() => {
         if (!selected) return [];
-        return selected.students.filter(s => 
-            s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            s.reg.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        return selected.students
+            .filter(s => 
+                s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                s.reg.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
     }, [selected, searchTerm]);
+
+    const snapshotPhases = useMemo(() => {
+        if (!selected) return [];
+        return selected.phases || selected.rawSnapshot?.phases || [];
+    }, [selected]);
 
     const topPerformers = useMemo(() => {
         return [...(selected?.students || [])].sort((a, b) => b.percentage - a.percentage).slice(0, 10);
     }, [selected]);
 
     const bottomPerformers = useMemo(() => {
-        return [...(selected?.students || [])].sort((a, b) => a.percentage - b.percentage).slice(0, 5);
+        if (!selected) return [];
+        return selected.students
+            .filter(s => ['D', 'F'].includes(s.grade))
+            .sort((a, b) => a.percentage - b.percentage);
     }, [selected]);
+
+    const handleExportPDF = async () => {
+        if (selected.pdfUrl) {
+            window.open(selected.pdfUrl, '_blank');
+            return;
+        }
+        setExportingPDF(true);
+        try {
+            const payload = {
+                archiveId: selected._id === 'live-snapshot-id' ? null : selected._id,
+                stats: {
+                    total: selected.statistics?.totalStudents || 0,
+                    participating: selected.statistics?.totalParticipated || 0,
+                    physical: selected.statistics?.totalPhysical || 0,
+                    freelance: selected.statistics?.totalFreelance || 0,
+                    ineligible: selected.statistics?.totalIneligible || 0,
+                    passed: selected.statistics?.totalPassed || 0,
+                    failed: selected.statistics?.totalFailed || 0,
+                    avgPct: selected.statistics?.averagePercentage || 0,
+                    avgGrade: 'N/A'
+                },
+                charts: {}, // Images not supported yet for background archival
+                tables: {
+                    faculty: (entities?.faculty || []).map(f => [f.name, f.students?.length || 0, 'N/A', 'N/A']),
+                    students: selected.students.map(s => [
+                        s.reg, s.name, s.phone || 'N/A', s.email || 'N/A',
+                        s.faculty?.name || 'N/A', s.siteSupervisor?.name || 'N/A',
+                        s.company || 'N/A', s.mode || 'N/A', s.avgMarks, s.percentage, s.grade, s.finalStatus
+                    ])
+                }
+            };
+            const res = await apiRequest('/reports/hod-full-report', { method: 'POST', body: payload });
+            if (res.url) {
+                window.open(res.url, '_blank');
+                if (selected._id !== 'live-snapshot-id') {
+                    setSelected(prev => ({ ...prev, pdfUrl: res.url }));
+                    setArchives(prev => prev.map(a => a._id === selected._id ? { ...a, pdfUrl: res.url } : a));
+                }
+            }
+        } catch (err) { } 
+        finally { setExportingPDF(false); }
+    };
+
+    const handleExportExcel = async () => {
+        if (selected.excelUrl) {
+            window.open(selected.excelUrl, '_blank');
+            return;
+        }
+        setExportingExcel(true);
+        const isLive = selected._id === 'live-snapshot-id';
+        try {
+            const res = await apiRequest('/reports/hod-excel-report', { 
+                method: 'POST', 
+                body: { archiveId: isLive ? null : selected._id },
+                responseType: isLive ? 'blob' : 'json'
+            });
+            
+            if (!isLive && res.url) {
+                window.open(res.url, '_blank');
+                setSelected(prev => ({ ...prev, excelUrl: res.url }));
+                setArchives(prev => prev.map(a => a._id === selected._id ? { ...a, excelUrl: res.url } : a));
+            } else if (isLive) {
+                // If it's a direct browser download (for live snapshot)
+                const url = window.URL.createObjectURL(res);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Institutional_Audit_${selected.cycleName}.xlsx`;
+                a.click();
+            }
+        } catch (err) { }
+        finally { setExportingExcel(false); }
+    };
 
     const { paginated: pStudents, page: sPage, setPage: setSPage, totalPages: sTotal } = usePagination(studentList, 15);
 
-    if (loading) return <div className="py-32 text-center"><i className="fas fa-circle-notch fa-spin text-primary text-4xl"></i><p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Hydrating institutional data...</p></div>;
+    useEffect(() => {
+        setSPage(0);
+    }, [searchTerm, selected]);
+
+    if (loading) return <div className="py-32 text-center"><i className="fas fa-circle-notch fa-spin text-primary text-4xl"></i><p className="mt-4 text-xs font-medium text-gray-400">Loading archive data...</p></div>;
 
     // ── Individual Student Dossier View ─────────────────────────────────────
     if (selectedStudent) {
         return (
             <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex items-center justify-between bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-5">
-                        <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-3xl flex items-center justify-center text-2xl shadow-inner border border-indigo-100">
-                            <i className="fas fa-graduation-cap" />
+                        <div className="w-14 h-14 bg-primary/5 text-primary rounded-xl flex items-center justify-center text-xl border border-primary/10">
+                            <i className="fas fa-user-graduate" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-gray-800 tracking-tight italic uppercase">{selectedStudent.name}</h2>
-                            <p className="text-xs text-gray-400 font-bold mt-1">
-                                Reg: <span className="font-mono text-indigo-500">{selectedStudent.reg}</span> · {selectedStudent.company}
+                            <h2 className="text-xl font-bold text-gray-900">{selectedStudent.name}</h2>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Registration: <span className="font-semibold text-primary">{selectedStudent.reg}</span> · {selectedStudent.company}
                             </p>
                         </div>
                     </div>
-                    <button onClick={() => setSelectedStudent(null)} className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-95">
-                        <i className="fas fa-arrow-left mr-3" /> Back to cycle overview
+                    <button onClick={() => setSelectedStudent(null)} className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-black transition-all shadow-lg shadow-gray-900/10">
+                        <i className="fas fa-chevron-left mr-2" /> Back to Overview
                     </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <Card className="rounded-[3rem] p-8 border-0 shadow-2xl shadow-slate-200/50">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-3">
-                                <i className="fas fa-tasks text-indigo-500" /> Academic evaluation record
+                    <Card className="rounded-2xl p-6 border-gray-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-3">
+                                <i className="fas fa-award text-primary" /> Academic Evaluation Record
                             </h3>
-                            <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black border border-indigo-100">Audit Grade: {selectedStudent.grade}</span>
+                            <span className="px-3 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold border border-primary/10">Grade: {selectedStudent.grade}</span>
                         </div>
                         {selectedStudent.marks?.length > 0 ? (
-                            <div className="space-y-5">
+                            <div className="space-y-4">
                                 {selectedStudent.marks.map((m, i) => (
-                                    <div key={i} className="p-6 bg-slate-50/50 rounded-3xl border border-gray-100 group hover:border-indigo-200 transition-all">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <h4 className="text-sm font-black text-gray-700 italic">{m.title}</h4>
-                                            <span className="text-xs font-black text-indigo-600 bg-white px-3 py-1.5 rounded-xl border border-gray-100 shadow-sm">{m.marks} / {m.totalMarks}</span>
+                                    <div key={i} className="p-5 bg-gray-50/50 rounded-xl border border-gray-100">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <h4 className="text-sm font-bold text-gray-800">{m.title}</h4>
+                                            <span className="text-xs font-bold text-primary bg-white px-2 py-1 rounded-lg border border-gray-100">{m.marks} / {m.totalMarks}</span>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <div className="bg-white p-3 rounded-2xl border border-gray-50 shadow-sm">
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Faculty Score</p>
-                                                <p className="text-lg font-black text-slate-800">{m.facultyMarks || 0}</p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-white p-2.5 rounded-lg border border-gray-100">
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase">Faculty Score</p>
+                                                <p className="text-base font-bold text-gray-900">{m.facultyMarks || 0}</p>
                                             </div>
-                                            <div className="bg-white p-3 rounded-2xl border border-gray-50 shadow-sm">
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Site Score</p>
-                                                <p className="text-lg font-black text-slate-800">{m.siteSupervisorMarks || 0}</p>
+                                            <div className="bg-white p-2.5 rounded-lg border border-gray-100">
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase">Supervisor Score</p>
+                                                <p className="text-base font-bold text-gray-900">{m.siteSupervisorMarks || 0}</p>
                                             </div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        ) : <div className="py-20 text-center"><i className="fas fa-ghost text-gray-100 text-4xl mb-3" /><p className="text-gray-400 text-[10px] font-bold uppercase">No evaluation records generated.</p></div>}
+                        ) : <div className="py-20 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">No evaluation records found.</div>}
                     </Card>
 
-                    <Card className="rounded-[3rem] p-8 border-0 shadow-2xl shadow-slate-200/50">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-3">
-                                <i className="fas fa-clipboard-check text-emerald-500" /> Formal Industrial evaluations
+                    <Card className="rounded-2xl p-6 border-gray-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-3">
+                                <i className="fas fa-comment-dots text-emerald-500" /> Industrial Feedback
                             </h3>
                         </div>
                         {selectedStudent.evaluations?.length > 0 ? (
-                            <div className="space-y-5">
+                            <div className="space-y-4">
                                 {selectedStudent.evaluations.map((e, i) => (
-                                    <div key={i} className="p-6 bg-white rounded-3xl border border-gray-100 shadow-sm border-l-8 border-l-emerald-500 group">
-                                        <div className="flex justify-between items-center mb-5">
-                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-4 py-1.5 rounded-full uppercase tracking-tighter">{e.title}</span>
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase">{new Date(e.submittedAt).toLocaleDateString()}</span>
+                                    <div key={i} className="p-5 bg-white rounded-xl border border-gray-100 border-l-4 border-l-emerald-500">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase">{e.title}</span>
+                                            <span className="text-[10px] text-gray-400 font-medium uppercase">{new Date(e.submittedAt).toLocaleDateString()}</span>
                                         </div>
-                                        <p className="text-xs text-slate-600 leading-relaxed mb-6 font-medium italic">"{e.feedback}"</p>
-                                        <div className="flex items-center justify-between pt-5 border-t border-gray-50">
+                                        <p className="text-sm text-gray-600 leading-relaxed mb-4 italic font-medium">"{e.feedback}"</p>
+                                        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                                             <div>
-                                                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter">{e.evaluatorRole}</p>
+                                                <p className="text-[9px] font-bold text-primary uppercase">{e.evaluatorRole}</p>
                                                 <p className="text-xs font-bold text-gray-700">{e.evaluatorName}</p>
                                             </div>
-                                            <span className="text-2xl font-black text-emerald-600">{e.score}/10</span>
+                                            <span className="text-xl font-bold text-emerald-600">{e.score}/10</span>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        ) : <div className="py-20 text-center"><i className="fas fa-clipboard-question text-gray-100 text-4xl mb-3" /><p className="text-gray-400 text-[10px] font-bold uppercase">No evaluations documented.</p></div>}
+                        ) : <div className="py-20 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">No evaluations documented.</div>}
                     </Card>
                 </div>
             </div>
@@ -188,94 +332,86 @@ export default function HODArchive() {
         return (
             <div className="space-y-12 pb-32 animate-in fade-in slide-in-from-bottom-10 duration-1000">
                 {/* ── HERO COMMAND CENTER ──────────────────────────────────── */}
-                <div className="relative overflow-hidden bg-[#0A0C10] rounded-[4rem] border border-white/5 shadow-2xl">
-                    <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/20 rounded-full -mr-[400px] -mt-[400px] blur-[150px] opacity-30" />
-                    <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-500/10 rounded-full -ml-[300px] -mb-[300px] blur-[120px] opacity-20" />
-                    
-                    <div className="relative z-10 p-12 md:p-20">
-                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-12">
-                            <div className="space-y-6">
-                                <div className="flex items-center gap-4">
-                                    <span className="px-5 py-2 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-primary uppercase tracking-[0.4em] backdrop-blur-md">
-                                        Institutional Archive
-                                    </span>
-                                    {selected.isLive && (
-                                        <span className="flex items-center gap-2 px-5 py-2 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[10px] font-black text-rose-500 uppercase tracking-[0.4em] animate-pulse">
-                                            <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" /> Live Stream
-                                        </span>
-                                    )}
-                                </div>
-                                <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter uppercase leading-[0.9]">
-                                    {selected.cycleName}
-                                </h1>
-                                <div className="flex flex-wrap items-center gap-8 text-white/40">
-                                    <div className="flex items-center gap-3">
-                                        <i className="fas fa-fingerprint text-primary" />
-                                        <span className="text-xs font-bold uppercase tracking-widest">{selected._id}</span>
-                                    </div>
-                                    <div className="w-1.5 h-1.5 bg-white/10 rounded-full" />
-                                    <div className="flex items-center gap-3">
-                                        <i className="fas fa-calendar-alt" />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Archived {new Date(selected.createdAt).toLocaleDateString()}</span>
+                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-8 pb-8 border-b border-gray-50">
+                        <div>
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${selected.isLive ? 'bg-rose-50 text-rose-500' : 'bg-gray-50 text-gray-500'}`}>
+                                    {selected.isLive ? 'Active Programme' : 'Archived Cycle'}
+                                </span>
+                                <span className="text-xs text-gray-400 font-medium">Record ID: {selected._id.slice(-8).toUpperCase()}</span>
+                            </div>
+                            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{selected.cycleName}</h1>
+                            <p className="text-sm text-gray-500 mt-1">
+                                <i className="far fa-calendar-alt mr-2" />
+                                Compiled on {new Date(selected.createdAt).toLocaleDateString()}
+                            </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleExportPDF}
+                                disabled={exportingPDF}
+                                className="flex items-center gap-3 px-6 py-3 bg-rose-50 text-rose-600 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-rose-100 transition-all disabled:opacity-50"
+                            >
+                                {exportingPDF ? <i className="fas fa-circle-notch fa-spin" /> : <i className="fas fa-file-pdf" />}
+                                PDF Report
+                            </button>
+                            <button
+                                onClick={handleExportExcel}
+                                disabled={exportingExcel}
+                                className="flex items-center gap-3 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-emerald-100 transition-all disabled:opacity-50"
+                            >
+                                {exportingExcel ? <i className="fas fa-circle-notch fa-spin" /> : <i className="fas fa-file-excel" />}
+                                Excel Export
+                            </button>
+                            <button 
+                                onClick={() => setSelected(null)} 
+                                className="w-12 h-12 flex items-center justify-center bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 hover:text-gray-600 transition-all"
+                            >
+                                <i className="fas fa-times text-lg" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {[
+                            { label: 'Total Placements', value: selected.students.length, icon: 'fa-users', color: 'text-primary' },
+                            { label: 'Avg Performance', value: `${selected.statistics.averagePercentage.toFixed(1)}%`, icon: 'fa-chart-line', color: 'text-indigo-500' },
+                            { label: 'Success Rate', value: `${Math.round((selected.statistics.totalPassed / (selected.statistics.totalParticipated || 1)) * 100)}%`, icon: 'fa-check-circle', color: 'text-emerald-500' },
+                            { label: 'Completion', value: '100%', icon: 'fa-shield-halved', color: 'text-slate-400' }
+                        ].map((stat, i) => (
+                            <div key={i} className="bg-gray-50/50 rounded-2xl p-5 border border-gray-50">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{stat.label}</p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xl font-bold text-gray-900">{stat.value}</span>
+                                    <div className={`w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-gray-100 ${stat.color} text-xs shadow-sm`}>
+                                        <i className={`fas ${stat.icon}`} />
                                     </div>
                                 </div>
                             </div>
-                            
-                            <button 
-                                onClick={() => setSelected(null)} 
-                                className="group flex items-center gap-6 px-10 py-6 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[2.5rem] transition-all active:scale-95 translate-y-[-10px]"
-                            >
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Exit Report</p>
-                                    <p className="text-xs font-bold text-white uppercase italic">Return to Grid</p>
-                                </div>
-                                <div className="w-12 h-12 bg-white text-black rounded-2xl flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-colors">
-                                    <i className="fas fa-times" />
-                                </div>
-                            </button>
-                        </div>
-
-                        {/* Top-Level Quick Stats */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-20 pt-20 border-t border-white/5">
-                            {[
-                                { label: 'Registered Entities', value: (entities?.companies?.length + entities?.faculty?.length + entities?.siteSupervisors?.length) || 0, icon: 'fa-network-wired' },
-                                { label: 'Task Throughput', value: totalTasks, icon: 'fa-boltn' },
-                                { label: 'Cohort Magnitude', value: selected.students.length, icon: 'fa-user-group' },
-                                { label: 'Audit Compliance', value: '100%', icon: 'fa-shield-check' }
-                            ].map((stat, i) => (
-                                <div key={i} className="bg-white/5 rounded-3xl p-6 border border-white/10">
-                                    <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] mb-3">{stat.label}</p>
-                                    <div className="flex items-end gap-3 text-white">
-                                        <span className="text-2xl font-black">{stat.value}</span>
-                                        <i className={`fas ${stat.icon} text-primary/50 text-sm mb-1`} />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        ))}
                     </div>
                 </div>
 
                 {/* ── SECTION 1: PERFORMANCE FORENSICS (STATS) ────────────────── */}
                 <section id="stats" className="space-y-8">
-                    <div className="flex items-center gap-8">
-                        <h2 className="text-[10px] font-black text-primary uppercase tracking-[0.6em] whitespace-nowrap">01 // CORE INSTITUTIONAL STATS</h2>
-                        <div className="h-px bg-slate-200 flex-1" />
+                    <div className="flex items-center gap-6">
+                        <h2 className="text-xs font-bold text-gray-400 tracking-widest whitespace-nowrap">Performance Overview</h2>
+                        <div className="h-px bg-gray-100 flex-1" />
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         {[
-                            { label: 'Success Ratio', value: `${Math.round((selected.statistics.totalPassed / (selected.statistics.totalParticipated || 1)) * 100)}%`, desc: 'Of total cohort certified', color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                            { label: 'Academic Average', value: `${selected.statistics.averagePercentage.toFixed(1)}%`, desc: 'Core performance mean', color: 'text-indigo-500', bg: 'bg-indigo-50' },
-                            { label: 'Program Attrition', value: selected.statistics.totalFailed, desc: 'Students not meeting criteria', color: 'text-rose-500', bg: 'bg-rose-50' },
-                            { label: 'Active Students', value: selected.statistics.totalStudents, desc: 'Total institutional load', color: 'text-slate-800', bg: 'bg-slate-50' }
+                            { label: 'Success Ratio', value: `${Math.round((selected.statistics.totalPassed / (selected.statistics.totalParticipated || 1)) * 100)}%`, desc: 'Certified placements', color: 'text-emerald-600', bg: 'bg-emerald-50/50' },
+                            { label: 'Academic Avg', value: `${selected.statistics.averagePercentage.toFixed(1)}%`, desc: 'Average grade score', color: 'text-primary', bg: 'bg-primary/5' },
+                            { label: 'Performance Review', value: selected.statistics.totalFailed, desc: 'Below required threshold', color: 'text-rose-600', bg: 'bg-rose-50/50' },
+                            { label: 'Academic Load', value: selected.statistics.totalStudents, desc: 'Total students in cycle', color: 'text-gray-700', bg: 'bg-gray-50/50' }
                         ].map((k, i) => (
-                            <div key={i} className={`${k.bg} rounded-[3.5rem] p-10 border border-slate-100 shadow-xl shadow-slate-100/50 group hover:scale-[1.02] transition-all`}>
-                                <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-2xl shadow-sm mb-8">
-                                    <i className={`fas fa-chart-pie ${k.color}`} />
-                                </div>
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{k.label}</p>
-                                <p className={`text-5xl font-black ${k.color} tracking-tighter mb-4 italic`}>{k.value}</p>
-                                <p className="text-xs font-bold text-gray-400 leading-relaxed">{k.desc}</p>
+                            <div key={i} className={`${k.bg} rounded-2xl p-6 border border-gray-100 shadow-sm transition-all`}>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{k.label}</p>
+                                <p className={`text-3xl font-bold ${k.color} tracking-tight mb-2`}>{k.value}</p>
+                                <p className="text-xs text-gray-500 font-medium">{k.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -283,30 +419,24 @@ export default function HODArchive() {
 
                 {/* ── SECTION 2: CRITICAL INELIGIBILITY AUDIT ────────────────── */}
                 <section id="audit" className="space-y-8">
-                    <div className="flex items-center gap-8">
-                        <h2 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.6em] whitespace-nowrap">02 // CRITICAL INELIGIBILITY AUDIT</h2>
+                    <div className="flex items-center gap-6">
+                        <h2 className="text-xs font-bold text-rose-500  tracking-widest whitespace-nowrap"> Ineligible Students</h2>
                         <div className="h-px bg-rose-100 flex-1" />
                     </div>
                     
-                    <div className="bg-rose-50/30 rounded-[4rem] p-12 border border-rose-100 overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
+                    <div className="bg-rose-50/30 rounded-3xl p-8 border border-rose-100">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             {[
                                 { label: 'Low CGPA (< 2.0)', count: selected.statistics.ineligibilityBreakdown?.lowCGPA || 0, icon: 'fa-graduation-cap' },
-                                { label: 'Late Registration', count: selected.statistics.ineligibilityBreakdown?.lateRegistration || 0, icon: 'fa-clock-seven' },
-                                { label: 'Policy Infractions', count: selected.statistics.ineligibilityBreakdown?.other || 0, icon: 'fa-user-slash' }
+                                { label: 'Late Registration', count: selected.statistics.ineligibilityBreakdown?.lateRegistration || 0, icon: 'fa-clock' },
                             ].map((item, i) => (
-                                <div key={i} className="flex items-center gap-10">
-                                    <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center text-3xl text-rose-500 shadow-2xl shadow-rose-500/10 border border-rose-50">
+                                <div key={i} className="flex items-center gap-6">
+                                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-lg text-rose-500 shadow-sm border border-rose-100">
                                         <i className={`fas ${item.icon}`} />
                                     </div>
                                     <div>
-                                        <p className="text-5xl font-black text-slate-800 tracking-tighter">{item.count}</p>
-                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-2">{item.label}</p>
-                                        <div className="flex items-center gap-2 mt-4">
-                                            <span className="w-2 h-2 bg-rose-500 rounded-full" />
-                                            <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest italic">Audit Flagged</span>
-                                        </div>
+                                        <p className="text-2xl font-bold text-gray-900 leading-none">{item.count}</p>
+                                        <p className="text-[10px] font-bold text-gray-400  tracking-wider mt-1">{item.label}</p>
                                     </div>
                                 </div>
                             ))}
@@ -315,143 +445,164 @@ export default function HODArchive() {
                 </section>
 
                 {/* ── SECTION 3: PERFORMANCE LEADERSHIP (ELITE/AT-RISK) ───────── */}
-                <section id="rankings" className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-12">
-                    <div className="space-y-10">
-                        <div className="flex items-center gap-6">
-                            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-3xl flex items-center justify-center text-2xl shadow-inner border border-emerald-100/50 font-black">
-                                <i className="fas fa-crown" />
+                <section id="rankings" className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-8">
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl border border-emerald-100">
+                                <i className="fas fa-trophy" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">Institutional Elite</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Top performing cohort (Top 10)</p>
+                                <h3 className="text-lg font-bold text-gray-900">Top Performing Students</h3>
+                                <p className="text-xs text-gray-400 font-medium">Highest academic marks this cycle</p>
                             </div>
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {topPerformers.map((s, idx) => (
-                                <div key={idx} className="group flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] hover:border-emerald-500 hover:bg-emerald-50/30 hover:scale-[1.02] transition-all shadow-sm">
-                                    <div className="flex items-center gap-8">
-                                        <span className="text-2xl font-black text-slate-200 group-hover:text-emerald-500/30 transition-colors">#{idx + 1}</span>
+                                <div key={idx} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-all shadow-none">
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-sm font-bold text-gray-300">#{idx + 1}</span>
                                         <div>
-                                            <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter">{s.name}</p>
-                                            <p className="text-[10px] font-bold text-slate-400 font-mono tracking-widest mt-1">{s.reg}</p>
+                                            <p className="text-sm font-bold text-gray-800">{s.name}</p>
+                                            <p className="text-[10px] text-gray-400 font-medium">{s.reg}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right flex flex-col items-end gap-2">
-                                        <span className="text-3xl font-black text-emerald-600">{s.percentage}%</span>
-                                        <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-lg text-[9px] font-black uppercase italic">Grade {s.grade}</span>
+                                    <div className="text-right">
+                                        <span className="text-base font-bold text-emerald-600">{s.percentage}%</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className="space-y-10 text-right md:text-left">
-                        <div className="flex flex-row-reverse md:flex-row items-center gap-6">
-                            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center text-2xl shadow-inner border border-rose-100/50 font-black">
-                                <i className="fas fa-triangle-exclamation" />
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-xl border border-rose-100">
+                                <i className="fas fa-exclamation-triangle" />
                             </div>
-                            <div className="md:text-left text-right">
-                                <h3 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">At-Risk Cohort</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Marginalized academic performance (Bottom 5)</p>
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">Performance Review Required</h3>
+                                <p className="text-xs text-gray-400 font-medium">All students with Grade D or F</p>
                             </div>
                         </div>
-                        <div className="space-y-4">
-                            {bottomPerformers.map((s, idx) => (
-                                <div key={idx} className="group flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] hover:border-rose-500 hover:bg-rose-50/30 hover:scale-[1.02] transition-all shadow-sm">
-                                    <div className="flex items-center gap-8">
-                                        <span className="text-2xl font-black text-slate-200 group-hover:text-rose-500/30 transition-colors">#{idx + 1}</span>
-                                        <div>
-                                            <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter">{s.name}</p>
-                                            <p className="text-[10px] font-bold text-slate-400 font-mono tracking-widest mt-1">{s.reg}</p>
+                        <div className="space-y-3">
+                            {bottomPerformers.length > 0 ? (
+                                bottomPerformers.map((s, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-all shadow-none">
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-sm font-bold text-gray-300">#{idx + 1}</span>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-800">{s.name}</p>
+                                                <p className="text-[10px] text-gray-400 font-medium">{s.reg}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-base font-bold text-rose-600">{s.percentage}%</span>
                                         </div>
                                     </div>
-                                    <div className="text-right flex flex-col items-end gap-2">
-                                        <span className="text-3xl font-black text-rose-600">{s.percentage}%</span>
-                                        <span className="px-3 py-1 bg-rose-100 text-rose-600 rounded-lg text-[9px] font-black uppercase italic">Status: {s.finalStatus}</span>
-                                    </div>
+                                ))
+                            ) : (
+                                <div className="p-8 text-center bg-white border border-dashed border-gray-100 rounded-xl">
+                                    <p className="text-xs text-gray-400 font-medium">No students in this category.</p>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </div>
                 </section>
 
                 {/* ── SECTION 4: PROGRAMME TIMELINE ──────────────────────────── */}
-                <section id="timeline" className="space-y-12 py-20">
-                    <div className="flex items-center gap-8">
-                        <h2 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.6em] whitespace-nowrap">03 // PROGRAMME TIMELINE</h2>
-                        <div className="h-px bg-indigo-100 flex-1" />
+                <section id="timeline" className="space-y-10 py-10">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div>
+                            <h2 className="text-xs font-bold text-primary  tracking-widest mb-1"> Programme Phases</h2>
+                            <h3 className="text-xl font-bold text-gray-900">Cycle Timeline Detail</h3>
+                        </div>
+                        <div className="bg-primary/5 border border-primary/10 px-5 py-3 rounded-xl flex items-center gap-4">
+                            <i className="fas fa-clock text-primary" />
+                            <div>
+                                <p className="text-[9px] font-bold text-primary uppercase leading-none mb-1">Cycle Initialized On</p>
+                                <p className="text-sm font-bold text-gray-900 leading-none">
+                                    {formatDateTime(snapshotPhases.find(p => p.order === 1)?.startedAt || selected.createdAt)}
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="relative pt-10">
-                        <div className="absolute left-[50%] top-0 bottom-0 w-1 bg-slate-100 rounded-full hidden md:block" />
+                        <div className="absolute left-[50%] top-0 bottom-0 w-1 bg-gray-50 rounded-full hidden md:block" />
                         <div className="space-y-12">
-                            {selected.phases?.map((p, i) => (
-                                <div key={i} className={`flex flex-col md:flex-row items-center gap-8 relative ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
-                                    <div className="absolute left-[50%] -translate-x-1/2 w-4 h-4 bg-white border-4 border-indigo-500 rounded-full z-10 hidden md:block" />
-                                    <div className="w-full md:w-[45%]">
-                                        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-100/30 hover:border-indigo-200 transition-all group">
-                                            <div className="flex items-center gap-6 mb-6">
-                                                <span className="text-4xl font-black text-indigo-100 group-hover:text-indigo-500 transition-colors italic">0{p.order}</span>
-                                                <h4 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter leading-none">{p.label}</h4>
-                                            </div>
-                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-10 leading-relaxed">{p.description}</p>
-                                            <div className="flex items-center justify-between pt-8 border-t border-slate-50 gap-4">
-                                                <div>
-                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Activation</p>
-                                                    <p className="text-xs font-black text-indigo-600 italic">{p.startedAt ? new Date(p.startedAt).toLocaleDateString() : 'N/A'}</p>
+                            {snapshotPhases.length > 0 ? (
+                                snapshotPhases.map((p, i) => (
+                                    <div key={i} className={`flex flex-col md:flex-row items-center gap-8 relative ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
+                                        <div className="absolute left-[50%] -translate-x-1/2 w-4 h-4 bg-white border-4 border-primary rounded-full z-10 hidden md:block" />
+                                        <div className="w-full md:w-[45%]">
+                                            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:border-primary/20 transition-all group">
+                                                <div className="flex items-center gap-5 mb-5">
+                                                    <span className="text-3xl font-bold text-gray-100 group-hover:text-primary transition-colors">0{p.order}</span>
+                                                    <h4 className="text-lg font-bold text-gray-800 leading-none uppercase tracking-tight">{p.label}</h4>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Audit Close</p>
-                                                    <p className="text-xs font-black text-slate-800 italic">{p.completedAt ? new Date(p.completedAt).toLocaleDateString() : 'Active'}</p>
+                                                <p className="text-xs text-gray-500 font-medium leading-relaxed mb-8">{p.description}</p>
+                                                <div className="flex flex-col gap-4 pt-6 border-t border-gray-50">
+                                                    <div className="flex justify-between items-center bg-gray-50/50 p-3 rounded-lg border border-gray-50">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase">Started At</span>
+                                                        <span className="text-xs font-bold text-gray-800">{formatDateTime(p.startedAt)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center bg-gray-50/50 p-3 rounded-lg border border-gray-50">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase">Completed At</span>
+                                                        <span className={`text-xs font-bold ${p.completedAt ? 'text-emerald-600' : 'text-primary animate-pulse'}`}>
+                                                            {p.completedAt ? formatDateTime(p.completedAt) : 'Currently Active'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
+                                        <div className="hidden md:block w-[10%]" />
+                                        <div className="w-full md:w-[45%] h-px md:h-0" />
                                     </div>
-                                    <div className="hidden md:block w-[10%]" />
-                                    <div className="w-full md:w-[45%] h-px md:h-0" />
+                                ))
+                            ) : (
+                                <div className="py-20 text-center bg-white border border-dashed border-gray-100 rounded-3xl">
+                                    <p className="text-sm font-bold text-gray-400">Phase details not found in this archive.</p>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </div>
                 </section>
 
                 {/* ── SECTION 5: STUDENT PERFORMANCE REGISTER ────────────────── */}
-                <section id="students" className="space-y-10">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                <section id="students" className="space-y-8">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
-                            <h2 className="text-[10px] font-black text-primary uppercase tracking-[0.6em] mb-4">04 // STUDENT REGISTER & DOSSIERS</h2>
-                            <h3 className="text-4xl font-black text-slate-800 uppercase italic tracking-tighter">Individual Performance Records</h3>
+                            <h2 className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Registered Students </h2>
+                            <h3 className="text-xl font-bold text-gray-900">Individual Performance Records</h3>
                         </div>
                         <div className="relative">
-                            <i className="fas fa-search absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input 
                                 type="text"
-                                placeholder="Search by name or reg..."
+                                placeholder="Search students..."
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                className="pl-16 pr-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl w-full md:w-96 text-xs font-bold uppercase tracking-widest transition-all focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none"
+                                className="pl-12 pr-6 py-3 bg-gray-50 border border-gray-100 rounded-xl w-full md:w-80 text-sm focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all"
                             />
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/20 overflow-hidden">
-                        <DataTable columns={['Student identity', 'Registration No.', 'Affiliated Body', 'Lifecycle Status', 'Academic Grade', 'Forensics']}>
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <DataTable columns={['Student Name', 'Registration No.', 'Company', 'Status', 'Grade', 'Actions']}>
                             {pStudents.map((s, idx) => (
-                                <TableRow key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                    <TableCell><span className="text-sm font-black text-slate-800 uppercase italic">{s.name}</span></TableCell>
-                                    <TableCell><span className="font-mono text-[11px] font-black text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100/50">{s.reg}</span></TableCell>
-                                    <TableCell><span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{s.company}</span></TableCell>
+                                <TableRow key={idx} className="hover:bg-gray-50/50">
+                                    <TableCell><span className="text-sm font-bold text-gray-800">{s.name}</span></TableCell>
+                                    <TableCell><span className="font-mono text-xs font-semibold text-primary">{s.reg}</span></TableCell>
+                                    <TableCell><span className="text-xs text-gray-500 font-medium">{s.company}</span></TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${s.finalStatus === 'Pass' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${s.finalStatus === 'Pass' ? 'text-emerald-600' : 'text-rose-600'}`}>{s.finalStatus}</span>
-                                        </div>
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${s.finalStatus === 'Pass' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                            {s.finalStatus}
+                                        </span>
                                     </TableCell>
-                                    <TableCell><span className="text-xl font-black italic text-slate-800">{s.grade} <span className="text-[10px] font-bold text-slate-400 not-italic ml-1">({s.percentage}%)</span></span></TableCell>
+                                    <TableCell><span className="text-sm font-bold text-gray-800">{s.grade} <span className="text-[10px] text-gray-400 font-normal">({s.percentage}%)</span></span></TableCell>
                                     <TableCell>
-                                        <button onClick={() => setSelectedStudent(s)} className="group px-6 py-3 bg-slate-900 text-white rounded-2xl flex items-center gap-3 hover:bg-primary transition-all active:scale-95">
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Dossier</span>
-                                            <i className="fas fa-fingerprint text-white/50 group-hover:text-white" />
+                                        <button onClick={() => setSelectedStudent(s)} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-primary transition-all">
+                                            View Report
                                         </button>
                                     </TableCell>
                                 </TableRow>
@@ -462,35 +613,28 @@ export default function HODArchive() {
                 </section>
 
                 {/* ── SECTION 6: ENTERPRISE MATRIX ───────────────────────────── */}
-                <section id="companies" className="space-y-10 pt-10">
-                    <div className="flex items-center gap-8">
-                        <h2 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.6em] whitespace-nowrap">05 // ENTERPRISE LEDGER</h2>
+                <section id="companies" className="space-y-8 pt-8">
+                    <div className="flex items-center gap-6">
+                        <h2 className="text-xs font-bold text-amber-500  tracking-widest whitespace-nowrap">Company Records</h2>
                         <div className="h-px bg-amber-100 flex-1" />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {entities?.companies?.map((c, idx) => {
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        {entities?.companies?.filter(c => c.status !== 'Inactive').map((c, idx) => {
                             const interns = selected.students.filter(s => s.company === c.name);
-                            const avgCompScore = interns.length > 0 ? Math.round(interns.reduce((a, b) => a + b.percentage, 0) / interns.length) : 0;
                             return (
-                                <div key={idx} className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-slate-100/30 hover:border-amber-500/30 transition-all group">
-                                    <div className="flex justify-between items-start mb-8">
-                                        <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center text-2xl border border-amber-100/50">
+                                <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:border-amber-200 transition-all">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center text-lg border border-amber-100">
                                             <i className="fas fa-building" />
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-black text-emerald-500 uppercase italic">Quality Index</p>
-                                            <p className="text-2xl font-black text-slate-800">{avgCompScore}%</p>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-sm font-bold text-gray-900 truncate">{c.name}</h4>
                                         </div>
                                     </div>
-                                    <h4 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter mb-2">{c.name}</h4>
-                                    <p className="text-[10px] font-bold text-slate-400 font-mono tracking-widest mb-8">{c.email || 'NO_CONTACT_VECTOR'}</p>
-                                    <div className="flex items-center justify-between pt-8 border-t border-slate-50">
-                                        <div className="flex items-center gap-2">
-                                            <i className="fas fa-user-check text-slate-300" />
-                                            <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{interns.length} Placements</span>
-                                        </div>
-                                        <span className="px-4 py-1.5 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest italic">Corporate Partner</span>
+                                    <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-gray-400 tracking-widest">Active Interns</span>
+                                        <span className="text-base font-bold text-gray-900">{interns.length}</span>
                                     </div>
                                 </div>
                             );
@@ -499,62 +643,61 @@ export default function HODArchive() {
                 </section>
 
                 {/* ── SECTION 7: SUPERVISION CORE ────────────────────────────── */}
-                <section id="supervisors" className="space-y-12 pt-10">
-                    <div className="flex items-center gap-8">
-                        <h2 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.6em] whitespace-nowrap">06 // SUPERVISION & VALIDATION MATRIX</h2>
-                        <div className="h-px bg-indigo-100 flex-1" />
+                <section id="supervisors" className="space-y-10 pt-10">
+                    <div className="flex items-center gap-6">
+                        <h2 className="text-xs font-bold text-primary  tracking-widest whitespace-nowrap"> Supervision Overview</h2>
+                        <div className="h-px bg-gray-100 flex-1" />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         {/* Faculty Sub-section */}
                         <div className="space-y-8">
-                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-4">
-                                <i className="fas fa-user-graduate text-indigo-500" /> Faculty Supervisors
+                            <h3 className="text-sm font-bold text-gray-400 flex items-center gap-4">
+                                <i className="fas fa-user-graduate text-primary" /> Faculty Supervisors
                             </h3>
                             <div className="space-y-4">
-                                {entities?.faculty?.map((f, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
-                                        <div className="flex items-center gap-6">
-                                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-indigo-500 border border-slate-100">
-                                                <i className="fas fa-id-badge" />
-                                            </div>
-                                            <div>
-                                                <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter leading-none">{f.name}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Faculty Advisor</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-black text-indigo-600">{selected.students.filter(s => s.faculty.name === f.name).length} Students</p>
-                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">Direct Oversight</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                {entities?.faculty?.filter(f => f.status !== 'Inactive').map((f, idx) => {
+                                    const assigned = selected.students.filter(s => s.faculty.name === f.name);
+                                    if (assigned.length === 0) return null; // Only show if they have assignments
+                                    return (
+                                        <SupervisorCard 
+                                            key={idx}
+                                            name={f.name}
+                                            role="Faculty Advisor"
+                                            icon="fa-user-tie"
+                                            colorClass="text-primary"
+                                            badgeText={`${assigned.length} Student${assigned.length !== 1 ? 's' : ''}`}
+                                            badgeColor="text-primary"
+                                            interns={assigned}
+                                        />
+                                    );
+                                }).filter(Boolean)}
                             </div>
                         </div>
 
                         {/* Site Supervisors Sub-section */}
                         <div className="space-y-8">
-                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-4">
+                            <h3 className="text-sm font-bold text-gray-400 flex items-center gap-4">
                                 <i className="fas fa-id-card-clip text-emerald-500" /> Industrial Supervisors
                             </h3>
                             <div className="space-y-4">
-                                {entities?.siteSupervisors?.map((ss, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
-                                        <div className="flex items-center gap-6">
-                                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-emerald-500 border border-slate-100">
-                                                <i className="fas fa-briefcase" />
-                                            </div>
-                                            <div>
-                                                <p className="text-lg font-black text-slate-800 uppercase italic tracking-tighter leading-none">{ss.name}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{ss.company}</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-black text-emerald-600">+{ss.tasksGraded} Tasks</p>
-                                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">Validation Magnitude</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                {entities?.siteSupervisors?.filter(ss => ss.status !== 'Inactive').map((ss, idx) => {
+                                    const siteInterns = selected.students.filter(s => s.siteSupervisor?.email === ss.email);
+                                    if (siteInterns.length === 0) return null; // Only show if they have assignments
+                                    return (
+                                        <SupervisorCard 
+                                            key={idx}
+                                            name={ss.name}
+                                            role={ss.company}
+                                            icon="fa-briefcase"
+                                            colorClass="text-emerald-500"
+                                            badgeText={`${ss.tasksGraded} Tasks`}
+                                            badgeColor="text-emerald-600"
+                                            subText={`${siteInterns.length} Interns`}
+                                            interns={siteInterns}
+                                        />
+                                    );
+                                }).filter(Boolean)}
                             </div>
                         </div>
                     </div>
@@ -565,22 +708,19 @@ export default function HODArchive() {
 
     return (
         <div className="space-y-10">
-            <div className="bg-white p-12 rounded-[4rem] border border-gray-100 shadow-2xl shadow-slate-200/20 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full -mr-[250px] -mt-[250px] blur-[120px] opacity-40 group-hover:opacity-60 transition-opacity duration-1000" />
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-10">
-                    <div className="flex items-center gap-10">
-                        <div className="w-24 h-24 bg-slate-900 text-white rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl shadow-slate-900/40 border-4 border-white">
-                            <i className="fas fa-building-shield" />
-                        </div>
-                        <div>
-                            <h2 className="text-5xl font-black text-gray-800 tracking-tighter italic flex items-center gap-6 uppercase">
-                                Performance Archives
-                            </h2>
-                            <p className="text-xs text-gray-400 font-bold mt-4 uppercase tracking-[0.5em] flex items-center gap-2">
-                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                                Institutional memory & Audit compliance control
-                            </p>
-                        </div>
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">HOD Oversight Dashboard</h2>
+                    <p className="text-sm text-gray-500 mt-1">Final approval and quality assurance of internship evaluations (CS Dept).</p>
+                </div>
+                
+                <div className="flex items-center gap-4 bg-gray-50/50 p-2 pr-6 rounded-2xl border border-gray-100">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-gray-100">
+                        <i className="fas fa-database text-lg" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Institutional Memory</p>
+                        <p className="text-sm font-bold text-gray-900 leading-none">{archives.filter(a => !a.isLive).length} Archived Cycles</p>
                     </div>
                 </div>
             </div>
@@ -591,46 +731,28 @@ export default function HODArchive() {
                         <div 
                             key={arc._id} 
                             onClick={() => { setSelected(arc); setActiveTab('overview'); }} 
-                            className={`bg-white p-10 rounded-[3.5rem] border-2 transition-all cursor-pointer group relative overflow-hidden hover:scale-[1.02] active:scale-95
-                                ${arc.isLive 
-                                    ? 'border-rose-100 bg-white shadow-[0_40px_100px_rgba(244,63,94,0.1)]' 
-                                    : 'border-slate-50 shadow-xl shadow-slate-100 hover:border-primary/30 hover:shadow-2xl'}`}
+                            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:border-primary hover:shadow-md transition-all cursor-pointer group"
                         >
-                            <div className="flex items-center justify-between mb-10">
-                                <div className={`w-20 h-20 rounded-[2rem] transition-all flex items-center justify-center text-3xl shadow-2xl
-                                    ${arc.isLive ? 'bg-rose-50 text-rose-500 animate-pulse border border-rose-100' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-900 group-hover:text-white border border-slate-100 shadow-inner'}`}>
-                                    <i className={`fas ${arc.isLive ? 'fa-satellite-dish' : 'fa-box-archive'}`} />
+                            <div className="flex items-center justify-between mb-6">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg ${arc.isLive ? 'bg-rose-50 text-rose-500' : 'bg-gray-50 text-gray-400'}`}>
+                                    <i className={`fas ${arc.isLive ? 'fa-signal' : 'fa-archive'}`} />
                                 </div>
-                                <div className="text-right">
-                                    {arc.isLive ? (
-                                        <div className="flex flex-col items-end gap-2">
-                                            <span className="px-4 py-1.5 bg-rose-50 border border-rose-100 rounded-2xl text-[10px] font-black text-rose-500 uppercase tracking-widest animate-pulse shadow-sm shadow-rose-100">
-                                                Live Academic Snap
-                                            </span>
-                                            <span className="text-[9px] font-black text-slate-400 uppercase italic tracking-tighter">Real-time Stream</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-end gap-2">
-                                            <span className="text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors flex items-center gap-3 uppercase tracking-[0.3em]">View Archive <i className="fas fa-arrow-right-long text-[8px]" /></span>
-                                            <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest italic bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">Fidelity Verified</span>
-                                        </div>
-                                    )}
-                                </div>
+                                <span className={`text-[10px] font-bold uppercase px-3 py-1 rounded-full ${arc.isLive ? 'bg-rose-50 text-rose-500' : 'bg-gray-50 text-gray-500'}`}>
+                                    {arc.isLive ? 'Active Cycle' : 'Archived'}
+                                </span>
                             </div>
 
-                            <h4 className="text-2xl font-black text-gray-800 mb-2 tracking-tighter italic uppercase group-hover:text-primary transition-colors">{arc.cycleName}</h4>
-                            <p className="text-[11px] text-gray-400 font-bold mb-10 tracking-[0.2em] uppercase italic">
-                                {arc.isLive ? 'CURRENT PROGRAMME CYCLE' : `ACADEMIC SESSION · ${arc.year}`}
-                            </p>
+                            <h4 className="text-lg font-bold text-gray-900 mb-1">{arc.cycleName}</h4>
+                            <p className="text-xs text-gray-400 mb-6">{arc.year ? `Academic Year ${arc.year}` : 'Current Programme'}</p>
 
-                            <div className="grid grid-cols-2 gap-8 pt-10 border-t-2 border-slate-50/50">
+                            <div className="flex items-center justify-between pt-6 border-t border-gray-50">
                                 <div>
-                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em] mb-2">Cohort Size</p>
-                                    <p className="text-3xl font-black text-slate-800 tracking-tighter">{arc.statistics.totalStudents}</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase leading-none mb-1">Students</p>
+                                    <p className="text-base font-bold text-gray-900">{arc.statistics.totalStudents}</p>
                                 </div>
-                                <div>
-                                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em] mb-2">Success Rate</p>
-                                    <p className={`text-3xl font-black tracking-tighter ${arc.isLive ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase leading-none mb-1">Success Rate</p>
+                                    <p className="text-base font-bold text-emerald-600">
                                         {Math.round((arc.statistics.totalPassed / (arc.statistics.totalParticipated || 1)) * 100)}%
                                     </p>
                                 </div>
@@ -638,11 +760,11 @@ export default function HODArchive() {
                         </div>
                     ))
                 ) : (
-                    <div className="col-span-full py-60 bg-white rounded-[5rem] border-4 border-dashed border-slate-50 text-center flex flex-col items-center justify-center group hover:border-slate-100 transition-all">
-                        <div className="w-32 h-32 bg-slate-50 rounded-[3rem] flex items-center justify-center text-slate-200 text-5xl mb-10 shadow-inner group-hover:scale-110 transition-transform">
+                    <div className="col-span-full py-40 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100 text-center flex flex-col items-center justify-center">
+                        <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center text-gray-200 text-3xl mb-6 border border-gray-100">
                             <i className="fas fa-folder-open" />
                         </div>
-                        <p className="text-slate-300 font-black text-lg uppercase tracking-[0.6em] italic">Deep storage empty</p>
+                        <p className="text-gray-400 font-bold text-sm uppercase tracking-widest">No archived cycles found.</p>
                     </div>
                 )}
             </div>

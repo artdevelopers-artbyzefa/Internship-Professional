@@ -15,6 +15,8 @@ import Phase from '../models/Phase.js';
 import AuditLog from '../models/AuditLog.js';
 import Submission from '../models/Submission.js';
 import { getArchiveSnapshot } from '../utils/archiver.js';
+import Archive from '../models/Archive.js';
+import { uploadCloudinaryBuffer } from '../utils/cloudinary.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -367,10 +369,29 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
     };
 
     const pdfDoc = await printer.createPdfKitDocument(docDefinition);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="HOD_Institutional_Audit_Dossier.pdf"');
-    pdfDoc.pipe(res);
-    pdfDoc.end();
+    const { archiveId } = req.body;
+
+    if (archiveId) {
+        const chunks = [];
+        pdfDoc.on('data', (chunk) => chunks.push(chunk));
+        pdfDoc.on('end', async () => {
+            const buffer = Buffer.concat(chunks);
+            try {
+                const cloudRes = await uploadCloudinaryBuffer(buffer, `HOD_Archive_Dossier_${archiveId}.pdf`, 'dims/archives');
+                await Archive.findByIdAndUpdate(archiveId, { pdfUrl: cloudRes.secure_url });
+                res.status(200).json({ url: cloudRes.secure_url });
+            } catch (err) {
+                console.error('Archive PDF Save Error:', err);
+                res.status(500).json({ message: 'Failed to save PDF to archive.' });
+            }
+        });
+        pdfDoc.end();
+    } else {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="HOD_Institutional_Audit_Dossier.pdf"');
+        pdfDoc.pipe(res);
+        pdfDoc.end();
+    }
 }));
 
 // @route   POST api/reports/hod-excel-report
@@ -397,73 +418,100 @@ router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
     };
 
     // 1. DATA AGGREGATION ──────────────────────────────────────────────────
-    // Fetch everything needed for deep analysis
-    const [students, allMarks, assignments, supervisors, faculty] = await Promise.all([
-        User.find({ role: 'student' }).populate('assignedFaculty', 'name email').populate('assignedSiteSupervisor', 'name email').lean(),
-        Mark.find({}).lean(),
-        Assignment.find({}).lean(),
-        User.find({ role: 'site_supervisor' }).lean(),
-        User.find({ role: 'faculty_supervisor' }).lean()
-    ]);
+    const { archiveId: targetArchiveId } = req.body;
+    let studentStats = [];
+    let supervisorStats = {};
+    let facultyStats = {};
+    let companyStats = {};
 
-    const activeAssignmentsCount = assignments.length;
+    if (targetArchiveId && targetArchiveId !== 'live-snapshot-id') {
+        const archive = await Archive.findById(targetArchiveId).lean();
+        if (!archive) return res.status(404).json({ message: 'Archive not found' });
 
-    // 📊 Processing Logic
-    const studentStats = [];
-    const supervisorStats = {};
-    const facultyStats = {};
-    const companyStats = {};
+        archive.students.forEach(s => {
+            const pct = s.percentage || 0;
+            const tasksPerformed = (s.marks || []).filter(m => m.isFacultyGraded).length;
+            
+            studentStats.push({
+                reg: s.reg,
+                name: s.name,
+                company: s.company || 'N/A',
+                tasksPerformed,
+                avgScore: (s.avgMarks || 0).toFixed(2),
+                percentage: pct,
+                status: s.status,
+                supervisor: s.siteSupervisor?.name || 'N/A',
+                faculty: s.faculty?.name || 'N/A'
+            });
 
-    students.forEach(s => {
-        const marks = allMarks.filter(m => m.student?.toString() === s._id.toString());
-        const totalTasks = marks.filter(m => m.isFacultyGraded || m.isSiteSupervisorGraded).length;
+            const cName = s.company || 'Unassigned';
+            if (!companyStats[cName]) companyStats[cName] = { name: cName, students: 0, totalMarks: 0, totalTasks: 0 };
+            companyStats[cName].students++;
+            companyStats[cName].totalMarks += pct;
+            companyStats[cName].totalTasks += tasksPerformed;
 
-        // Calculate Aggregate Score
-        const free = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
-        const scores = marks.map(m => free ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2);
-        const avg = marks.length > 0 ? (scores.reduce((a, b) => a + b, 0) / marks.length) : 0;
-        const pct = Math.round((avg / 10) * 100);
+            const supName = s.siteSupervisor?.name || 'Unassigned';
+            if (!supervisorStats[supName]) supervisorStats[supName] = { name: supName, students: 0, tasksGiven: 0, totalScore: 0 };
+            supervisorStats[supName].students++;
+            supervisorStats[supName].totalScore += pct;
 
-        studentStats.push({
-            reg: s.reg,
-            name: s.name,
-            company: s.assignedCompany || 'N/A',
-            tasksPerformed: totalTasks,
-            avgScore: avg.toFixed(2),
-            percentage: pct,
-            status: s.status,
-            supervisor: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor || 'N/A',
-            faculty: s.assignedFaculty?.name || 'N/A'
+            const fName = s.faculty?.name || 'Unassigned';
+            if (!facultyStats[fName]) facultyStats[fName] = { name: fName, students: 0, unmarked: 0, marked: 0 };
+            facultyStats[fName].students++;
+            facultyStats[fName].marked += tasksPerformed;
         });
+    } else {
+        const [students, allMarks, assignments, supervisors, faculty] = await Promise.all([
+            User.find({ role: 'student' }).populate('assignedFaculty', 'name email').populate('assignedSiteSupervisor', 'name email').lean(),
+            Mark.find({}).lean(),
+            Assignment.find({}).lean(),
+            User.find({ role: 'site_supervisor' }).lean(),
+            User.find({ role: 'faculty_supervisor' }).lean()
+        ]);
 
-        // 🏢 Company Analytics
-        const cName = s.assignedCompany || 'Unassigned';
-        if (!companyStats[cName]) companyStats[cName] = { name: cName, students: 0, totalMarks: 0, totalTasks: 0 };
-        companyStats[cName].students++;
-        companyStats[cName].totalMarks += pct;
-        companyStats[cName].totalTasks += totalTasks;
+        students.forEach(s => {
+            const marks = allMarks.filter(m => m.student?.toString() === s._id.toString());
+            const totalTasks = marks.filter(m => m.isFacultyGraded || m.isSiteSupervisorGraded).length;
+            const free = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+            const scores = marks.map(m => free ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2);
+            const avg = marks.length > 0 ? (scores.reduce((a, b) => a + b, 0) / marks.length) : 0;
+            const pct = Math.round((avg / 10) * 100);
 
-        // 👔 Supervisor Analytics
-        const supId = s.assignedSiteSupervisor?._id?.toString() || s.assignedCompanySupervisor;
-        if (supId) {
-            if (!supervisorStats[supId]) supervisorStats[supId] = { name: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor, students: 0, tasksGiven: 0, totalScore: 0 };
-            supervisorStats[supId].students++;
-            supervisorStats[supId].tasksGiven += marks.filter(m => m.isSiteSupervisorGraded).length;
-            supervisorStats[supId].totalScore += pct;
-        }
+            studentStats.push({
+                reg: s.reg,
+                name: s.name,
+                company: s.assignedCompany || 'N/A',
+                tasksPerformed: totalTasks,
+                avgScore: avg.toFixed(2),
+                percentage: pct,
+                status: s.status,
+                supervisor: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor || 'N/A',
+                faculty: s.assignedFaculty?.name || 'N/A'
+            });
 
-        // 🎓 Faculty Analytics
-        const fId = s.assignedFaculty?._id?.toString();
-        if (fId) {
-            if (!facultyStats[fId]) facultyStats[fId] = { name: s.assignedFaculty.name, students: 0, unmarked: 0, marked: 0 };
-            facultyStats[fId].students++;
-            facultyStats[fId].marked += marks.filter(m => m.isFacultyGraded).length;
-            // Unmarked = (Number of assignments * number of students) - number of graded marks
-            // But we only count if student has actually submitted/created a mark object or if we assume all assignment exist for all
-            // For now, let's track missing graded marks for existing submissions
-            facultyStats[fId].unmarked += marks.filter(m => !m.isFacultyGraded).length;
-        }
-    });
+            const cName = s.assignedCompany || 'Unassigned';
+            if (!companyStats[cName]) companyStats[cName] = { name: cName, students: 0, totalMarks: 0, totalTasks: 0 };
+            companyStats[cName].students++;
+            companyStats[cName].totalMarks += pct;
+            companyStats[cName].totalTasks += totalTasks;
+
+            const supId = s.assignedSiteSupervisor?._id?.toString() || s.assignedCompanySupervisor;
+            if (supId) {
+                if (!supervisorStats[supId]) supervisorStats[supId] = { name: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor, students: 0, tasksGiven: 0, totalScore: 0 };
+                supervisorStats[supId].students++;
+                supervisorStats[supId].tasksGiven += marks.filter(m => m.isSiteSupervisorGraded).length;
+                supervisorStats[supId].totalScore += pct;
+            }
+
+            const fId = s.assignedFaculty?._id?.toString();
+            if (fId) {
+                if (!facultyStats[fId]) facultyStats[fId] = { name: s.assignedFaculty.name, students: 0, unmarked: 0, marked: 0 };
+                facultyStats[fId].students++;
+                facultyStats[fId].marked += marks.filter(m => m.isFacultyGraded).length;
+                facultyStats[fId].unmarked += marks.filter(m => !m.isFacultyGraded).length;
+            }
+        });
+    }
 
     // 2. SHEET: EXECUTIVE DASHBOARD ──────────────────────────────────────────
     const sh0 = workbook.addWorksheet('Executive Dashboard', { views: [{ showGridLines: false }] });
@@ -594,10 +642,22 @@ router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
     });
 
     // Finalize
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="Institutional_Audit_Dossier.xlsx"');
-    await workbook.xlsx.write(res);
-    res.end();
+    if (targetArchiveId && targetArchiveId !== 'live-snapshot-id') {
+        const buffer = await workbook.xlsx.writeBuffer();
+        try {
+            const cloudRes = await uploadCloudinaryBuffer(buffer, `Institutional_Audit_Dossier_${targetArchiveId}.xlsx`, 'dims/archives');
+            await Archive.findByIdAndUpdate(targetArchiveId, { excelUrl: cloudRes.secure_url });
+            res.status(200).json({ url: cloudRes.secure_url });
+        } catch (err) {
+            console.error('Archive Excel Save Error:', err);
+            res.status(500).json({ message: 'Failed to save Excel to archive.' });
+        }
+    } else {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="Institutional_Audit_Dossier.xlsx"');
+        await workbook.xlsx.write(res);
+        res.end();
+    }
 }));
 
 // @route   GET api/reports/hod-premium-stats

@@ -110,7 +110,7 @@ export const generatePdfBuffer = async (data) => {
         defaultStyle: { font: 'Roboto' }
     };
 
-    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    const pdfDoc = await printer.createPdfKitDocument(docDefinition);
     return new Promise((resolve, reject) => {
         const chunks = [];
         pdfDoc.on('data', chunk => chunks.push(chunk));

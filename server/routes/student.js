@@ -585,7 +585,15 @@ router.get('/my-grade', protect, asyncHandler(async (req, res) => {
     else if (pct >= 54) { grade = 'D+'; gp = '1.01–1.30'; status = 'Pass'; }
     else if (pct >= 50) { grade = 'D'; gp = '0.10–1.00'; status = 'Pass'; }
 
-    res.json({ assignmentsCount: marks.length, averageMarks: avgScore.toFixed(2), percentage: pct, grade, gradePoints: gp, status });
+    res.json({ 
+        assignmentsCount: marks.length, 
+        averageMarks: avgScore.toFixed(2), 
+        percentage: pct, 
+        grade, 
+        gradePoints: gp, 
+        status,
+        certificateUrl: user.certificateUrl
+    });
 }));
 
 export default router;

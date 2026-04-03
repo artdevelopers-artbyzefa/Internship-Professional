@@ -374,4 +374,79 @@ router.post('/weekly-evaluations/:studentId', protect, isSiteSupervisor, asyncHa
     res.json({ message: 'Grades updated successfully' });
 }));
 
+// @route   GET api/supervisor/certificate-students
+router.get('/certificate-students', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    const userEmail = req.user.email.toLowerCase().trim();
+    const escapeRegex = (s) => s.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+    const nameRegex = new RegExp(escapeRegex(req.user.name.trim()), 'i');
+
+    const students = await User.find({
+        role: 'student',
+        $or: [
+            { assignedSiteSupervisor: req.user.id },
+            { assignedCompanySupervisorEmail: userEmail },
+            { 'internshipRequest.siteSupervisorEmail': userEmail },
+            { 'internshipAgreement.companySupervisorEmail': userEmail },
+            { assignedCompanySupervisor: { $regex: nameRegex } }
+        ],
+        status: { $nin: ['unverified', 'verified', 'Internship Request Submitted'] }
+    }).select('name reg status profilePicture internshipRequest certificateUrl');
+
+    const results = [];
+    for (const s of students) {
+        const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+        const totalMarks = marks.reduce((sum, m) => sum + (m.facultyMarks || 0), 0);
+        const avg = marks.length > 0 ? totalMarks / marks.length : 0;
+        const pct = Math.round((avg / 10) * 100);
+
+        let grade = 'F';
+        if (pct >= 85) grade = 'A';
+        else if (pct >= 80) grade = 'A-';
+        else if (pct >= 75) grade = 'B+';
+        else if (pct >= 71) grade = 'B';
+        else if (pct >= 68) grade = 'B-';
+        else if (pct >= 64) grade = 'C+';
+        else if (pct >= 61) grade = 'C';
+        else if (pct >= 58) grade = 'C-';
+        else if (pct >= 54) grade = 'D+';
+        else if (pct >= 50) grade = 'D';
+
+        results.push({
+            _id: s._id,
+            name: s.name,
+            reg: s.reg,
+            status: s.status,
+            mode: s.internshipRequest?.mode || 'N/A',
+            company: s.internshipRequest?.companyName || 'N/A',
+            grade: marks.length > 0 ? grade : 'N/A',
+            percentage: marks.length > 0 ? pct : null,
+            certificateUrl: s.certificateUrl
+        });
+    }
+
+    res.json(results);
+}));
+
+// @route   POST api/supervisor/upload-certificate/:studentId
+router.post('/upload-certificate/:studentId', protect, isSiteSupervisor, uploadCloudinary.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
+
+    const student = await User.findById(req.params.studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found.' });
+
+    student.certificateUrl = req.file.path;
+    await student.save();
+
+    await createNotification({
+        recipient: student._id,
+        sender: req.user.id,
+        type: 'assignment_submission',
+        title: 'Official Certificate Uploaded',
+        message: `${req.user.name} has uploaded your official internship completion certificate.`,
+        link: '/student/results'
+    });
+
+    res.json({ message: 'Certificate uploaded successfully.', certificateUrl: student.certificateUrl });
+}));
+
 export default router;

@@ -10,6 +10,7 @@ import SupervisorDashboard from './SupervisorDashboard.jsx';
 // Lazy-load all other pages
 const SupervisorAssignments = lazy(() => import('./SupervisorAssignments.jsx'));
 const SupervisorGrading     = lazy(() => import('./SupervisorGrading.jsx'));
+const SupervisorCertificates = lazy(() => import('./SupervisorCertificates.jsx'));
 const FacultyEvaluation    = lazy(() => import('../faculty/FacultyEvaluation.jsx'));
 const StudentProfileDetail = lazy(() => import('../faculty/StudentProfileDetail.jsx'));
 const SupervisorProfile     = lazy(() => import('../../components/supervisor/SupervisorProfile.jsx'));
@@ -31,6 +32,7 @@ const supervisorNav = [
     { id: 'registered-students', label: 'Registered Students', icon: 'fa-users' },
     { id: 'assignments', label: 'Assignment Summary', icon: 'fa-tasks' },
     { id: 'grading', label: 'Grading', icon: 'fa-star' },
+    { id: 'certificates', label: 'Certificates', icon: 'fa-award' },
     { id: 'profile', label: 'Profile', icon: 'fa-user-gear' },
 ];
 
@@ -63,7 +65,7 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
             return ['dashboard', 'registered-students', 'profile'].includes(item.id);
         }
         if (activePhase?.order >= 4) {
-            return ['dashboard', 'grading', 'profile'].includes(item.id);
+            return ['dashboard', 'grading', 'certificates', 'profile'].includes(item.id);
         }
         return true;
     }).map(item => {
@@ -89,6 +91,7 @@ export default function SupervisorPortal({ user, onLogout, onUpdateUser }) {
                     <Route path="students/:studentId" element={<LazyWrap><StudentProfileDetail /></LazyWrap>} />
                     <Route path="assignments" element={<LazyWrap><SupervisorAssignments user={user} /></LazyWrap>} />
                     <Route path="grading" element={<LazyWrap><SupervisorGrading user={user} activePhase={activePhase} /></LazyWrap>} />
+                    <Route path="certificates" element={<LazyWrap><SupervisorCertificates user={user} /></LazyWrap>} />
                     <Route path="evaluation" element={<LazyWrap><FacultyEvaluation user={user} activePhase={activePhase} /></LazyWrap>} />
                     <Route path="profile" element={<LazyWrap><SupervisorProfile user={user} onUpdate={onUpdateUser} /></LazyWrap>} />
 

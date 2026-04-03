@@ -150,12 +150,12 @@ export default function PhaseManagement({ user }) {
 
         setActionId(phaseId + action);
         try {
-            const res = await apiRequest(`/phases/${phaseId}/${action}`, { 
-                method: 'POST', 
-                body: { 
+            const res = await apiRequest(`/phases/${phaseId}/${action}`, {
+                method: 'POST',
+                body: {
                     officeId: user.id || user._id,
                     scheduledEndAt
-                } 
+                }
             });
             showToast.success(res.message);
             fetchPhases();
@@ -261,13 +261,13 @@ export default function PhaseManagement({ user }) {
                         </div>
                         <div className="flex flex-wrap gap-3">
                             {(activePhase.order === 4 || activePhase.order === 5) && (
-                                <Button 
-                                    variant="outline" size="sm" 
+                                <Button
+                                    variant="outline" size="sm"
                                     loading={previewLoading}
                                     onClick={handlePreviewArchive}
-                                    className="bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-black text-[10px] uppercase tracking-widest shadow-sm"
+                                    className="bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-black text-[10px]  tracking-widest shadow-sm"
                                 >
-                                    <i className="fas fa-glasses mr-2" />Preview Digital Cycle Snapshot
+                                    <i className="fas fa-glasses mr-2" />Internship Session Archive
                                 </Button>
                             )}
                             {activePhase.scheduledEndAt && (
@@ -545,13 +545,13 @@ export default function PhaseManagement({ user }) {
                                             </span>
                                         )}
                                         {(phase.order === 4 || phase.order === 5) && (
-                                            <Button 
-                                                variant="outline" size="sm" 
+                                            <Button
+                                                variant="outline" size="sm"
                                                 loading={previewLoading}
                                                 onClick={handlePreviewArchive}
                                                 className="border-primary text-primary hover:bg-primary/5 font-bold"
                                             >
-                                                <i className="fas fa-glasses mr-2" />Preview Digital Cycle Snapshot
+                                                <i className="fas fa-glasses mr-2" />Internship Session Archive
                                             </Button>
                                         )}
                                     </div>
@@ -584,7 +584,7 @@ export default function PhaseManagement({ user }) {
                                 </h3>
                                 <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Previewing results for academic cycle: {previewData.year}</p>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setPreviewData(null)}
                                 className="w-10 h-10 rounded-full hover:bg-white flex items-center justify-center text-gray-400 transition-colors shadow-sm"
                             >
@@ -619,9 +619,9 @@ export default function PhaseManagement({ user }) {
                                     <h4 className="text-sm font-black text-gray-700 uppercase tracking-widest italic">Performance Audit Register</h4>
                                     <div className="relative">
                                         <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input 
-                                            type="text" 
-                                            placeholder="Search registrant..." 
+                                        <input
+                                            type="text"
+                                            placeholder="Search registrant..."
                                             value={previewSearch}
                                             onChange={e => setPreviewSearch(e.target.value)}
                                             className="pl-11 pr-4 py-2 bg-white border border-gray-100 rounded-xl text-xs font-bold w-64 focus:ring-4 focus:ring-primary/10 transition-all"
@@ -633,23 +633,22 @@ export default function PhaseManagement({ user }) {
                                         {previewData.students
                                             .filter(s => s.name.toLowerCase().includes(previewSearch.toLowerCase()) || s.reg.toLowerCase().includes(previewSearch.toLowerCase()))
                                             .map((s, idx) => (
-                                            <TableRow key={idx}>
-                                                <TableCell muted><span className="font-mono text-[11px]">{s.reg}</span></TableCell>
-                                                <TableCell><strong>{s.name}</strong></TableCell>
-                                                <TableCell><span className="text-slate-400 font-bold uppercase text-[9px]">{s.company}</span></TableCell>
-                                                <TableCell><span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${s.percentage >= 50 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{s.grade}</span></TableCell>
-                                                <TableCell>
-                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${
-                                                        s.finalStatus === 'Pass' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                                                        s.finalStatus === 'Fail' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                                        'bg-slate-100 text-slate-500 border-slate-200'
-                                                    }`}>
-                                                        {s.finalStatus}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell muted><span className="text-[10px] font-bold">{s.marks.length > 0 ? new Date(s.marks[0].gradedAt || Date.now()).toLocaleDateString() : 'N/A'}</span></TableCell>
-                                            </TableRow>
-                                        ))}
+                                                <TableRow key={idx}>
+                                                    <TableCell muted><span className="font-mono text-[11px]">{s.reg}</span></TableCell>
+                                                    <TableCell><strong>{s.name}</strong></TableCell>
+                                                    <TableCell><span className="text-slate-400 font-bold uppercase text-[9px]">{s.company}</span></TableCell>
+                                                    <TableCell><span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${s.percentage >= 50 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{s.grade}</span></TableCell>
+                                                    <TableCell>
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${s.finalStatus === 'Pass' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                                s.finalStatus === 'Fail' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                                                    'bg-slate-100 text-slate-500 border-slate-200'
+                                                            }`}>
+                                                            {s.finalStatus}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell muted><span className="text-[10px] font-bold">{s.marks.length > 0 ? new Date(s.marks[0].gradedAt || Date.now()).toLocaleDateString() : 'N/A'}</span></TableCell>
+                                                </TableRow>
+                                            ))}
                                     </DataTable>
                                 </div>
                             </Card>
@@ -662,7 +661,7 @@ export default function PhaseManagement({ user }) {
                             </p>
                             <div className="flex items-center gap-3">
                                 <Button variant="outline" size="sm" onClick={() => setPreviewData(null)} className="font-bold">Dismiss Preview</Button>
-                                <Button 
+                                <Button
                                     variant="primary" size="sm" className="shadow-lg shadow-primary/20 font-black italic"
                                     onClick={() => {
                                         setPreviewData(null);
