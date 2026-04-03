@@ -96,7 +96,7 @@ export default function StudentResults() {
       {/* Assignment Marks Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-8 py-5 border-b border-gray-50 flex items-center justify-between">
-          <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">Assignment Results</h3>
+          <h3 className="text-sm font-black text-gray-800  tracking-widest">Assignment Results</h3>
           {marks.length > 0 && (
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
               Total Assignments: {marks.length}
@@ -108,13 +108,13 @@ export default function StudentResults() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50/60">
               <tr>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-10">#</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Title</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Obtained</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Total</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">%</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Submission</th>
-                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-40">Progress</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest w-10">#</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest">Title</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest text-center">Obtained</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest text-center">Total</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest text-center">%</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest text-center">Submission</th>
+                <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest w-40">Progress</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -186,13 +186,13 @@ export default function StudentResults() {
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50/60">
                 <tr>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-10">#</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Source</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Obtained</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Total</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">%</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-40">Progress</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest w-10">#</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest">Source</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest">Date</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest text-center">Obtained</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest text-center">Total</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest text-center">%</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-gray-400  tracking-widest w-40">Progress</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -229,6 +229,32 @@ export default function StudentResults() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Official Certificate Card */}
+      {gradeSummary?.certificateUrl && (
+        <div className="bg-white p-10 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden relative group mt-12 animate-in fade-in slide-in-from-top-6 duration-1000">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700" />
+          <div className="flex items-center gap-8 relative z-10">
+            <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-primary/5">
+              <i className="fas fa-award"></i>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 tracking-tight leading-none">Official Internship Certificate</h3>
+              <p className="text-[10px] text-gray-400 font-bold  tracking-widest mt-3 flex items-center gap-2">
+                <i className="fas fa-shield-check text-emerald-500"></i>
+                Uploaded by Site Supervisor
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => handleDownload(gradeSummary.certificateUrl, 'Internship_Certificate')}
+            className="px-10 py-4 bg-primary text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all hover:shadow-2xl hover:shadow-primary/20 cursor-pointer flex items-center gap-3 active:scale-95 relative z-10 hover:-translate-y-1"
+          >
+            <i className="fas fa-file-contract text-sm"></i>
+            Download Official Certificate
+          </button>
         </div>
       )}
 

@@ -176,6 +176,7 @@ const userSchema = new mongoose.Schema({
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
     mustChangePassword: { type: Boolean, default: false },
+    certificateUrl: String,
     lastLogin: Date
 }, {
     timestamps: true

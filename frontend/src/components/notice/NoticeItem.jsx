@@ -31,12 +31,8 @@ export default function NoticeItem({ notice }) {
 
     const getFileUrl = (path) => {
         if (!path) return '#';
-        // Ensure path uses forward slashes
         const relativePath = path.replace(/\\/g, '/');
         const baseUrl = import.meta.env.VITE_API_URL || '';
-        // If baseUrl ends with /api, we might need to adjust if files are served from /uploads
-        // Actually, our index.js serves /uploads statically.
-        // If VITE_API_URL is http://localhost:5000/api, we need to strip /api
         const rootUrl = baseUrl.replace(/\/api$/, '') || baseUrl;
         return `${rootUrl}/${relativePath}`;
     };
