@@ -11,7 +11,8 @@ import {
   Phone, 
   ChevronRight,
   ExternalLink,
-  GraduationCap
+  GraduationCap,
+  MapPin
 } from 'lucide-react';
 import { apiRequest } from '../utils/api.js';
 
@@ -19,7 +20,6 @@ const HomePage = () => {
   const navigate = useNavigate();
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchPublicNotices = async () => {

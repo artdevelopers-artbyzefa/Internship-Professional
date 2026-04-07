@@ -72,5 +72,8 @@ export default defineConfig(({ command }) => {
     optimizeDeps: {
       include: ['react', 'react-dom', 'react-router-dom', 'recharts', 'lucide-react'],
     },
+    server: {
+      host: true,
+    },
   }
 })
