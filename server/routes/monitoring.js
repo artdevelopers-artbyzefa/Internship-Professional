@@ -5,8 +5,35 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-// @route   GET api/monitoring/logs
-// @desc    Get all error logs with filters
+/**
+ * @swagger
+ * tags:
+ *   name: Monitoring
+ *   description: System monitoring and error log management
+ */
+
+/**
+ * @swagger
+ * /monitoring/logs:
+ *   get:
+ *     summary: Retrieve filtered error logs
+ *     tags: [Monitoring]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Paginated error logs
+ */
 router.get('/logs', protect, authorize('internship_office', 'hod'), asyncHandler(async (req, res) => {
     const { page = 1, limit = 5, status, error_type, user_id, route, startDate, endDate } = req.query;
     const query = {};
@@ -45,8 +72,21 @@ router.get('/logs', protect, authorize('internship_office', 'hod'), asyncHandler
     });
 }));
 
-// @route   PATCH api/monitoring/logs/:id
-// @desc    Mark log as resolved/pending
+/**
+ * @swagger
+ * /monitoring/logs/{id}:
+ *   patch:
+ *     summary: Update log status (resolve or reopen)
+ *     tags: [Monitoring]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Log updated
+ */
 router.patch('/logs/:id', protect, authorize('internship_office', 'hod'), asyncHandler(async (req, res) => {
     const { status } = req.body;
     const log = await ErrorLog.findByIdAndUpdate(req.params.id, { status }, { new: true });
@@ -54,29 +94,44 @@ router.patch('/logs/:id', protect, authorize('internship_office', 'hod'), asyncH
     res.json({ success: true, log });
 }));
 
-// @route   PATCH api/monitoring/resolve-bulk
-// @desc    Mark multiple logs as resolved
+/**
+ * @swagger
+ * /monitoring/resolve-bulk:
+ *   patch:
+ *     summary: Resolve multiple logs simultaneously
+ *     tags: [Monitoring]
+ */
 router.patch('/resolve-bulk', protect, authorize('internship_office', 'hod'), asyncHandler(async (req, res) => {
     const { logIds } = req.body;
     if (!logIds || !Array.isArray(logIds)) return res.status(400).json({ message: 'Log IDs array required' });
     
-    const validIds = logIds.filter(id => id && id.toString().length === 24); // Basic ObjectId check
+    const validIds = logIds.filter(id => id && id.toString().length === 24);
     if (validIds.length === 0) return res.status(400).json({ message: 'No valid Log IDs provided' });
     
     await ErrorLog.updateMany({ _id: { $in: validIds } }, { $set: { status: 'resolved' } });
     res.json({ success: true, message: 'Logs resolved.' });
 }));
 
-// @route   DELETE api/monitoring/logs/:id
-// @desc    Delete specific log
+/**
+ * @swagger
+ * /monitoring/logs/{id}:
+ *   delete:
+ *     summary: Remove a specific log entry
+ *     tags: [Monitoring]
+ */
 router.delete('/logs/:id', protect, authorize('internship_office', 'hod'), asyncHandler(async (req, res) => {
     const log = await ErrorLog.findByIdAndDelete(req.params.id);
     if (!log) return res.status(404).json({ message: 'Log not found' });
     res.json({ success: true, message: 'Log deleted.' });
 }));
 
-// @route   DELETE api/monitoring/logs-clear-all
-// @desc    Clear all logs
+/**
+ * @swagger
+ * /monitoring/logs-clear-all:
+ *   delete:
+ *     summary: Wipe all log history
+ *     tags: [Monitoring]
+ */
 router.delete('/logs-clear-all', protect, authorize('internship_office', 'hod'), asyncHandler(async (req, res) => {
     await ErrorLog.deleteMany({});
     res.json({ success: true, message: 'All logs cleared.' });

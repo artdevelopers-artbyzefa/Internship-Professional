@@ -14,7 +14,25 @@ const isGradingEntity = (req, res, next) => {
     next();
 };
 
-// @route   GET api/evaluation/students
+/**
+ * @swagger
+ * tags:
+ *   name: Evaluation
+ *   description: Faculty and Site Supervisor student evaluation management
+ */
+
+/**
+ * @swagger
+ * /evaluation/students:
+ *   get:
+ *     summary: Get list of students assigned for evaluation based on user role
+ *     tags: [Evaluation]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of students with evaluation status
+ */
 router.get('/students', protect, isGradingEntity, asyncHandler(async (req, res) => {
     let query = { role: 'student' };
 
@@ -47,7 +65,23 @@ router.get('/students', protect, isGradingEntity, asyncHandler(async (req, res) 
     res.json(result);
 }));
 
-// @route   GET api/evaluation/:studentId
+/**
+ * @swagger
+ * /evaluation/{studentId}:
+ *   get:
+ *     summary: Retrieve existing evaluation for a specific student
+ *     tags: [Evaluation]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: studentId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Evaluation data and optional site evaluation (for faculty)
+ */
 router.get('/:studentId', protect, isGradingEntity, asyncHandler(async (req, res) => {
     const [evaluation, siteEval] = await Promise.all([
         Evaluation.findOne({ student: req.params.studentId, gradedBy: req.user.id }),
@@ -56,7 +90,31 @@ router.get('/:studentId', protect, isGradingEntity, asyncHandler(async (req, res
     res.json({ evaluation, siteEval });
 }));
 
-// @route   POST api/evaluation/submit
+/**
+ * @swagger
+ * /evaluation/submit:
+ *   post:
+ *     summary: Submit or update a student evaluation (Draft or Final)
+ *     tags: [Evaluation]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId, marks]
+ *             properties:
+ *               studentId: { type: string }
+ *               marks: { type: object }
+ *               checkboxTasks: { type: object }
+ *               comments: { type: string }
+ *               finalize: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Evaluation saved
+ */
 router.post('/submit', protect, isGradingEntity, asyncHandler(async (req, res) => {
     const { studentId, marks, checkboxTasks, comments, finalize } = req.body;
     if (!studentId || !marks) return res.status(400).json({ message: 'Student ID and marks are required.' });

@@ -35,8 +35,36 @@ const fonts = {
 
 const printer = new PrinterConstructor(fonts);
 
-// @route   POST api/reports/generate-pdf
-// @desc    Generate a premium general-purpose report (e.g. Student List)
+/**
+ * @swagger
+ * tags:
+ *   name: Reports
+ *   description: High-fidelity PDF and Excel reporting engines
+ */
+
+/**
+ * @swagger
+ * /reports/generate-pdf:
+ *   post:
+ *     summary: Generate a premium industrial-themed PDF report
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reportTitle: { type: string }
+ *               supervisorName: { type: string }
+ *               tableHeader: { type: array, items: { type: string } }
+ *               tableData: { type: array, items: { type: array, items: { type: string } } }
+ *     responses:
+ *       200:
+ *         description: PDF binary stream
+ */
 router.post('/generate-pdf', protect, asyncHandler(async (req, res) => {
     const {
         reportTitle = 'Student Report',
@@ -162,8 +190,15 @@ router.post('/generate-pdf', protect, asyncHandler(async (req, res) => {
     pdfDoc.end();
 }));
 
-// @route   POST api/reports/hod-full-report
-// @desc    Generate the full HOD Institutional Performance Dossier (PDF)
+/**
+ * @swagger
+ * /reports/hod-full-report:
+ *   post:
+ *     summary: Generate the comprehensive HOD Institutional Performance Dossier (PDF)
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
     const { stats, charts, tables } = req.body;
     const logoPath = path.join(__dirname, '../../public/cuilogo.png');
@@ -394,8 +429,15 @@ router.post('/hod-full-report', protect, asyncHandler(async (req, res) => {
     }
 }));
 
-// @route   POST api/reports/hod-excel-report
-// @desc    Generate a heavy-duty Institutional Audit Excel workbook with multi-sheet analytics
+/**
+ * @swagger
+ * /reports/hod-excel-report:
+ *   post:
+ *     summary: Generate a multi-sheet Institutional Audit Excel workbook
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'DIMS — Institutional Reporting';
@@ -660,8 +702,15 @@ router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
     }
 }));
 
-// @route   GET api/reports/hod-premium-stats
-// @desc    Get comprehensive institutional data for high-fidelity HEC-standard reports
+/**
+ * @swagger
+ * /reports/hod-premium-stats:
+ *   get:
+ *     summary: Retrieve comprehensive HOD performance metrics following HEC standards
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/hod-premium-stats', protect, asyncHandler(async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -791,8 +840,15 @@ router.get('/hod-premium-stats', protect, asyncHandler(async (req, res) => {
     });
 }));
 
-// @route   GET api/reports/archive-preview
-// @desc    Get a real-time snapshot of the current cycle as it would be archived
+/**
+ * @swagger
+ * /reports/archive-preview:
+ *   get:
+ *     summary: Get a real-time snapshot of the current cycle for archive validation
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/archive-preview', protect, asyncHandler(async (req, res) => {
     const snapshot = await getArchiveSnapshot();
     res.json(snapshot);

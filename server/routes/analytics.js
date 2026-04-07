@@ -1,3 +1,10 @@
+/**
+ * @swagger
+ * tags:
+ *   name: Analytics
+ *   description: Forensic institutional reporting and performance analytics
+ */
+
 import express from 'express';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
@@ -9,7 +16,6 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-// Role Check Middleware (Management Only)
 const isManagement = (req, res, next) => {
     if (req.user.role !== 'internship_office' && req.user.role !== 'hod') {
         return res.status(403).json({ message: 'Access denied. Authorized management only.' });
@@ -17,8 +23,18 @@ const isManagement = (req, res, next) => {
     next();
 };
 
-// @route   GET api/analytics/registration-stats
-// @desc    Get stats for Phase 1: Total Registered, Eligible, Ineligible, Supervisors
+/**
+ * @swagger
+ * /analytics/registration-stats:
+ *   get:
+ *     summary: Phase 1 registration statistics
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Counts of registered, eligible, and ineligible students
+ */
 router.get('/registration-stats', protect, isManagement, asyncHandler(async (req, res) => {
     const stats = await User.aggregate([
         { $match: { role: 'student' } },
@@ -47,13 +63,12 @@ router.get('/registration-stats', protect, isManagement, asyncHandler(async (req
 
     const facultyCount = await User.countDocuments({ role: 'faculty_supervisor', status: { $ne: 'Inactive' } });
     
-    // Count Site Supervisors from Active Companies (Matching management registry logic)
     const activeCompanies = await Company.find({ status: 'Active' }).select('siteSupervisors');
     const siteSupSet = new Set();
     activeCompanies.forEach(c => {
         (c.siteSupervisors || []).forEach(s => {
             if (s.email) siteSupSet.add(s.email.toLowerCase().trim());
-            else if (s.name) siteSupSet.add(s.name.trim()); // Fallback for name-only legacy entries
+            else if (s.name) siteSupSet.add(s.name.trim());
         });
     });
     const siteSupervisorCount = siteSupSet.size;
@@ -69,8 +84,18 @@ router.get('/registration-stats', protect, isManagement, asyncHandler(async (req
     });
 }));
 
-// @route   GET api/analytics/request-stats
-// @desc    Get stats for Phase 2: Eligible Students vs Submitted Requests
+/**
+ * @swagger
+ * /analytics/request-stats:
+ *   get:
+ *     summary: Phase 2 internship request analytics
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Student request status distribution and placement modes
+ */
 router.get('/request-stats', protect, isManagement, asyncHandler(async (req, res) => {
     const eligibleSemesters = ['4', '5', '6', '7', '8'];
     
@@ -148,14 +173,23 @@ router.get('/request-stats', protect, isManagement, asyncHandler(async (req, res
     });
 }));
 
-// @route   GET api/analytics/commencement-stats
-// @desc    Get stats for Phase 3: Internship Commencement (Active placement, evaluations)
+/**
+ * @swagger
+ * /analytics/commencement-stats:
+ *   get:
+ *     summary: Phase 3 internship commencement overview
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Active intern counts and grading progress
+ */
 router.get('/commencement-stats', protect, isManagement, asyncHandler(async (req, res) => {
     const activeInterns = await User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } });
     const totalAssignments = await Assignment.countDocuments();
     const totalSubmissions = await Submission.countDocuments();
     
-    // For grading stats, we count students who have at least one graded assignment
     const gradedBySite = await Mark.distinct('student', { isSiteSupervisorGraded: true });
     const gradedByFaculty = await Mark.distinct('student', { isFacultyGraded: true });
     const fullyGraded = await Mark.distinct('student', { isSiteSupervisorGraded: true, isFacultyGraded: true });
@@ -171,8 +205,18 @@ router.get('/commencement-stats', protect, isManagement, asyncHandler(async (req
     });
 }));
 
-// @route   GET api/analytics/summary
-// @desc    Get counts and summary stats
+/**
+ * @swagger
+ * /analytics/summary:
+ *   get:
+ *     summary: Global system wide summary metrics
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Top-level counts for students, companies, and success rates
+ */
 router.get('/summary', protect, isManagement, asyncHandler(async (req, res) => {
     const totalStudents = await User.countDocuments({ role: 'student' });
     const completedInternships = await User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } });
@@ -192,7 +236,22 @@ router.get('/summary', protect, isManagement, asyncHandler(async (req, res) => {
     });
 }));
 
-// @route   GET api/analytics/completion-analysis
+/**
+ * @swagger
+ * /analytics/completion-analysis:
+ *   get:
+ *     summary: Program wise completion breakdown
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: program
+ *         schema: { type: string }
+ *       - in: query
+ *         name: semester
+ *         schema: { type: string }
+ */
 router.get('/completion-analysis', protect, isManagement, asyncHandler(async (req, res) => {
     const { program, semester } = req.query;
     let query = { role: 'student' };
@@ -224,7 +283,15 @@ router.get('/completion-analysis', protect, isManagement, asyncHandler(async (re
     res.json(programStats.map(item => ({ program: item._id.dept, semester: item._id.semester || 'N/A', total: item.total, completed: item.completed })));
 }));
 
-// @route   GET api/analytics/evaluation-comparison
+/**
+ * @swagger
+ * /analytics/evaluation-comparison:
+ *   get:
+ *     summary: Comparative data between faculty and site supervisor grading
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/evaluation-comparison', protect, isManagement, asyncHandler(async (req, res) => {
     const marks = await Mark.find().populate('student', 'name reg');
     const comparison = marks.map(m => {
@@ -234,7 +301,15 @@ router.get('/evaluation-comparison', protect, isManagement, asyncHandler(async (
     res.json(comparison);
 }));
 
-// @route   GET api/analytics/company-distribution
+/**
+ * @swagger
+ * /analytics/company-distribution:
+ *   get:
+ *     summary: Student distribution across active companies
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/company-distribution', protect, isManagement, asyncHandler(async (req, res) => {
     const { program, semester } = req.query;
     let query = { role: 'student', assignedCompany: { $exists: true, $ne: null } };
@@ -251,7 +326,15 @@ router.get('/company-distribution', protect, isManagement, asyncHandler(async (r
     res.json(stats.map(s => ({ name: s._id, value: s.students })));
 }));
 
-// @route   GET api/analytics/criteria-performance
+/**
+ * @swagger
+ * /analytics/criteria-performance:
+ *   get:
+ *     summary: Skill category performance overview
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/criteria-performance', protect, isManagement, asyncHandler(async (req, res) => {
     res.json([
         { subject: 'Technical Skills', A: 85, fullMark: 100 },
@@ -263,7 +346,15 @@ router.get('/criteria-performance', protect, isManagement, asyncHandler(async (r
     ]);
 }));
 
-// @route   GET api/analytics/faculty-performance
+/**
+ * @swagger
+ * /analytics/faculty-performance:
+ *   get:
+ *     summary: Faculty workload and student density analytics
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/faculty-performance', protect, isManagement, asyncHandler(async (req, res) => {
     const { semester, program } = req.query;
     let query = { role: 'student', assignedFaculty: { $exists: true, $ne: null } };
@@ -281,7 +372,15 @@ router.get('/faculty-performance', protect, isManagement, asyncHandler(async (re
     res.json(facultyStats);
 }));
 
-// @route   GET api/analytics/registry
+/**
+ * @swagger
+ * /analytics/registry:
+ *   get:
+ *     summary: Master placement registry for institutional records
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.get('/registry', protect, isManagement, asyncHandler(async (req, res) => {
     const { program, semester } = req.query;
     let query = { role: 'student', assignedCompany: { $exists: true, $ne: null } };
@@ -303,7 +402,13 @@ router.get('/registry', protect, isManagement, asyncHandler(async (req, res) => 
     res.json(stats);
 }));
 
-// @route   GET api/analytics/report/supervisors
+/**
+ * @swagger
+ * /analytics/report/supervisors:
+ *   get:
+ *     summary: Supervisor workload and efficiency report
+ *     tags: [Analytics]
+ */
 router.get('/report/supervisors', protect, isManagement, asyncHandler(async (req, res) => {
     const facultyList = await User.aggregate([
         { $match: { role: 'student', assignedFaculty: { $exists: true, $ne: null } } },
@@ -330,7 +435,13 @@ router.get('/report/supervisors', protect, isManagement, asyncHandler(async (req
     })));
 }));
 
-// @route   GET api/analytics/report/assignments-by-supervisor
+/**
+ * @swagger
+ * /analytics/report/assignments-by-supervisor:
+ *   get:
+ *     summary: Fetch assignments graded by a specific supervisor
+ *     tags: [Analytics]
+ */
 router.get('/report/assignments-by-supervisor', protect, isManagement, asyncHandler(async (req, res) => {
     const { supervisorId } = req.query;
     let markQuery = {};
@@ -349,7 +460,13 @@ router.get('/report/assignments-by-supervisor', protect, isManagement, asyncHand
     res.json(assignments);
 }));
 
-// @route   GET api/analytics/report/results-by-supervisor
+/**
+ * @swagger
+ * /analytics/report/results-by-supervisor:
+ *   get:
+ *     summary: Academic output results linked to specific supervisors
+ *     tags: [Analytics]
+ */
 router.get('/report/results-by-supervisor', protect, isManagement, asyncHandler(async (req, res) => {
     const { supervisorId, assignmentId } = req.query;
     let markQuery = {};
@@ -367,7 +484,13 @@ router.get('/report/results-by-supervisor', protect, isManagement, asyncHandler(
     res.json(Object.values(byAssignment));
 }));
 
-// @route   GET api/analytics/report/assigned-students
+/**
+ * @swagger
+ * /analytics/report/assigned-students:
+ *   get:
+ *     summary: Detailed list of currently assigned and placed students
+ *     tags: [Analytics]
+ */
 router.get('/report/assigned-students', protect, isManagement, asyncHandler(async (req, res) => {
     const { supervisorId } = req.query;
     let query = { role: 'student', status: 'Assigned' };
@@ -377,7 +500,13 @@ router.get('/report/assigned-students', protect, isManagement, asyncHandler(asyn
     res.json(students.map(s => ({ name: s.name, reg: s.reg, semester: s.semester, company: s.assignedCompany || '', mode: s.internshipRequest?.mode || 'N/A', type: s.internshipRequest?.type || 'N/A', faculty: s.assignedFaculty?.name || 'Unassigned', siteSupervisor: s.assignedCompanySupervisor || '', status: s.status })));
 }));
 
-// @route   GET api/analytics/report/session-analysis
+/**
+ * @swagger
+ * /analytics/report/session-analysis:
+ *   get:
+ *     summary: Temporal session-based placement analysis
+ *     tags: [Analytics]
+ */
 router.get('/report/session-analysis', protect, isManagement, asyncHandler(async (req, res) => {
     const students = await User.find({ role: 'student' }).select('reg status internshipRequest');
     const sessionMap = {};
@@ -392,7 +521,13 @@ router.get('/report/session-analysis', protect, isManagement, asyncHandler(async
     res.json(Object.values(sessionMap).sort((a, b) => a.session.localeCompare(b.session)));
 }));
 
-// @route   GET api/analytics/report/internship-type
+/**
+ * @swagger
+ * /analytics/report/internship-type:
+ *   get:
+ *     summary: Structural breakdown of placement modes and types
+ *     tags: [Analytics]
+ */
 router.get('/report/internship-type', protect, isManagement, asyncHandler(async (req, res) => {
     const students = await User.find({ role: 'student', 'internshipRequest.mode': { $exists: true, $ne: null } }).select('internshipRequest.mode internshipRequest.type status');
     const modeMap = {};
@@ -408,7 +543,13 @@ router.get('/report/internship-type', protect, isManagement, asyncHandler(async 
     res.json({ byMode: Object.values(modeMap), byType: Object.values(typeMap) });
 }));
 
-// @route   GET api/analytics/students-paginated
+/**
+ * @swagger
+ * /analytics/students-paginated:
+ *   get:
+ *     summary: Paginated student registry with eligibility search
+ *     tags: [Analytics]
+ */
 router.get('/students-paginated', protect, isManagement, asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
@@ -434,7 +575,13 @@ router.get('/students-paginated', protect, isManagement, asyncHandler(async (req
     res.json({ data, total, page, pages: Math.ceil(total / limit) });
 }));
 
-// @route   GET api/analytics/faculty-paginated
+/**
+ * @swagger
+ * /analytics/faculty-paginated:
+ *   get:
+ *     summary: Paginated faculty directory
+ *     tags: [Analytics]
+ */
 router.get('/faculty-paginated', protect, isManagement, asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
@@ -448,7 +595,13 @@ router.get('/faculty-paginated', protect, isManagement, asyncHandler(async (req,
     res.json({ data: faculty, total, page, pages: Math.ceil(total / limit) });
 }));
 
-// @route   GET api/analytics/site-supervisors-paginated
+/**
+ * @swagger
+ * /analytics/site-supervisors-paginated:
+ *   get:
+ *     summary: Paginated forensic site supervisor registry
+ *     tags: [Analytics]
+ */
 router.get('/site-supervisors-paginated', protect, isManagement, asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -490,3 +643,4 @@ router.get('/site-supervisors-paginated', protect, isManagement, asyncHandler(as
 }));
 
 export default router;
+

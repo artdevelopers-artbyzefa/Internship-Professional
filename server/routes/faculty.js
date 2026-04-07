@@ -15,7 +15,13 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-// Role Check Middleware
+/**
+ * @swagger
+ * tags:
+ *   name: Faculty
+ *   description: Faculty supervisor management of students, assignments, and grading
+ */
+
 const isFaculty = (req, res, next) => {
     if (req.user.role !== 'faculty_supervisor') {
         return res.status(403).json({ message: 'Access denied. Faculty only.' });
@@ -23,8 +29,18 @@ const isFaculty = (req, res, next) => {
     next();
 };
 
-// @route   GET api/faculty/pending-requests
-// @desc    Get student internship requests (both registered selection and email invitations)
+/**
+ * @swagger
+ * /faculty/pending-requests:
+ *   get:
+ *     summary: Get student internship requests assigned to this faculty
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of pending student requests
+ */
 router.get('/pending-requests', protect, isFaculty, asyncHandler(async (req, res) => {
     const students = await User.find({
         role: 'student',
@@ -38,8 +54,18 @@ router.get('/pending-requests', protect, isFaculty, asyncHandler(async (req, res
     res.json(students);
 }));
 
-// @route   GET api/faculty/stats
-// @desc    Get dashboard counts
+/**
+ * @swagger
+ * /faculty/stats:
+ *   get:
+ *     summary: Get faculty dashboard summary counts
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Counts of pending requests and assigned students
+ */
 router.get('/stats', protect, isFaculty, asyncHandler(async (req, res) => {
     const [pendingCount, studentCount] = await Promise.all([
         User.countDocuments({
@@ -59,8 +85,28 @@ router.get('/stats', protect, isFaculty, asyncHandler(async (req, res) => {
     });
 }));
 
-// @route   POST api/faculty/handle-request
-// @desc    Accept or Reject a student's internship supervision request
+/**
+ * @swagger
+ * /faculty/handle-request:
+ *   post:
+ *     summary: Accept or reject a student supervision request
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentId, action]
+ *             properties:
+ *               studentId: { type: string }
+ *               action: { type: string, enum: [Accepted, Rejected] }
+ *     responses:
+ *       200:
+ *         description: Request processed successfully
+ */
 router.post('/handle-request', protect, isFaculty, asyncHandler(async (req, res) => {
     const { studentId, action } = req.body;
 
@@ -71,17 +117,14 @@ router.post('/handle-request', protect, isFaculty, asyncHandler(async (req, res)
     const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // Update the request status
     student.internshipRequest.facultyStatus = action;
 
     if (action === 'Accepted') {
-        // Officially assign this faculty
         student.assignedFaculty = req.user.id;
     }
 
     await student.save();
 
-    // Notify Student
     await createNotification({
         recipient: studentId,
         sender: req.user.id,
@@ -91,7 +134,6 @@ router.post('/handle-request', protect, isFaculty, asyncHandler(async (req, res)
         link: '/student/dashboard'
     });
 
-    // Audit Log
     await new AuditLog({
         action: `FACULTY_REQUEST_${action.toUpperCase()}`,
         performedBy: req.user.id,
@@ -103,7 +145,25 @@ router.post('/handle-request', protect, isFaculty, asyncHandler(async (req, res)
     res.json({ message: `Request ${action.toLowerCase()}ed successfully` });
 }));
 
-// @route   GET api/faculty/pending-grading
+/**
+ * @swagger
+ * /faculty/pending-grading:
+ *   get:
+ *     summary: Retrieve list of students with pending grades
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Paginated list of pending evaluations
+ */
 router.get('/pending-grading', protect, asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
@@ -134,9 +194,19 @@ router.get('/pending-grading', protect, asyncHandler(async (req, res) => {
     });
 }));
 
-// @route   GET api/faculty/assignments
-// @desc    Get assignments with supervisor-specific deadlines
-router.get('/assignments', protect, isFaculty, asyncHandler(async (req, res) => {
+/**
+ * @swagger
+ * /faculty/assignments/active:
+ *   get:
+ *     summary: Get active assignments with supervisor-specific deadlines
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of active assignments with overrides
+ */
+router.get('/assignments/active', protect, isFaculty, asyncHandler(async (req, res) => {
     const assignments = await Assignment.find({
         status: 'Active',
         startDate: { $lte: new Date() }
@@ -145,7 +215,6 @@ router.get('/assignments', protect, isFaculty, asyncHandler(async (req, res) => 
     const processedAssignments = assignments.map(assignment => {
         const override = assignment.overrides.find(o => o.facultyId.toString() === req.user.id);
         const effectiveDeadline = override ? override.deadline : assignment.deadline;
-
         const isClosed = new Date() > new Date(effectiveDeadline);
 
         return {
@@ -159,13 +228,21 @@ router.get('/assignments', protect, isFaculty, asyncHandler(async (req, res) => 
     res.json(processedAssignments);
 }));
 
-// @route   GET api/faculty/assignment-students/:assignmentId
-// @desc    Get students assigned to this faculty and their marks for a specific assignment
+/**
+ * @swagger
+ * /faculty/assignment-students/{assignmentId}:
+ *   get:
+ *     summary: Get students assigned to this faculty and their marks for a specific assignment
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Enrollment and marking summary
+ */
 router.get('/assignment-students/:assignmentId', protect, isFaculty, asyncHandler(async (req, res) => {
     const { assignmentId } = req.params;
-
     const students = await User.find({ assignedFaculty: req.user.id, status: 'Assigned' });
-
     const studentIds = students.map(s => s._id);
     const marks = await Mark.find({
         assignment: assignmentId,
@@ -188,50 +265,39 @@ router.get('/assignment-students/:assignmentId', protect, isFaculty, asyncHandle
     res.json(result);
 }));
 
-// @route   POST api/faculty/submit-marks
-// @desc    Add or Update marks for a student
+/**
+ * @swagger
+ * /faculty/submit-marks:
+ *   post:
+ *     summary: Submit or update marks for a student submission
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Marks saved successfully
+ */
 router.post('/submit-marks', protect, isFaculty, asyncHandler(async (req, res) => {
     const { assignmentId, studentId, marks } = req.body;
-
     const assignment = await Assignment.findById(assignmentId);
     if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
 
     const override = assignment.overrides.find(o => o.facultyId.toString() === req.user.id);
     const effectiveDeadline = override ? override.deadline : assignment.deadline;
 
-    if (new Date() > new Date(effectiveDeadline)) {
-        return res.status(403).json({ message: 'Deadline Passed – Editing Locked' });
-    }
-
-    if (marks > 10) {
-        return res.status(400).json({ message: `Marks cannot exceed the total marks (10).` });
-    }
+    if (new Date() > new Date(effectiveDeadline)) return res.status(403).json({ message: 'Deadline Passed – Editing Locked' });
+    if (marks > 10) return res.status(400).json({ message: `Marks cannot exceed the total marks (10).` });
 
     let markEntry = await Mark.findOne({ assignment: assignmentId, student: studentId });
-
-    if (markEntry && markEntry.isFacultyGraded) {
-        return res.status(403).json({ message: 'Marks already finalized – Editing Locked' });
-    }
+    if (markEntry && markEntry.isFacultyGraded) return res.status(403).json({ message: 'Marks already finalized – Editing Locked' });
 
     const action = markEntry ? 'MARK_UPDATED' : 'MARK_ADDED';
-
     if (markEntry) {
-        markEntry.history.push({
-            marks: markEntry.marks,
-            updatedBy: req.user.id,
-            updatedAt: new Date()
-        });
+        markEntry.history.push({ marks: markEntry.marks, updatedBy: req.user.id, updatedAt: new Date() });
         markEntry.marks = marks;
         markEntry.lastUpdatedBy = req.user.id;
     } else {
-        markEntry = new Mark({
-            assignment: assignmentId,
-            student: studentId,
-            faculty: req.user.id,
-            marks,
-            createdBy: req.user.id,
-            lastUpdatedBy: req.user.id
-        });
+        markEntry = new Mark({ assignment: assignmentId, student: studentId, faculty: req.user.id, marks, createdBy: req.user.id, lastUpdatedBy: req.user.id });
     }
 
     await markEntry.save();
@@ -245,141 +311,80 @@ router.post('/submit-marks', protect, isFaculty, asyncHandler(async (req, res) =
         link: '/student/marks'
     });
 
-    await new AuditLog({
-        action,
-        performedBy: req.user.id,
-        targetUser: studentId,
-        details: `${action === 'MARK_ADDED' ? 'Added' : 'Updated'} marks (${marks}) for assignment ${assignment.title}`,
-        ipAddress: req.ip
-    }).save();
-
-    res.json({ message: 'Marks submitted successfully', markEntry });
+    res.json({ message: 'Marks submitted successfully' });
 }));
 
-// @route   POST api/faculty/bulk-submit-marks
-// @desc    Add or Update marks for multiple students
-router.post('/bulk-submit-marks', protect, isFaculty, asyncHandler(async (req, res) => {
-    const { assignmentId, marksData } = req.body;
-
-    const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
-
-    const override = assignment.overrides.find(o => o.facultyId.toString() === req.user.id);
-    const effectiveDeadline = override ? override.deadline : assignment.deadline;
-
-    if (new Date() > new Date(effectiveDeadline)) {
-        return res.status(403).json({ message: 'Deadline Passed – Editing Locked' });
+/**
+ * @swagger
+ * /faculty/assignments:
+ *   post:
+ *     summary: Create a new faculty assignment
+ *     tags: [Faculty]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Assignment created
+ */
+router.post('/assignments', protect, isFaculty, uploadCloudinary.single('file'), asyncHandler(async (req, res) => {
+    const { title, description, startDate, deadline, totalMarks, targetStudents } = req.body;
+    let students = [];
+    if (targetStudents) {
+        students = Array.isArray(targetStudents) ? targetStudents : [targetStudents];
+    } else {
+        const assigned = await User.find({ assignedFaculty: req.user.id, role: 'student' }, '_id');
+        students = assigned.map(s => s._id);
     }
-
-    for (let item of marksData) {
-        const { studentId, marks } = item;
-
-        if (marks === null || marks === '' || marks > 10) continue;
-
-        let markEntry = await Mark.findOne({ assignment: assignmentId, student: studentId });
-        if (markEntry && markEntry.isFacultyGraded) continue;
-
-        const action = markEntry ? 'MARK_UPDATED' : 'MARK_ADDED';
-
-        if (markEntry) {
-            if (markEntry.marks !== marks) {
-                markEntry.history.push({
-                    marks: markEntry.marks,
-                    updatedBy: req.user.id,
-                    updatedAt: new Date()
-                });
-                markEntry.marks = marks;
-                markEntry.lastUpdatedBy = req.user.id;
-                await markEntry.save();
-            }
-        } else {
-            markEntry = new Mark({
-                assignment: assignmentId,
-                student: studentId,
-                faculty: req.user.id,
-                marks,
-                createdBy: req.user.id,
-                lastUpdatedBy: req.user.id
-            });
-            await markEntry.save();
-        }
-
-        await new AuditLog({
-            action,
-            performedBy: req.user.id,
-            targetUser: studentId,
-            details: `${action === 'MARK_ADDED' ? 'Added' : 'Updated'} marks (${marks}) for assignment ${assignment.title}`,
-            ipAddress: req.ip
-        }).save();
-    }
-
-    res.json({ message: 'All marks processed successfully' });
-}));
-
-// @route   POST api/faculty/create-assignment
-// @desc    Create a new assignment by faculty
-router.post('/create-assignment', protect, isFaculty, uploadCloudinary.single('file'), asyncHandler(async (req, res) => {
-    const { title, description, startDate, deadline } = req.body;
 
     const assignment = new Assignment({
-        title,
-        courseTitle: 'Internship',
-        description,
-        startDate,
-        deadline,
-        totalMarks: 10,
-        createdBy: req.user.id,
-        fileUrl: req.file ? req.file.path : null
+        title, description, startDate, deadline, totalMarks: totalMarks || 10,
+        targetStudents: students, fileUrl: req.file ? req.file.path : null,
+        createdBy: req.user.id, courseTitle: 'Weekly Report'
     });
 
     await assignment.save();
 
-    const students = await User.find({ assignedFaculty: req.user.id, role: 'student' }, '_id');
-    for (const student of students) {
-        await createNotification({
-            recipient: student._id,
-            sender: req.user.id,
-            type: 'assignment_submission',
-            title: 'New Assignment Posted',
-            message: `Supervisor ${req.user.name} posted a new task: "${title}".`,
-            link: '/student/assignments'
-        });
+    for (const studentId of students) {
+        await createNotification({ recipient: studentId, sender: req.user.id, type: 'assignment_submission', title: 'New Weekly Assignment', message: `Faculty Supervisor ${req.user.name} posted: "${title}".`, link: '/student/assignments' });
     }
 
-    await new AuditLog({
-        action: 'FACULTY_ASSIGNMENT_CREATED',
-        performedBy: req.user.id,
-        details: `Faculty created assignment: ${title}`,
-        ipAddress: req.ip
-    }).save();
-
-    res.status(201).json({ message: 'Assignment created successfully', assignment });
+    res.status(201).json(assignment);
 }));
 
-// @route   GET api/faculty/my-created-assignments
-// @desc    Get assignments created by this faculty
-router.get('/my-created-assignments', protect, isFaculty, asyncHandler(async (req, res) => {
+/**
+ * @swagger
+ * /faculty/assignments:
+ *   get:
+ *     summary: List all assignments created by faculty
+ *     tags: [Faculty]
+ *     responses:
+ *       200:
+ *         description: List of assignments
+ */
+router.get('/assignments', protect, isFaculty, asyncHandler(async (req, res) => {
     const assignments = await Assignment.find({ createdBy: req.user.id }).sort({ createdAt: -1 });
     res.json(assignments);
 }));
 
-// @route   GET api/faculty/assignment-submissions/:assignmentId
-// @desc    Get all student submissions for a specific assignment
+/**
+ * @swagger
+ * /faculty/assignment-submissions/{assignmentId}:
+ *   get:
+ *     summary: Detailed submission tracking for an assignment
+ *     tags: [Faculty]
+ *     responses:
+ *       200:
+ *         description: Status report of all assigned students
+ */
 router.get('/assignment-submissions/:assignmentId', protect, isFaculty, asyncHandler(async (req, res) => {
     const { assignmentId } = req.params;
-
     const students = await User.find({ assignedFaculty: req.user.id, status: 'Assigned' });
     const studentIds = students.map(s => s._id);
-
-    const submissions = await Submission.find({
-        assignment: assignmentId,
-        student: { $in: studentIds }
-    }).populate('student', 'name reg');
+    const submissions = await Submission.find({ assignment: assignmentId, student: { $in: studentIds } }).populate('student', 'name reg');
 
     const result = students.map(student => {
         const sub = submissions.find(s => s.student._id.toString() === student._id.toString());
         return {
-            sr: student.reg,
             reg: student.reg,
             name: student.name,
             submittedAt: sub ? sub.submissionDate : null,
@@ -392,74 +397,72 @@ router.get('/assignment-submissions/:assignmentId', protect, isFaculty, asyncHan
     res.json(result);
 }));
 
-// @route   POST api/faculty/bulk-download-submissions
-// @desc    Download selected submissions as a ZIP file
+/**
+ * @swagger
+ * /faculty/bulk-download-submissions:
+ *   post:
+ *     summary: Zip archive and download selected submissions
+ *     tags: [Faculty]
+ *     responses:
+ *       200:
+ *         description: ZIP file stream
+ */
 router.post('/bulk-download-submissions', protect, isFaculty, asyncHandler(async (req, res) => {
     const { submissionIds } = req.body;
-    if (!submissionIds || submissionIds.length === 0) {
-        return res.status(400).json({ message: 'No submissions selected' });
-    }
+    if (!submissionIds?.length) return res.status(400).json({ message: 'No submissions selected' });
 
     const submissions = await Submission.find({ _id: { $in: submissionIds } }).populate('student', 'name reg');
-
     const archive = archiver('zip', { zlib: { level: 9 } });
     res.attachment(`submissions-${Date.now()}.zip`);
     archive.pipe(res);
 
-    const fetchFileStream = (url) => {
-        return new Promise((resolve, reject) => {
-            https.get(url, (response) => {
-                if (response.statusCode === 200) resolve(response);
-                else reject(new Error(`Failed to get '${url}' (${response.statusCode})`));
-            }).on('error', reject);
-        });
-    };
-
     for (const sub of submissions) {
         if (sub.fileUrl) {
             try {
-                const fileStream = await fetchFileStream(sub.fileUrl);
-                let extension = path.extname(new URL(sub.fileUrl).pathname) || '.pdf';
-                const fileName = `${sub.student.reg}-${sub.student.name.replace(/\s+/g, '_')}${extension}`;
-                archive.append(fileStream, { name: fileName });
-            } catch (err) {
-                // Ignore missing files in bulk zip
-            }
+                const response = await new Promise((resolve) => https.get(sub.fileUrl, resolve));
+                const extension = path.extname(new URL(sub.fileUrl).pathname) || '.pdf';
+                archive.append(response, { name: `${sub.student.reg}-${sub.student.name.replace(/\s+/g, '_')}${extension}` });
+            } catch (err) {}
         }
     }
-
     await archive.finalize();
 }));
 
-// @route   PUT api/faculty/update-assignment/:id
-// @desc    Update an existing assignment by faculty
+/**
+ * @swagger
+ * /faculty/update-assignment/{id}:
+ *   put:
+ *     summary: Update assignment details
+ *     tags: [Faculty]
+ *     responses:
+ *       200:
+ *         description: Updated
+ */
 router.put('/update-assignment/:id', protect, isFaculty, uploadCloudinary.single('file'), asyncHandler(async (req, res) => {
-    const { title, description, startDate, deadline } = req.body;
     const assignment = await Assignment.findOne({ _id: req.params.id, createdBy: req.user.id });
-
     if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
 
+    const { title, description, startDate, deadline } = req.body;
     assignment.title = title || assignment.title;
     assignment.description = description !== undefined ? description : assignment.description;
     assignment.startDate = startDate || assignment.startDate;
     assignment.deadline = deadline || assignment.deadline;
-    assignment.totalMarks = 10;
-
     if (req.file) assignment.fileUrl = req.file.path;
 
     await assignment.save();
-
-    await new AuditLog({
-        action: 'FACULTY_ASSIGNMENT_UPDATED',
-        performedBy: req.user.id,
-        details: `Faculty updated assignment: ${assignment.title}`,
-        ipAddress: req.ip
-    }).save();
-
     res.json({ message: 'Assignment updated successfully', assignment });
 }));
 
-// @route   DELETE api/faculty/delete-assignment/:id
+/**
+ * @swagger
+ * /faculty/delete-assignment/{id}:
+ *   delete:
+ *     summary: Delete assignment and purge associated grading records
+ *     tags: [Faculty]
+ *     responses:
+ *       200:
+ *         description: Purged
+ */
 router.delete('/delete-assignment/:id', protect, isFaculty, asyncHandler(async (req, res) => {
     const assignment = await Assignment.findOne({ _id: req.params.id, createdBy: req.user.id });
     if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
@@ -470,111 +473,83 @@ router.delete('/delete-assignment/:id', protect, isFaculty, asyncHandler(async (
         Mark.deleteMany({ assignment: req.params.id })
     ]);
 
-    await new AuditLog({
-        action: 'FACULTY_ASSIGNMENT_PURGED',
-        performedBy: req.user.id,
-        details: `Permanent Deletion: ${assignment.title} and all associated records purged.`,
-        ipAddress: req.ip
-    }).save();
-
-    res.json({ message: 'Assignment and all associated records purged successfully.' });
+    res.json({ message: 'Assignment purged successfully.' });
 }));
 
-// @route   GET api/faculty/my-students
-// @desc    Get all students assigned to this faculty
+/**
+ * @swagger
+ * /faculty/my-students:
+ *   get:
+ *     summary: Overview of assigned students and placement status
+ *     tags: [Faculty]
+ */
 router.get('/my-students', protect, isFaculty, asyncHandler(async (req, res) => {
-    const students = await User.find({
-        assignedFaculty: req.user.id,
-        role: 'student'
-    });
-
-    const result = students.map(s => {
-        const isFreelance = s.internshipRequest?.mode === 'Freelance';
-        const platform = s.internshipRequest?.freelancePlatform;
-        return {
-            id: s._id,
-            name: s.name,
-            reg: s.reg,
-            isFreelance,
-            company: isFreelance
-                ? `Freelancing${platform ? ` (${platform})` : ''}`
-                : (s.assignedCompany || s.internshipAgreement?.companyName || 'Not Assigned'),
-            status: s.status
-        };
-    });
-
-    res.json(result);
+    const students = await User.find({ assignedFaculty: req.user.id, role: 'student' });
+    res.json(students.map(s => ({
+        id: s._id, name: s.name, reg: s.reg, status: s.status,
+        isFreelance: s.internshipRequest?.mode === 'Freelance',
+        company: s.internshipRequest?.mode === 'Freelance' ? `Freelancing (${s.internshipRequest.freelancePlatform || 'N/A'})` : (s.assignedCompany || s.internshipAgreement?.companyName || 'Not Assigned')
+    })));
 }));
 
-// @route   GET api/faculty/student-profile/:id
-// @desc    Get detailed student profile
+/**
+ * @swagger
+ * /faculty/student-profile/{id}:
+ *   get:
+ *     summary: Detailed student dossier for faculty audit
+ *     tags: [Faculty]
+ */
 router.get('/student-profile/:id', protect, isFaculty, asyncHandler(async (req, res) => {
-    const student = await User.findOne({
-        _id: req.params.id,
-        assignedFaculty: req.user.id
-    }).select('-password');
-
-    if (!student) return res.status(404).json({ message: 'Student not found or not assigned to you' });
-
+    const student = await User.findOne({ _id: req.params.id, assignedFaculty: req.user.id }).select('-password');
+    if (!student) return res.status(404).json({ message: 'Access denied.' });
     res.json(student);
 }));
 
+/**
+ * @swagger
+ * /faculty/weekly-evaluations/{studentId}:
+ *   get:
+ *     summary: Fetch performance history for weekly reports
+ *     tags: [Faculty]
+ */
 router.get('/weekly-evaluations/:studentId', protect, isFaculty, asyncHandler(async (req, res) => {
     const [marks, submissions] = await Promise.all([
         Mark.find({ student: req.params.studentId }).populate('assignment', 'title totalMarks deadline fileUrl'),
         Submission.find({ student: req.params.studentId }).select('assignment fileUrl fileName')
     ]);
 
-    const consolidated = marks
-        .filter(m => m.assignment)
-        .map(m => {
-            const sub = submissions.find(s => s.assignment.toString() === m.assignment._id.toString());
-            return {
-                ...m.toObject(),
-                submission: sub ? { fileUrl: sub.fileUrl, fileName: sub.fileName } : null
-            };
-        });
-
-    res.json(consolidated);
+    const result = marks.filter(m => m.assignment).map(m => ({
+        ...m.toObject(),
+        submission: submissions.find(s => s.assignment.toString() === m.assignment._id.toString()) || null
+    }));
+    res.json(result);
 }));
 
-// @route   POST api/faculty/weekly-evaluations/:studentId
-// @desc    Grade student based on marks
+/**
+ * @swagger
+ * /faculty/weekly-evaluations/{studentId}:
+ *   post:
+ *     summary: Update marks for multiple weekly tasks
+ *     tags: [Faculty]
+ */
 router.post('/weekly-evaluations/:studentId', protect, isFaculty, asyncHandler(async (req, res) => {
     const { grades } = req.body;
-
-    for (const grade of grades) {
-        if (!grade.markId || grade.facultyMarks === null || grade.facultyMarks === undefined || grade.facultyMarks === '') continue;
-
-        const mark = await Mark.findById(grade.markId);
+    for (const g of grades) {
+        if (!g.markId || g.facultyMarks == null) continue;
+        const mark = await Mark.findById(g.markId);
         if (mark && mark.student.toString() === req.params.studentId) {
-            mark.facultyMarks = Number(grade.facultyMarks);
+            mark.facultyMarks = Number(g.facultyMarks);
             mark.isFacultyGraded = true;
             mark.facultyId = req.user.id;
-            mark.history.push({
-                marks: Number(grade.facultyMarks),
-                role: 'faculty_supervisor',
-                updatedBy: req.user.id,
-                updatedAt: new Date()
-            });
+            mark.history.push({ marks: Number(g.facultyMarks), role: 'faculty_supervisor', updatedBy: req.user.id, updatedAt: new Date() });
             await mark.save();
-
-            await createNotification({
-                recipient: req.params.studentId,
-                sender: req.user.id,
-                type: 'assignment_submission',
-                title: 'Weekly Report Evaluated',
-                message: `Your weekly progress has been evaluated by ${req.user.name}.`,
-                link: '/student/marks'
-            });
         }
     }
-
-    res.json({ message: 'Grades updated successfully' });
+    res.json({ message: 'Grades updated.' });
 }));
 
-// ── Grade helper ─────────────────────────────────────────────────────────────
-function calcGradeF(pct) {
+// Helper for Grade calculation
+const getGrade = (pct) => {
     if (pct >= 85) return { grade: 'A', status: 'Qualified' };
     if (pct >= 80) return { grade: 'A-', status: 'Qualified' };
     if (pct >= 75) return { grade: 'B+', status: 'Qualified' };
@@ -586,235 +561,89 @@ function calcGradeF(pct) {
     if (pct >= 54) return { grade: 'D+', status: 'Qualified' };
     if (pct >= 50) return { grade: 'D', status: 'Qualified' };
     return { grade: 'F', status: 'Failed' };
-}
+};
 
-// @route   GET api/faculty/report-data/:type
-// @desc    Get real data for faculty PDF reports (student-list or evaluation)
+/**
+ * @swagger
+ * /faculty/report-data/{type}:
+ *   get:
+ *     summary: Fetch backend data for frontend PDF generation
+ *     tags: [Faculty]
+ */
 router.get('/report-data/:type', protect, isFaculty, asyncHandler(async (req, res) => {
     const type = req.params.type;
-    const internStatuses = ['Assigned', 'Agreement Approved', 'Internship Approved', 'Pass', 'Fail'];
-    const students = await User.find({
-        assignedFaculty: req.user.id,
-        role: 'student',
-        status: { $in: internStatuses }
-    }).select('name reg assignedCompany assignedCompanySupervisor status internshipRequest');
+    const students = await User.find({ assignedFaculty: req.user.id, role: 'student', status: { $in: ['Assigned', 'Agreement Approved', 'Internship Approved', 'Pass', 'Fail'] } });
 
-    let payload = {
-        supervisorName: req.user.name,
-        reportTitle: '',
-        tableHeader: [],
-        tableData: [],
-        columnsLayout: []
-    };
+    let payload = { supervisorName: req.user.name, reportTitle: '', tableHeader: [], tableData: [], columnsLayout: [] };
 
     if (type === 'student-list') {
         payload.reportTitle = 'Student Placement Report';
-        payload.tableHeader = ['Reg. #', 'Name', 'Company', 'Site Supervisor', 'Mode', 'Status'];
-        payload.columnsLayout = [100, '*', '*', '*', 55, 65];
-        payload.tableData = students.map(s => [
-            s.reg,
-            s.name,
-            s.assignedCompany || 'N/A',
-            s.assignedCompanySupervisor || 'Freelance',
-            s.internshipRequest?.mode || 'N/A',
-            s.status
-        ]);
+        payload.tableHeader = ['Reg #', 'Name', 'Company', 'Mode', 'Status'];
+        payload.columnsLayout = [100, '*', '*', 60, 70];
+        payload.tableData = students.map(s => [s.reg, s.name, s.assignedCompany || 'Freelance', s.internshipRequest?.mode || 'N/A', s.status]);
     } else if (type === 'evaluation') {
-        payload.reportTitle = 'Student Evaluation Report';
-        payload.tableHeader = ['Reg. #', 'Name', 'Tasks', 'Avg. Score', 'Percentage', 'Grade', 'Status'];
-        payload.columnsLayout = [100, '*', 50, 60, 60, 50, 60];
-
+        payload.reportTitle = 'Student Performance Report';
+        payload.tableHeader = ['Reg #', 'Name', 'Avg', '%', 'Grade', 'Status'];
+        payload.columnsLayout = [100, '*', 50, 50, 40, 60];
         for (const s of students) {
             const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
-            if (marks.length === 0) {
-                const isFailed = s.status === 'Fail';
-                payload.tableData.push([s.reg, s.name, '0', isFailed ? '0.0' : 'N/A', isFailed ? '0%' : 'N/A', isFailed ? 'F' : 'N/A', isFailed ? 'Failed' : 'Pending']);
-                continue;
-            }
-
-            const isFreelance = s.internshipRequest?.mode === 'Freelance' || !s.assignedCompanySupervisor;
-            const taskScores = marks.map(m => {
-                const fScore = m.facultyMarks || 0;
-                const sScore = m.siteSupervisorMarks || 0;
-                return isFreelance ? fScore : (fScore + sScore) / 2;
-            });
-
-            const avg = taskScores.reduce((sum, val) => sum + val, 0) / taskScores.length;
+            if (!marks.length) { payload.tableData.push([s.reg, s.name, '0.0', '0%', 'F', 'Pending']); continue; }
+            const avg = marks.reduce((acc, m) => acc + (m.facultyMarks || 0), 0) / marks.length;
             const pct = Math.round((avg / 10) * 100);
-            const { grade, status } = calcGradeF(pct);
-
-            payload.tableData.push([s.reg, s.name, marks.length.toString(), avg.toFixed(1), `${pct}%`, grade, status]);
+            const { grade, status } = getGrade(pct);
+            payload.tableData.push([s.reg, s.name, avg.toFixed(1), `${pct}%`, grade, status]);
         }
-    } else {
-        return res.status(400).json({ message: 'Invalid report type' });
     }
-
     res.json(payload);
 }));
 
-// @route   GET api/faculty/mark-sheet/bulk
+/**
+ * @swagger
+ * /faculty/mark-sheet/bulk:
+ *   get:
+ *     summary: Export bulk performance spreadsheet
+ *     tags: [Faculty]
+ */
 router.get('/mark-sheet/bulk', protect, asyncHandler(async (req, res) => {
-    let query = {};
-    if (req.user.role === 'faculty_supervisor') {
-        query = { assignedFaculty: req.user.id };
-    } else if (req.user.role === 'site_supervisor') {
-        const sup = await SiteSupervisor.findOne({ user: req.user.id });
-        if (!sup) return res.status(404).json({ message: 'Supervisor profile not found' });
-        query = { assignedSiteSupervisor: sup._id };
-    } else if (['internship_office', 'hod'].includes(req.user.role)) {
-        query = { role: 'student' }; // Only students
-    } else {
-        return res.status(403).json({ message: 'Access denied.' });
+    const query = req.user.role === 'faculty_supervisor' ? { assignedFaculty: req.user.id } : { role: 'student' };
+    const students = await User.find(query).select('name reg section');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Ledger');
+    worksheet.columns = [{ header: 'Reg #', key: 'reg' }, { header: 'Name', key: 'name' }, { header: 'Avg %', key: 'pct' }];
+
+    for (const s of students) {
+        const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
+        const pct = marks.length ? Math.round((marks.reduce((acc, m) => acc + (m.facultyMarks || 0), 0) / marks.length / 10) * 100) : 0;
+        worksheet.addRow({ reg: s.reg, name: s.name, pct: `${pct}%` });
     }
 
-    const students = await User.find(query).select('_id').lean();
-    const studentIds = students.map(s => s._id);
-
-    // Set headers for download
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="Internal_Master_MarkSheet.xlsx"`);
-
-    // Use Streaming WorkbookWriter for huge datasets
-    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
-        stream: res,
-        useStyles: true,
-        useSharedStrings: true
-    });
-
-    const worksheet = workbook.addWorksheet('Master Ledger');
-
-    worksheet.columns = [
-        { header: 'Student Name', key: 'name', width: 25 },
-        { header: 'Registration #', key: 'reg', width: 20 },
-        { header: 'Task Title', key: 'title', width: 35 },
-        { header: 'Site Marks', key: 'site', width: 15 },
-        { header: 'Faculty Marks', key: 'faculty', width: 15 },
-        { header: 'Combined (/10)', key: 'combined', width: 15 }
-    ];
-
-    // Style the header row
-    const headerRow = worksheet.getRow(1);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
-    headerRow.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '003366' } };
-        cell.alignment = { horizontal: 'center' };
-    });
-    headerRow.commit(); // Commit header row
-
-    // Use a Cursor for memory efficiency
-    const markCursor = Mark.find({ student: { $in: studentIds } })
-        .populate('assignment', 'title')
-        .populate('student', 'name reg internshipRequest assignedCompanySupervisor')
-        .lean()
-        .cursor();
-
-    for (let m = await markCursor.next(); m != null; m = await markCursor.next()) {
-        if (!m.assignment || !m.student) continue;
-
-        const student = m.student;
-        const isFreelance = student.internshipRequest?.mode === 'Freelance' || !student.assignedCompanySupervisor;
-        const sScore = m.siteSupervisorMarks || 0;
-        const fScore = m.facultyMarks || 0;
-        const combined = isFreelance ? fScore : (sScore + fScore) / 2;
-
-        const row = worksheet.addRow({
-            name: student.name,
-            reg: student.reg,
-            title: m.assignment.title,
-            site: isFreelance ? 'FREELANCE' : sScore,
-            faculty: fScore,
-            combined: combined.toFixed(1)
-        });
-
-        row.eachCell((cell, colNumber) => {
-            if (colNumber > 2) cell.alignment = { horizontal: 'center' };
-        });
-        row.commit(); // Commit row to stream immediately
-    }
-
-    await workbook.commit(); // Finalize workbook
+    res.setHeader('Content-Disposition', 'attachment; filename="Bulk_MarkSheet.xlsx"');
+    await workbook.xlsx.write(res);
     res.end();
 }));
 
-// @route   GET api/faculty/mark-sheet/:studentId
-router.get('/mark-sheet/:studentId', protect, asyncHandler(async (req, res) => {
-    // Roles allowed to download mark sheets
-    if (!['faculty_supervisor', 'site_supervisor', 'internship_office', 'hod'].includes(req.user.role)) {
-        return res.status(403).json({ message: 'Access denied.' });
-    }
-
+/**
+ * @swagger
+ * /faculty/generate-marksheet/{studentId}:
+ *   get:
+ *     summary: Export individual marksheet as Excel
+ *     tags: [Faculty]
+ */
+router.get('/generate-marksheet/:studentId', protect, isFaculty, asyncHandler(async (req, res) => {
     const student = await User.findById(req.params.studentId);
-    if (!student) return res.status(404).json({ message: 'Student not found' });
-
     const marks = await Mark.find({ student: req.params.studentId }).populate('assignment');
-
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Mark Sheet');
+    const worksheet = workbook.addWorksheet('Marksheet');
+    worksheet.columns = [{ header: 'Task', key: 'title', width: 30 }, { header: 'Status', key: 'status', width: 15 }, { header: 'Score', key: 'score', width: 10 }];
 
-    // Headers with Styling
-    worksheet.columns = [
-        { header: 'Task Title', key: 'title', width: 35 },
-        { header: 'Site Supervisor Marks', key: 'site', width: 25 },
-        { header: 'Faculty Marks', key: 'faculty', width: 25 },
-        { header: 'Combined Score (/10)', key: 'combined', width: 25 }
-    ];
-
-    // Info rows
-    worksheet.spliceRows(1, 0, 
-        [`Professional Internship Performance Ledger - ${student.name}`],
-        [`Registration Number: ${student.reg}`],
-        [`Current Status: ${student.status}`],
-        []
-    );
-
-    // Styling the header
-    worksheet.mergeCells('A1:D1');
-    worksheet.getCell('A1').font = { bold: true, size: 16, color: { argb: '003366' } };
-    worksheet.getCell('A1').alignment = { horizontal: 'center' };
-
-    // Styling table headers (now at row 5)
-    worksheet.getRow(5).font = { bold: true, color: { argb: 'FFFFFF' } };
-    worksheet.getRow(5).eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
-        cell.alignment = { horizontal: 'center' };
+    marks.forEach(m => {
+        if (!m.assignment) return;
+        worksheet.addRow({ title: m.assignment.title, status: m.isFacultyGraded ? 'Graded' : 'Pending', score: (((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2).toFixed(1) });
     });
-
-    let totalObtained = 0;
-    let validCount = 0;
-
-    marks.filter(m => m.assignment).forEach(m => {
-        const isFreelance = student.internshipRequest?.mode === 'Freelance' || !student.assignedCompanySupervisor;
-        const sScore = m.siteSupervisorMarks || 0;
-        const fScore = m.facultyMarks || 0;
-        const combined = isFreelance ? fScore : (sScore + fScore) / 2;
-
-        const row = worksheet.addRow({
-            title: m.assignment.title,
-            site: isFreelance ? 'FREELANCE' : sScore,
-            faculty: fScore,
-            combined: combined.toFixed(1)
-        });
-
-        row.eachCell((cell, colNumber) => {
-            if (colNumber > 1) cell.alignment = { horizontal: 'center' };
-        });
-
-        totalObtained += combined;
-        validCount++;
-    });
-
-    worksheet.addRow([]);
-    const avg = validCount > 0 ? totalObtained / validCount : 0;
-    const pct = Math.round((avg / 10) * 100);
-
-    const summaryRow = worksheet.addRow(['', '', 'Total Ongoing Grade', `${pct}%`]);
-    summaryRow.font = { bold: true, size: 12 };
-    summaryRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EBF1DE' } };
-    summaryRow.getCell(4).alignment = { horizontal: 'center' };
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${student.reg}_MarkSheet.xlsx"`);
-
+    res.setHeader('Content-Disposition', `attachment; filename="${student.reg}_Marksheet.xlsx"`);
     await workbook.xlsx.write(res);
     res.end();
 }));

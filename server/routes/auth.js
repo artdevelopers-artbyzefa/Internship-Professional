@@ -10,7 +10,31 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-// @route   GET api/auth/me
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: User authentication and account management
+ */
+
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Retrieve currently authenticated user profile
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user profile data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/me', protect, asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id).populate('assignedFaculty', 'name email whatsappNumber');
     const isDefaultPassword = await bcrypt.compare('Megamix@123', user.password);
@@ -25,7 +49,27 @@ router.get('/me', protect, asyncHandler(async (req, res) => {
     });
 }));
 
-// @route   POST api/auth/change-password
+/**
+ * @swagger
+ * /auth/change-password:
+ *   post:
+ *     summary: Change password for active session
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password updated
+ */
 router.post('/change-password', protect, asyncHandler(async (req, res) => {
     const { newPassword } = req.body;
     const user = await User.findById(req.user.id);
@@ -35,7 +79,29 @@ router.post('/change-password', protect, asyncHandler(async (req, res) => {
     res.json({ message: 'Password updated successfully.' });
 }));
 
-// @route   POST api/auth/register
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Student self-registration
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, password]
+ *             properties:
+ *               name: { type: string }
+ *               email: { type: string }
+ *               password: { type: string }
+ *     responses:
+ *       201:
+ *         description: Registration success
+ *       400:
+ *         description: Validation error
+ */
 router.post('/register', asyncHandler(async (req, res) => {
     const { name, reg, semester, cgpa, email, password, role } = req.body;
     if (role !== 'student') return res.status(403).json({ message: 'Public registration only allowed for students.' });
@@ -60,14 +126,27 @@ router.post('/register', asyncHandler(async (req, res) => {
     try {
         await sendVerificationEmail(emailLower, verificationToken);
     } catch (err) {
-        // Silent fail on email send, user can resend later. Centralized logging will catch if wrapped in asyncHandler but here we want to proceed.
-        // Actually, let's just let it be.
+        // Verification email send failure
     }
 
     res.status(201).json({ message: 'Registration successful! Please check your email.' });
 }));
 
-// @route   POST api/auth/verify-email/:token
+/**
+ * @swagger
+ * /auth/verify-email/{token}:
+ *   post:
+ *     summary: Confirm account verification via token
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Email verified
+ */
 router.post('/verify-email/:token', asyncHandler(async (req, res) => {
     const token = req.params.token.trim();
     const user = await User.findOne({ emailVerificationToken: token });
@@ -87,7 +166,25 @@ router.post('/verify-email/:token', asyncHandler(async (req, res) => {
     res.json({ message: 'Email verified successfully!' });
 }));
 
-// @route   POST api/auth/forgot-password
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Initiate password reset OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email: { type: string }
+ *               sendTo: { type: string, enum: [primary, secondary] }
+ *     responses:
+ *       200:
+ *         description: OTP Sent
+ */
 router.post('/forgot-password', asyncHandler(async (req, res) => {
     const { email, sendTo } = req.body;
     const emailLower = email.toLowerCase().trim();
@@ -115,7 +212,26 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
     res.json({ status: 'code_sent', sentTo: targetEmail, message: `Code sent to ${targetEmail}.` });
 }));
 
-// @route   POST api/auth/verify-reset-code
+/**
+ * @swagger
+ * /auth/verify-reset-code:
+ *   post:
+ *     summary: Verify password reset OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, code]
+ *             properties:
+ *               email: { type: string }
+ *               code: { type: string }
+ *     responses:
+ *       200:
+ *         description: Code verified
+ */
 router.post('/verify-reset-code', asyncHandler(async (req, res) => {
     const { email, code } = req.body;
     const user = await User.findOne({
@@ -128,7 +244,27 @@ router.post('/verify-reset-code', asyncHandler(async (req, res) => {
     res.json({ success: true, message: 'Code verified.' });
 }));
 
-// @route   POST api/auth/reset-password-final
+/**
+ * @swagger
+ * /auth/reset-password-final:
+ *   post:
+ *     summary: Finalize password reset with new password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, code, newPassword]
+ *             properties:
+ *               email: { type: string }
+ *               code: { type: string }
+ *               newPassword: { type: string }
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ */
 router.post('/reset-password-final', asyncHandler(async (req, res) => {
     const { email, code, newPassword } = req.body;
     if (!email || !code || !newPassword) return res.status(400).json({ message: 'Missing fields.' });
@@ -149,7 +285,29 @@ router.post('/reset-password-final', asyncHandler(async (req, res) => {
     res.json({ message: 'Password reset successful!' });
 }));
 
-// @route   POST api/auth/login
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Authenticate user and receive JWT
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string }
+ *               password: { type: string }
+ *               role: { type: string }
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       400:
+ *         description: Invalid credentials
+ */
 router.post('/login', asyncHandler(async (req, res) => {
     const { email, password, role } = req.body;
     const emailLower = email.toLowerCase().trim();
@@ -189,7 +347,26 @@ router.post('/login', asyncHandler(async (req, res) => {
     });
 }));
 
-// @route   POST api/auth/verify-secondary
+/**
+ * @swagger
+ * /auth/verify-secondary:
+ *   post:
+ *     summary: Verify secondary email OTP for login
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, code]
+ *             properties:
+ *               email: { type: string }
+ *               code: { type: string }
+ *     responses:
+ *       200:
+ *         description: OTP verified, login successful
+ */
 router.post('/verify-secondary', asyncHandler(async (req, res) => {
     const { email, code } = req.body;
     const user = await User.findOne({
@@ -218,7 +395,16 @@ router.post('/verify-secondary', asyncHandler(async (req, res) => {
     });
 }));
 
-// @route   GET api/auth/faculty-list
+/**
+ * @swagger
+ * /auth/faculty-list:
+ *   get:
+ *     summary: Retrieve list of active faculty supervisors
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: List of faculty supervisors with current load
+ */
 router.get('/faculty-list', asyncHandler(async (req, res) => {
     const facultyList = await User.find({ role: 'faculty_supervisor', status: { $ne: 'Pending Activation' } }, 'name email status whatsappNumber');
     const counts = await User.aggregate([{ $match: { role: 'student', assignedFaculty: { $exists: true, $ne: null } } }, { $group: { _id: '$assignedFaculty', count: { $sum: 1 } } }]);
@@ -227,7 +413,21 @@ router.get('/faculty-list', asyncHandler(async (req, res) => {
     res.json(facultyList.map(f => ({ ...f.toObject(), assignedStudents: countMap[f._id.toString()] || 0 })));
 }));
 
-// @route   GET api/auth/faculty-activate-check/:token
+/**
+ * @swagger
+ * /auth/faculty-activate-check/{token}:
+ *   get:
+ *     summary: Check faculty activation token validity
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Token valid, returns faculty name/email
+ */
 router.get('/faculty-activate-check/:token', asyncHandler(async (req, res) => {
     const hash = crypto.createHash('sha256').update(req.params.token).digest('hex');
     const user = await User.findOne({ activationToken: hash, activationExpires: { $gt: Date.now() }, status: 'Pending Activation' });
@@ -235,7 +435,26 @@ router.get('/faculty-activate-check/:token', asyncHandler(async (req, res) => {
     res.json({ name: user.name, email: user.email });
 }));
 
-// @route   POST api/auth/faculty-set-password
+/**
+ * @swagger
+ * /auth/faculty-set-password:
+ *   post:
+ *     summary: Set password and activate faculty account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token: { type: string }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: Account activated
+ */
 router.post('/faculty-set-password', asyncHandler(async (req, res) => {
     const { token, password } = req.body;
     const hash = crypto.createHash('sha256').update(token).digest('hex');
@@ -250,7 +469,21 @@ router.post('/faculty-set-password', asyncHandler(async (req, res) => {
     res.json({ message: 'Account activated!' });
 }));
 
-// @route   GET api/auth/supervisor-activate-check/:token
+/**
+ * @swagger
+ * /auth/supervisor-activate-check/{token}:
+ *   get:
+ *     summary: Check site supervisor activation token validity
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Token valid
+ */
 router.get('/supervisor-activate-check/:token', asyncHandler(async (req, res) => {
     const hash = crypto.createHash('sha256').update(req.params.token).digest('hex');
     const user = await User.findOne({ activationToken: hash, activationExpires: { $gt: Date.now() }, status: 'Pending Activation', role: 'site_supervisor' });
@@ -258,7 +491,26 @@ router.get('/supervisor-activate-check/:token', asyncHandler(async (req, res) =>
     res.json({ name: user.name, email: user.email });
 }));
 
-// @route   POST api/auth/supervisor-set-password
+/**
+ * @swagger
+ * /auth/supervisor-set-password:
+ *   post:
+ *     summary: Set password and activate site supervisor account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token: { type: string }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: Supervisor account activated
+ */
 router.post('/supervisor-set-password', asyncHandler(async (req, res) => {
     const { token, password } = req.body;
     const hash = crypto.createHash('sha256').update(token).digest('hex');
@@ -273,7 +525,21 @@ router.post('/supervisor-set-password', asyncHandler(async (req, res) => {
     res.json({ message: 'Supervisor account activated!' });
 }));
 
-// @route   GET api/auth/download-proxy
+/**
+ * @swagger
+ * /auth/download-proxy:
+ *   get:
+ *     summary: Proxy endpoint for secure file downloads
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: url
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: File stream
+ */
 router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
     const { url, filename } = req.query;
     if (!url) {
@@ -281,7 +547,7 @@ router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
         return res.status(400).json({ message: 'URL required' });
     }
 
-    let target = url; // Standard fetch usually prefers the encoded URL anyway
+    let target = url;
     let response;
     
     try {
@@ -292,7 +558,6 @@ router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
     }
 
     if (!response.ok && target.includes('cloudinary.com')) {
-        // Cloudinary Fallback Logic
         const parts = target.split('/');
         const uploadIdx = parts.indexOf('upload');
         if (uploadIdx > -1) {
@@ -308,7 +573,6 @@ router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
                     response = await fetch(target);
                 }
             } catch (e) {
-                // Secondary fallback: Convert /image/ to /raw/ if it ends with .pdf
                 if (resType === 'image' && target.toLowerCase().endsWith('.pdf')) {
                     const rawT = target.replace('/image/upload/', '/raw/upload/');
                     const rawResp = await fetch(rawT);
@@ -319,14 +583,13 @@ router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
     }
 
     if (!response || !response.ok) {
-        console.warn('Download Proxy: Target still failing after fallback, redirecting to raw target', target);
+        console.warn('Download Proxy Falling back to redirect', target);
         return res.redirect(target);
     }
 
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
     
-    // Sanitize filename and try to keep extension if possible
     let cleanFilename = (filename || 'Document').replace(/[^\x00-\x7F]/g, "").replace(/["\s]/g, "_");
     if (!cleanFilename.toLowerCase().endsWith('.pdf') && contentType.includes('pdf')) {
         cleanFilename += '.pdf';
@@ -336,7 +599,28 @@ router.get('/download-proxy', protect, asyncHandler(async (req, res) => {
     res.send(Buffer.from(await response.arrayBuffer()));
 }));
 
-// @route   PUT api/auth/update-profile
+/**
+ * @swagger
+ * /auth/update-profile:
+ *   put:
+ *     summary: Update generic profile fields (name, phone, password)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               whatsappNumber: { type: string }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ */
 router.put('/update-profile', protect, asyncHandler(async (req, res) => {
     const { name, whatsappNumber, password } = req.body;
     const user = await User.findById(req.user.id);
@@ -353,7 +637,16 @@ router.put('/update-profile', protect, asyncHandler(async (req, res) => {
     res.json({ message: 'Profile updated successfully', user: { id: user._id, name: user.name, email: user.email, role: user.role, whatsappNumber: user.whatsappNumber } });
 }));
 
-// @route   POST api/auth/logout
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Clear authentication cookie and log out
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ */
 router.post('/logout', (req, res) => {
     res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'none', path: '/' });
     res.status(200).json({ message: 'Logged out successfully' });

@@ -1,13 +1,16 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+/**
+ * Middleware to protect routes by verifying JWT tokens from Authorization header or cookies.
+ * Attaches the authenticated user object to req.user.
+ */
 export const protect = async (req, res, next) => {
     let token;
 
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         token = req.headers.authorization.split(' ')[1];
-    }
-    else if (req.cookies.token) {
+    } else if (req.cookies.token) {
         token = req.cookies.token;
     }
 
@@ -30,6 +33,10 @@ export const protect = async (req, res, next) => {
     }
 };
 
+/**
+ * Middleware to authorize specific user roles for a route.
+ * @param {...string} roles - The roles allowed to access the route.
+ */
 export const authorize = (...roles) => {
     return (req, res, next) => {
         if (!roles.includes(req.user.role)) {
@@ -40,4 +47,3 @@ export const authorize = (...roles) => {
         next();
     };
 };
-
