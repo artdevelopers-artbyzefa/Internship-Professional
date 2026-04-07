@@ -66,7 +66,7 @@ const HomePage = () => {
               <h1 className="text-lg font-black text-primary leading-tight">CUI Abbottabad</h1>
               <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Internship Portal</p>
             </div>
-          </a>
+          </div>
           
           <div className="hidden md:flex items-center gap-8">
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-bold text-gray-600 hover:text-primary transition-colors">Home</button>
@@ -361,7 +361,7 @@ const HomePage = () => {
           </div>
         </div>
       </footer>
-    </main>
+
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes bounce-slow {
           0%, 100% { transform: translateY(-5px); }
@@ -374,7 +374,7 @@ const HomePage = () => {
           font-family: 'Poppins', sans-serif;
         }
       ` }} />
-    </>
+    </div>
   );
 };
 
