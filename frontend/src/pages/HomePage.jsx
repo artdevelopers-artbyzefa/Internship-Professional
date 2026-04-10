@@ -387,9 +387,12 @@ const HomePage = () => {
                   <p className="text-gray-500 text-sm text-center mb-8 font-medium italic">Monday - Friday: 08:30 AM - 04:30 PM</p>
                   
                   <div className="space-y-4">
-                    <button className="w-full py-4 bg-primary text-white font-black rounded-xl hover:bg-blue-800 transition-all flex items-center justify-center gap-2">
+                    <a 
+                      href="mailto:internshipofficecuiatd@gmail.com"
+                      className="w-full py-4 bg-primary text-white font-black rounded-xl hover:bg-blue-800 transition-all flex items-center justify-center gap-2"
+                    >
                       Submit Query <ArrowRight className="w-4 h-4" />
-                    </button>
+                    </a>
                     <button className="w-full py-4 bg-gray-50 text-gray-700 font-black rounded-xl hover:bg-gray-100 transition-all">
                       Offical Website
                     </button>
