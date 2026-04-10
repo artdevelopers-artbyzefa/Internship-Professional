@@ -13,6 +13,7 @@
     "dev:all": "concurrently \"npm run backend\" \"npm run dev\""
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.5",
     "@fontsource/poppins": "^5.2.7",
     "docxtemplater": "^3.68.3",
     "gsap": "^3.14.2",

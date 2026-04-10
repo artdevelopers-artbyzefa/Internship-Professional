@@ -5,94 +5,9 @@ import Modal, { ModalTitle } from '../../components/ui/Modal.jsx';
 import { FormGroup, TextInput, SelectInput } from '../../components/ui/FormInput.jsx';
 import { validate } from '../../utils/validation.js';
 import { showToast, showAlert } from '../../utils/notifications.jsx';
+import DataTable from '../../components/ui/DataTable.jsx';
 
 import { useNavigate } from 'react-router-dom';
-
-// Inline expandable student list per supervisor row
-function SupervisorRow({ sup, onEdit, onDelete }) {
-    const navigate = useNavigate();
-
-    const handleViewRoster = () => {
-        if (sup.assignedStudents > 0) {
-            const params = new URLSearchParams();
-            if (sup.email) params.append('email', sup.email);
-            if (sup.name) params.append('name', sup.name);
-            params.append('type', 'site');
-            navigate(`/office/supervisor-management/${sup._id || 'details'}/students?${params.toString()}`, { state: { supervisor: sup } });
-        }
-    };
-
-    return (
-        <tr className="border-b border-slate-50 hover:bg-slate-50 transition-all duration-200">
-            <td className="px-6 py-6 transition-all">
-                <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-xs shrink-0 border border-primary/5 transition-colors group-hover:bg-primary group-hover:text-white">
-                        {sup.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-800 tracking-tight">{sup.name}</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 whitespace-nowrap">Site Supervisor</span>
-                    </div>
-                </div>
-            </td>
-            <td className="px-6 py-6">
-                <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-slate-600 font-bold flex items-center gap-2">
-                        <i className="fas fa-envelope text-primary/40 text-[9px]"></i>
-                        {sup.email || 'No email provided'}
-                    </span>
-                    {sup.whatsappNumber && (
-                        <span className="text-[10px] text-slate-400 font-black tracking-tight flex items-center gap-2">
-                            <i className="fab fa-whatsapp text-emerald-400 text-[10px]"></i>
-                            {sup.whatsappNumber}
-                        </span>
-                    )}
-                </div>
-            </td>
-            <td className="px-6 py-6">
-                <button
-                    onClick={handleViewRoster}
-                    disabled={sup.assignedStudents === 0 || (!sup.email && !sup.companies?.[0]?.name)}
-                    className={`h-9 px-4 rounded-xl flex items-center gap-2.5 transition-all font-black text-[10px] w-max ${sup.assignedStudents > 0
-                        ? 'bg-primary text-white shadow-md shadow-primary/10 hover:bg-blue-800'
-                        : 'bg-slate-50 text-slate-300 border border-slate-100 cursor-default'}`}
-                    title={sup.assignedStudents > 0 ? 'Click to view assigned students' : 'No placements yet'}
-                >
-                    <i className="fas fa-external-link-alt text-[9px]"></i>
-                    {sup.assignedStudents || 0} Assigned
-                </button>
-            </td>
-            <td className="px-6 py-6">
-                <div className="flex flex-wrap gap-1.5">
-                    {sup.companies.map((c, i) => (
-                        <span key={i} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[9px] uppercase tracking-wider border border-blue-100">
-                            {c.name}
-                        </span>
-                    ))}
-                </div>
-            </td>
-            <td className="px-6 py-6 text-right">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => onEdit(sup)}
-                        className="w-11 h-11 rounded-2xl flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-sm"
-                        title="Edit Details"
-                    >
-                        <i className="fas fa-edit text-sm"></i>
-                    </button>
-                    <button
-                        onClick={() => onDelete(sup)}
-                        className="w-11 h-11 rounded-2xl flex items-center justify-center bg-white border border-slate-200 text-slate-300 hover:bg-rose-500 hover:text-white hover:border-rose-600 transition-all shadow-sm"
-                        title="Remove Supervisor"
-                    >
-                        <i className="fas fa-trash-alt text-sm"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    );
-}
-
 
 export default function SiteSupervisorManagement({ user }) {
     const [companies, setCompanies] = useState([]);
@@ -214,45 +129,135 @@ export default function SiteSupervisorManagement({ user }) {
         } catch { /* handled */ }
     };
 
-    if (loading) return (
-        <div className="text-center py-20">
-            <i className="fas fa-circle-notch fa-spin text-3xl text-primary mb-4 block mx-auto"></i>
-            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Syncing Supervisor Registry...</p>
-        </div>
-    );
+    const columns = [
+        {
+            key: 'name',
+            label: 'Full Name',
+            render: (v, sup) => (
+                <div className="flex items-center gap-4 py-2">
+                    <div className="w-11 h-11 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-xs shrink-0 border border-primary/5 group-hover:bg-primary group-hover:text-white transition-all">
+                        {sup.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-black text-slate-800 tracking-tight">{sup.name}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 whitespace-nowrap">Site Supervisor</span>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'contact',
+            label: 'Contact Details',
+            render: (v, sup) => (
+                <div className="flex flex-col gap-1.5 py-2">
+                    <span className="text-[11px] text-slate-600 font-bold flex items-center gap-2">
+                        <i className="fas fa-envelope text-primary/40 text-[9px]"></i>
+                        {sup.email || 'No email'}
+                    </span>
+                    {sup.whatsappNumber && (
+                        <span className="text-[10px] text-slate-400 font-black tracking-tight flex items-center gap-2">
+                            <i className="fab fa-whatsapp text-emerald-400 text-[10px]"></i>
+                            {sup.whatsappNumber}
+                        </span>
+                    )}
+                </div>
+            )
+        },
+        {
+            key: 'interns',
+            label: 'Assigned Interns',
+            render: (v, sup) => (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (sup.assignedStudents > 0) {
+                            const params = new URLSearchParams();
+                            if (sup.email) params.append('email', sup.email);
+                            if (sup.name) params.append('name', sup.name);
+                            params.append('type', 'site');
+                            navigate(`/office/supervisor-management/${sup._id || 'details'}/students?${params.toString()}`, { state: { supervisor: sup } });
+                        }
+                    }}
+                    disabled={sup.assignedStudents === 0}
+                    className={`h-9 px-4 rounded-xl flex items-center gap-2.5 transition-all font-black text-[10px] w-max ${sup.assignedStudents > 0
+                        ? 'bg-primary text-white shadow-md shadow-primary/10 hover:bg-blue-800'
+                        : 'bg-slate-50 text-slate-300 border border-slate-100 cursor-default'}`}
+                >
+                    <i className="fas fa-external-link-alt text-[9px]"></i>
+                    {sup.assignedStudents || 0} Placed
+                </button>
+            )
+        },
+        {
+            key: 'companies',
+            label: 'Affiliated Partners',
+            render: (v, sup) => (
+                <div className="flex flex-wrap gap-1.5 py-2">
+                    {sup.companies.map((c, i) => (
+                        <span key={i} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[9px] uppercase tracking-wider border border-blue-100">
+                            {c.name}
+                        </span>
+                    ))}
+                </div>
+            )
+        },
+        {
+            key: 'actions',
+            label: 'Actions',
+            className: 'text-right',
+            render: (v, sup) => (
+                <div className="flex items-center justify-end gap-3" onClick={e => e.stopPropagation()}>
+                    <button
+                        onClick={() => handleEditInit(sup)}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-sm"
+                    >
+                        <i className="fas fa-edit text-xs"></i>
+                    </button>
+                    <button
+                        onClick={() => handleDeleteSupervisor(sup)}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 text-slate-300 hover:bg-rose-500 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+                    >
+                        <i className="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </div>
+            )
+        }
+    ];
+
     return (
         <div className="max-w-[1400px] mx-auto space-y-8 pb-20">
             {/* Professional Header */}
-            <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                <div className="space-y-4">
+            <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-32 h-32 bg-primary/5 rounded-full -ml-16 -mt-16 blur-3xl"></div>
+                <div className="space-y-4 z-10">
                     <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/30">
                             <i className="fas fa-building-user text-xl"></i>
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Site Supervisors</h2>
-                            <p className="text-xs text-slate-400 font-bold mt-1">  Mentors & Institutional Partners</p>
+                            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Mentor Network</h2>
+                            <p className="text-xs text-slate-400 font-bold mt-1  tracking-widest">Industry Partnerships Manager</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                    <div className="relative w-full sm:w-80">
-                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto z-10">
+                    <div className="relative w-full sm:w-80 group">
+                        <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm group-focus-within:text-primary transition-colors"></i>
                         <input
                             type="text"
                             placeholder="Search supervisors..."
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:ring-4 focus:ring-primary/5 outline-none transition-all"
+                            className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:ring-4 focus:ring-primary/5 focus:bg-white outline-none transition-all"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                         />
                     </div>
                     <button
                         onClick={() => setShowAddForm(!showAddForm)}
-                        className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl font-black text-[11px] transition-all w-full lg:w-auto ${showAddForm ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-primary text-white hover:bg-blue-800 shadow-lg shadow-primary/20'}`}
+                        className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-[11px]  tracking-widest transition-all w-full lg:w-auto ${showAddForm ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-primary text-white hover:bg-blue-800 shadow-xl shadow-primary/20'}`}
                     >
-                        <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`}></i>
-                        {showAddForm ? 'Discard Changes' : 'Deploy Mentor'}
+                        <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus-circle'} text-xs`}></i>
+                        {showAddForm ? 'Cancel Onboarding' : 'Register Supervisor'}
                     </button>
                 </div>
             </div>
@@ -260,19 +265,24 @@ export default function SiteSupervisorManagement({ user }) {
             {/* Add Form */}
             {showAddForm && (
                 <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 p-8 lg:p-10 animate-in slide-in-from-top-4 duration-500">
-                    <h3 className="text-sm font-black text-slate-800 mb-8 pb-4 border-b border-slate-50">Onboard New Mentor</h3>
+                    <div className="flex items-center gap-4 mb-8 pb-4 border-b border-slate-50">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <i className="fas fa-id-badge text-lg"></i>
+                        </div>
+                        <h3 className="text-sm font-black text-slate-800 tracking-widest">Credentials Registration</h3>
+                    </div>
                     <form onSubmit={handleSubmit} className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <FormGroup label="Professional Full Name" error={errorDictionary.name}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                            <FormGroup label="Professional Name" error={errorDictionary.name}>
                                 <TextInput required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} iconLeft="fa-user-tie" placeholder="e.g. Dr. Salman Ahmed" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0" />
                             </FormGroup>
-                            <FormGroup label="WhatsApp / Contact Number" error={errorDictionary.whatsappNumber}>
+                            <FormGroup label="WhatsApp Contact" error={errorDictionary.whatsappNumber}>
                                 <TextInput required value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} iconLeft="fa-phone" placeholder="+92 3XX XXXXXXX" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0" />
                             </FormGroup>
-                            <FormGroup label="Official Company Email" error={errorDictionary.email}>
+                            <FormGroup label="Corporate Email" error={errorDictionary.email}>
                                 <TextInput type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} iconLeft="fa-envelope" placeholder="salman@company.com" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0" />
                             </FormGroup>
-                            <FormGroup label="Affiliated Partner Company" error={errorDictionary.companyId}>
+                            <FormGroup label="Primary Partnership" error={errorDictionary.companyId}>
                                 <SelectInput required value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })} className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm border-0">
                                     <option value="">Select Company Partnership...</option>
                                     {companies.map(c => (
@@ -282,78 +292,63 @@ export default function SiteSupervisorManagement({ user }) {
                             </FormGroup>
                         </div>
                         <div className="flex justify-end pt-4">
-                            <button type="submit" disabled={submitting} className="px-12 py-3.5 rounded-2xl font-black bg-primary text-white hover:bg-blue-800 transition-all text-[11px] shadow-lg shadow-primary/20 disabled:opacity-50 tracking-widest uppercase">
-                                {submitting ? 'Authorizing...' : 'Authorize & Invite Mentor'}
-                            </button>
+                            <Button type="submit" loading={submitting} className="px-12 py-4 rounded-2xl font-black bg-primary text-white hover:bg-blue-800 transition-all text-[11px] shadow-xl shadow-primary/30 tracking-widest uppercase">
+                                <i className="fas fa-check-circle mr-2"></i>
+                                {submitting ? 'Verifying...' : 'Authorize New Mentor'}
+                            </Button>
                         </div>
                     </form>
                 </div>
             )}
 
-            {/* Student Table */}
-            <div className="bg-white rounded-[32px] shadow-sm border border-slate-200 overflow-hidden">
-                <div className="overflow-x-auto min-h-[400px]">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
-                                {['Full Name', 'Contact Details', 'Interns', 'Affiliated Company', 'Actions'].map(h => (
-                                    <th key={h} className="px-6 py-8 text-[11px] font-black text-slate-500 whitespace-nowrap uppercase tracking-wider">{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {supervisors.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="py-32 text-center space-y-6">
-                                        <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto border border-slate-100">
-                                            <i className="fas fa-user-slash text-slate-200 text-3xl"></i>
-                                        </div>
-                                        <div>
-                                            <h4 className="text-slate-500 font-extrabold text-lg">No Supervisors Found</h4>
-                                            <p className="text-slate-400 text-xs font-bold mt-2">Try a different search or deploy a new mentor</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                supervisors.map((sup, i) => (
-                                    <SupervisorRow
-                                        key={sup.email || i}
-                                        sup={sup}
-                                        onEdit={handleEditInit}
-                                        onDelete={handleDeleteSupervisor}
-                                    />
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+            {/* Registry Table */}
+            <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                <div className="min-h-[500px]">
+                    {supervisors.length === 0 && !loading ? (
+                        <div className="py-48 text-center flex flex-col items-center justify-center gap-6">
+                            <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center border border-slate-100 text-slate-200 shadow-inner">
+                                <i className="fas fa-user-slash text-4xl"></i>
+                            </div>
+                            <div className="space-y-2">
+                                <h4 className="text-slate-400 font-black text-xs uppercase tracking-[0.5em]">No Mentors Identified</h4>
+                                <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Try a different search or onboard a new institutional partner</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <DataTable 
+                            columns={columns} 
+                            data={supervisors} 
+                            loading={loading}
+                        />
+                    )}
                 </div>
-            </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="p-8 bg-slate-50/50 flex items-center justify-between border-t border-slate-100 rounded-b-[32px]">
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-400 mb-1 uppercase tracking-wider">Page Statistics</span>
-                        <span className="text-xs font-black text-slate-800 mt-1">Page {page} <span className="text-slate-300 font-medium mx-1 text-[10px]">OF</span> {totalPages}</span>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="p-8 bg-slate-50/30 flex items-center justify-between border-t border-slate-50">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Navigation Status</span>
+                            <span className="text-xs font-black text-slate-900 uppercase mt-1 tracking-tighter italic">Registry Page {page} <span className="text-slate-300 not-italic mx-1">OF</span> {totalPages}</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={page === 1 || loading}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all disabled:opacity-30 cursor-pointer"
+                            >
+                                <i className="fas fa-arrow-left mr-2"></i> Previous
+                            </button>
+                            <button
+                                disabled={page === totalPages || loading}
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all disabled:opacity-30 cursor-pointer"
+                            >
+                                Next <i className="fas fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex gap-3">
-                        <button
-                            disabled={page === 1}
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary transition-all disabled:opacity-30"
-                        >
-                            <i className="fas fa-chevron-left text-xs"></i>
-                        </button>
-                        <button
-                            disabled={page === totalPages}
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary transition-all disabled:opacity-30"
-                        >
-                            <i className="fas fa-chevron-right text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Edit Modal */}
             {showEditModal && (

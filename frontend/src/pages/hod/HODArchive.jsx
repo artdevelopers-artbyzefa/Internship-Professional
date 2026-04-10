@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Card from '../../components/ui/Card.jsx';
 import { apiRequest } from '../../utils/api.js';
 import { DataTable, TableRow, TableCell } from '../../components/ui/DataTable.jsx';
+import { showToast, showAlert } from '../../utils/notifications.jsx';
 
 // ── Tab Component ──────────────────────────────────────────────────────────
 function Tab({ active, label, icon, onClick, count }) {
@@ -118,8 +119,13 @@ export default function HODArchive() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const [searchTerm, setSearchTerm] = useState('');
-    const [exportingPDF, setExportingPDF] = useState(false);
     const [exportingExcel, setExportingExcel] = useState(false);
+
+    // Selection & Management State
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [fetchingDetailId, setFetchingDetailId] = useState(null);
 
     useEffect(() => {
         apiRequest('/office/archives')
@@ -127,6 +133,36 @@ export default function HODArchive() {
             .catch(() => { })
             .finally(() => setLoading(false));
     }, []);
+
+    // ... (other useMemos)
+
+    const handleArchiveClick = async (arc) => {
+        if (isSelectionMode) {
+            toggleSelection(arc._id);
+            return;
+        }
+
+        // If it's a live snapshot or we already have the details (students list is present), just select it
+        if (arc.isLive || (arc.students && arc.students.length > 0)) {
+            setSelected(arc);
+            setActiveTab('overview');
+            return;
+        }
+
+        // Fetch full details for historical archives
+        setFetchingDetailId(arc._id);
+        try {
+            const fullArc = await apiRequest(`/office/archives/${arc._id}`);
+            // Update the local archives state to cache the details
+            setArchives(prev => prev.map(a => a._id === arc._id ? fullArc : a));
+            setSelected(fullArc);
+            setActiveTab('overview');
+        } catch (err) {
+            showToast.error("Failed to load archive details");
+        } finally {
+            setFetchingDetailId(null);
+        }
+    };
 
     // ── Derived Snapshot Data ───────────────────────────────────────────────
     const entities = useMemo(() => {
@@ -160,46 +196,14 @@ export default function HODArchive() {
             .sort((a, b) => a.percentage - b.percentage);
     }, [selected]);
 
-    const handleExportPDF = async () => {
-        if (selected.pdfUrl) {
-            window.open(selected.pdfUrl, '_blank');
-            return;
+    const handleExportPDF = () => {
+        if (selected._id === 'live-snapshot-id') {
+            // Live snapshot: open the same premium report as the main page
+            window.open('/hod/premium-report-preview', '_blank');
+        } else {
+            // Archived cycle: open premium report with archiveId
+            window.open(`/hod/premium-report-preview?archiveId=${selected._id}`, '_blank');
         }
-        setExportingPDF(true);
-        try {
-            const payload = {
-                archiveId: selected._id === 'live-snapshot-id' ? null : selected._id,
-                stats: {
-                    total: selected.statistics?.totalStudents || 0,
-                    participating: selected.statistics?.totalParticipated || 0,
-                    physical: selected.statistics?.totalPhysical || 0,
-                    freelance: selected.statistics?.totalFreelance || 0,
-                    ineligible: selected.statistics?.totalIneligible || 0,
-                    passed: selected.statistics?.totalPassed || 0,
-                    failed: selected.statistics?.totalFailed || 0,
-                    avgPct: selected.statistics?.averagePercentage || 0,
-                    avgGrade: 'N/A'
-                },
-                charts: {}, // Images not supported yet for background archival
-                tables: {
-                    faculty: (entities?.faculty || []).map(f => [f.name, f.students?.length || 0, 'N/A', 'N/A']),
-                    students: selected.students.map(s => [
-                        s.reg, s.name, s.phone || 'N/A', s.email || 'N/A',
-                        s.faculty?.name || 'N/A', s.siteSupervisor?.name || 'N/A',
-                        s.company || 'N/A', s.mode || 'N/A', s.avgMarks, s.percentage, s.grade, s.finalStatus
-                    ])
-                }
-            };
-            const res = await apiRequest('/reports/hod-full-report', { method: 'POST', body: payload });
-            if (res.url) {
-                window.open(res.url, '_blank');
-                if (selected._id !== 'live-snapshot-id') {
-                    setSelected(prev => ({ ...prev, pdfUrl: res.url }));
-                    setArchives(prev => prev.map(a => a._id === selected._id ? { ...a, pdfUrl: res.url } : a));
-                }
-            }
-        } catch (err) { } 
-        finally { setExportingPDF(false); }
     };
 
     const handleExportExcel = async () => {
@@ -237,6 +241,71 @@ export default function HODArchive() {
     useEffect(() => {
         setSPage(0);
     }, [searchTerm, selected]);
+
+    const toggleSelection = (id) => {
+        if (id === 'live-snapshot-id') return; // Cannot select live snapshot for deletion
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAll = () => {
+        const selectableIds = archives.filter(a => !a.isLive).map(a => a._id);
+        if (selectedIds.length === selectableIds.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(selectableIds);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+
+        const confirmed = await showAlert.confirm(
+            'Delete Selected Archives?',
+            `You are about to permanently delete ${selectedIds.length} archive cycles. This action cannot be undone.`,
+            'Yes, Delete'
+        );
+
+        if (confirmed) {
+            setIsDeleting(true);
+            try {
+                await apiRequest('/office/archives/bulk-delete', {
+                    method: 'DELETE',
+                    body: { ids: selectedIds }
+                });
+                showToast.success('Archives deleted successfully');
+                setArchives(prev => prev.filter(a => !selectedIds.includes(a._id)));
+                setSelectedIds([]);
+                setIsSelectionMode(false);
+            } catch (err) {
+                showToast.error('Failed to delete archives');
+            } finally {
+                setIsDeleting(false);
+            }
+        }
+    };
+
+    const handleSingleDelete = async (e, arc) => {
+        e.stopPropagation();
+        if (arc.isLive) return;
+
+        const confirmed = await showAlert.confirm(
+            'Delete Archive?',
+            `Are you sure you want to delete "${arc.cycleName}"?`,
+            'Delete'
+        );
+
+        if (confirmed) {
+            try {
+                await apiRequest(`/office/archives/${arc._id}`, { method: 'DELETE' });
+                showToast.success('Archive deleted');
+                setArchives(prev => prev.filter(a => a._id !== arc._id));
+            } catch (err) {
+                showToast.error('Failed to delete archive');
+            }
+        }
+    };
 
     if (loading) return <div className="py-32 text-center"><i className="fas fa-circle-notch fa-spin text-primary text-4xl"></i><p className="mt-4 text-xs font-medium text-gray-400">Loading archive data...</p></div>;
 
@@ -351,11 +420,10 @@ export default function HODArchive() {
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={handleExportPDF}
-                                disabled={exportingPDF}
-                                className="flex items-center gap-3 px-6 py-3 bg-rose-50 text-rose-600 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-rose-100 transition-all disabled:opacity-50"
+                                className="flex items-center gap-3 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-black transition-all shadow-lg shadow-slate-900/10"
                             >
-                                {exportingPDF ? <i className="fas fa-circle-notch fa-spin" /> : <i className="fas fa-file-pdf" />}
-                                PDF Report
+                                <i className="fas fa-crown text-amber-400" />
+                                Premium Report
                             </button>
                             <button
                                 onClick={handleExportExcel}
@@ -710,17 +778,51 @@ export default function HODArchive() {
         <div className="space-y-10">
             <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">HOD Oversight Dashboard</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Past Internships Oversights</h2>
                     <p className="text-sm text-gray-500 mt-1">Final approval and quality assurance of internship evaluations (CS Dept).</p>
                 </div>
                 
-                <div className="flex items-center gap-4 bg-gray-50/50 p-2 pr-6 rounded-2xl border border-gray-100">
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-gray-100">
-                        <i className="fas fa-database text-lg" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Institutional Memory</p>
-                        <p className="text-sm font-bold text-gray-900 leading-none">{archives.filter(a => !a.isLive).length} Archived Cycles</p>
+                <div className="flex items-center gap-4">
+                    {!isSelectionMode ? (
+                        <button 
+                            onClick={() => setIsSelectionMode(true)}
+                            className="px-6 py-3 bg-gray-50 text-gray-500 rounded-xl font-bold text-[10px]  tracking-widest hover:bg-gray-100 transition-all border border-gray-100"
+                        >
+                            <i className="fas fa-tasks mr-2" /> Manage Archive
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={handleSelectAll}
+                                className="px-5 py-3 bg-primary/5 text-primary rounded-xl font-bold text-[10px]  tracking-widest hover:bg-primary/10 transition-all border border-primary/10"
+                            >
+                                {selectedIds.length === archives.filter(a => !a.isLive).length ? 'Deselect All' : 'Select All'}
+                            </button>
+                            <button 
+                                onClick={handleBulkDelete}
+                                disabled={selectedIds.length === 0 || isDeleting}
+                                className="px-5 py-3 bg-rose-50 text-rose-600 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100 disabled:opacity-50"
+                            >
+                                {isDeleting ? <i className="fas fa-circle-notch fa-spin mr-2" /> : <i className="fas fa-trash-alt mr-2" />}
+                                Delete ({selectedIds.length})
+                            </button>
+                            <button 
+                                onClick={() => { setIsSelectionMode(false); setSelectedIds([]); }}
+                                className="w-12 h-12 flex items-center justify-center bg-gray-900 text-white rounded-xl hover:bg-black transition-all"
+                            >
+                                <i className="fas fa-times" />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-4 bg-gray-50/50 p-2 pr-6 rounded-2xl border border-gray-100 ml-4">
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-gray-100">
+                            <i className="fas fa-database text-lg" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Institutional Memory</p>
+                            <p className="text-sm font-bold text-gray-900 leading-none">{archives.filter(a => !a.isLive).length} Archived Cycles</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -730,9 +832,41 @@ export default function HODArchive() {
                     archives.map(arc => (
                         <div 
                             key={arc._id} 
-                            onClick={() => { setSelected(arc); setActiveTab('overview'); }} 
-                            className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:border-primary hover:shadow-md transition-all cursor-pointer group"
+                            onClick={() => handleArchiveClick(arc)} 
+                            className={`bg-white p-6 rounded-2xl border transition-all cursor-pointer group relative overflow-hidden
+                                ${isSelectionMode ? 'hover:scale-[1.02]' : 'hover:border-primary hover:shadow-md'}
+                                ${selectedIds.includes(arc._id) ? 'border-primary ring-4 ring-primary/5 bg-primary/[0.02]' : 'border-gray-100 shadow-sm'}
+                                ${fetchingDetailId === arc._id ? 'opacity-70 pointer-events-none' : ''}
+                            `}
                         >
+                            {/* Loading Overlay for Fetching Details */}
+                            {fetchingDetailId === arc._id && (
+                                <div className="absolute inset-0 z-20 bg-white/40 flex items-center justify-center backdrop-blur-[1px]">
+                                    <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                </div>
+                            )}
+
+                            {/* Selection Overlay */}
+                            {isSelectionMode && !arc.isLive && (
+                                <div className="absolute top-4 left-4 z-10">
+                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedIds.includes(arc._id) ? 'bg-primary border-primary text-white' : 'bg-white border-gray-200'}`}>
+                                        {selectedIds.includes(arc._id) && <i className="fas fa-check text-[10px]" />}
+                                    </div>
+                                </div>
+                            )}
+
+                            {!isSelectionMode && !arc.isLive && (
+                                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                        onClick={(e) => handleSingleDelete(e, arc)}
+                                        className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-400 rounded-lg hover:bg-rose-50 hover:text-rose-500 transition-all shadow-sm border border-gray-100"
+                                        title="Delete Archive"
+                                    >
+                                        <i className="fas fa-trash-alt text-xs" />
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="flex items-center justify-between mb-6">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg ${arc.isLive ? 'bg-rose-50 text-rose-500' : 'bg-gray-50 text-gray-400'}`}>
                                     <i className={`fas ${arc.isLive ? 'fa-signal' : 'fa-archive'}`} />

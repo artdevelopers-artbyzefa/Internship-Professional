@@ -21,6 +21,8 @@ const HomePage = () => {
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [selectedNotice, setSelectedNotice] = useState(null);
+
   useEffect(() => {
     const fetchPublicNotices = async () => {
       try {
@@ -40,7 +42,6 @@ const HomePage = () => {
   }, []);
 
   const scrollToSection = (id) => {
-    setMobileMenuOpen(false);
     const element = document.getElementById(id);
     if (element) {
       const offset = 80;
@@ -51,12 +52,73 @@ const HomePage = () => {
         top: offsetPosition,
         behavior: 'smooth'
       });
-      setIsMenuOpen(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-lightbg font-poppins selection:bg-primary/20 selection:text-primary">
+      {/* Modal Overlay */}
+      {selectedNotice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300 custom-scrollbar">
+            <div className="p-8 sm:p-12 relative">
+              <button 
+                onClick={() => setSelectedNotice(null)}
+                className="absolute top-8 right-8 w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all hover:bg-gray-100"
+              >
+                <ArrowRight className="w-5 h-5 rotate-180" />
+              </button>
+
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
+                  <Bell className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">Official Announcement</p>
+                  <p className="text-xs font-bold text-gray-400">
+                    {new Date(selectedNotice.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+
+              <h2 className="text-3xl font-black text-gray-900 mb-6 leading-tight break-words">{selectedNotice.title}</h2>
+              
+              <div className="prose prose-blue max-w-none">
+                <p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap break-words">
+                  {selectedNotice.content}
+                </p>
+              </div>
+
+              {selectedNotice.links?.length > 0 && (
+                <div className="mt-10 pt-10 border-t border-gray-100">
+                  <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-4">Related Links</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {selectedNotice.links.map((link, idx) => (
+                      <a 
+                        key={idx}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-xl bg-gray-50 text-primary text-xs font-bold hover:bg-blue-50 transition-all flex items-center gap-2"
+                      >
+                        {link.title} <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button 
+                onClick={() => setSelectedNotice(null)}
+                className="mt-12 w-full py-5 bg-gray-900 text-white font-black rounded-2xl hover:bg-blue-900 transition-all"
+              >
+                Close Announcement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-blue-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -245,9 +307,6 @@ const HomePage = () => {
               <h2 className="text-sm font-black text-blue-400 uppercase tracking-[0.3em] mb-4">Latest Updates</h2>
               <h3 className="text-4xl font-black leading-tight">University Announcements <br /> & Program News</h3>
             </div>
-            <button className="text-sm font-black bg-white/10 hover:bg-white/20 px-6 py-3 rounded-full transition-all flex items-center gap-2">
-              View All News <ExternalLink className="w-4 h-4" />
-            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -255,20 +314,21 @@ const HomePage = () => {
               [1, 2, 3].map(i => <div key={i} className="h-64 rounded-3xl bg-white/5 animate-pulse"></div>)
             ) : notices.length > 0 ? (
               notices.map((notice, i) => (
-                <div key={i} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] hover:bg-white/10 transition-all group">
+                <div key={i} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] hover:bg-white/10 transition-all group flex flex-col">
                   <div className="flex items-center gap-3 mb-6 text-blue-400">
                     <Bell className="w-4 h-4" />
                     <span className="text-[10px] font-black uppercase tracking-widest">
                       {new Date(notice.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                     </span>
                   </div>
-                  <h4 className="text-xl font-bold mb-4 line-clamp-2 group-hover:text-blue-400 transition-colors">{notice.title}</h4>
-                  <p className="text-gray-400 text-sm leading-relaxed mb-8 line-clamp-3">{notice.content}</p>
+                  <h4 className="text-xl font-bold mb-4 line-clamp-2 group-hover:text-blue-400 transition-colors break-words">{notice.title}</h4>
+                  <p className="text-gray-400 text-sm leading-relaxed mb-8 line-clamp-3 font-medium break-words">{notice.content}</p>
                   <button 
-                    className="flex items-center gap-2 text-sm font-bold text-white group-hover:gap-4 transition-all focus:outline-none focus:underline"
+                    onClick={() => setSelectedNotice(notice)}
+                    className="mt-auto flex items-center gap-2 text-sm font-bold text-white group-hover:gap-4 transition-all focus:outline-none focus:underline hover:text-blue-400"
                     aria-label={`Read full notice: ${notice.title}`}
                   >
-                    Read Full Notice <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                    Read Full News <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
               ))
@@ -372,6 +432,19 @@ const HomePage = () => {
         }
         .font-poppins {
           font-family: 'Poppins', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #e2e8f0;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #cbd5e1;
         }
       ` }} />
     </div>

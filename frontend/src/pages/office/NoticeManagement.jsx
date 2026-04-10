@@ -12,6 +12,8 @@ export default function NoticeManagement({ user }) {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     // Form state
     const [form, setForm] = useState({
@@ -177,6 +179,72 @@ export default function NoticeManagement({ user }) {
         }
     };
 
+    const handleClearHistory = async () => {
+        if (notices.length === 0) return;
+        
+        const confirmed = await showAlert.confirm(
+            'Clear Entire Archive?', 
+            'This will permanently delete ALL notices from the system history. This action cannot be undone.', 
+            'Wipe Everything'
+        );
+        
+        if (!confirmed) return;
+
+        try {
+            setLoading(true);
+            await apiRequest('/notices/bulk/clear', { method: 'DELETE' });
+            setNotices([]);
+            showToast.success('Archive cleared successfully');
+        } catch (err) {
+            setError('Wipe failed: ' + (err.message || 'Unknown error'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+
+        const confirmed = await showAlert.confirm(
+            `Delete ${selectedIds.length} Notices?`,
+            'The selected announcements will be permanently removed for all users.',
+            'Confirm Delete'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            setLoading(true);
+            await apiRequest('/notices/bulk/delete', {
+                method: 'DELETE',
+                body: JSON.stringify({ ids: selectedIds })
+            });
+
+            showToast.success('Selected notices deleted');
+            setSelectedIds([]);
+            setIsSelectionMode(false);
+            fetchNotices();
+        } catch (err) {
+            setError('Bulk delete failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleSelection = (id) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === notices.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(notices.map(n => n._id));
+        }
+    };
+
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between bg-white p-6 rounded-2xl border shadow-sm">
@@ -184,18 +252,71 @@ export default function NoticeManagement({ user }) {
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">Institutional Announcements</h2>
                     <p className="text-sm text-gray-500">Broadcast updates to students and supervisors.</p>
                 </div>
-                <button
-                    onClick={() => {
-                        if (showAddForm) resetForm();
-                        setShowAddForm(!showAddForm);
-                    }}
-                    aria-label={showAddForm ? 'Close announcement editor' : 'Create new announcement'}
-                    aria-expanded={showAddForm}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all h-fit ${showAddForm ? 'bg-gray-100 text-gray-600' : 'bg-primary text-white shadow-lg shadow-blue-600/20'}`}
-                >
-                    <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`} aria-hidden="true"></i>
-                    <span className="text-sm">{showAddForm ? 'Close Editor' : 'Post Announcement'}</span>
-                </button>
+                <div className="flex items-center gap-4">
+                    {notices.length > 0 && !isSelectionMode && (
+                        <button
+                            onClick={() => setIsSelectionMode(true)}
+                            className="flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all text-gray-600 bg-gray-50 hover:bg-gray-100 active:scale-95 border border-gray-200"
+                        >
+                            <i className="fas fa-tasks text-xs" aria-hidden="true"></i>
+                            <span className="text-sm">Manage Archive</span>
+                        </button>
+                    )}
+
+                    {isSelectionMode && (
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={toggleSelectAll}
+                                className="text-sm font-bold text-primary hover:underline"
+                            >
+                                {selectedIds.length === notices.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                            {selectedIds.length > 0 && (
+                                <button
+                                    onClick={handleBulkDelete}
+                                    disabled={loading}
+                                    className="flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all text-white bg-red-600 hover:bg-red-700 active:scale-95 shadow-lg shadow-red-200"
+                                >
+                                    <i className="fas fa-trash-alt text-xs" aria-hidden="true"></i>
+                                    <span className="text-sm">Delete ({selectedIds.length})</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={() => {
+                                    setIsSelectionMode(false);
+                                    setSelectedIds([]);
+                                }}
+                                className="px-5 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-50 border border-transparent"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+
+                    {!isSelectionMode && notices.length > 0 && (
+                        <button
+                            onClick={handleClearHistory}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all text-red-600 bg-red-50 hover:bg-red-100 active:scale-95 border border-red-200"
+                        >
+                            <i className="fas fa-history text-xs" aria-hidden="true"></i>
+                            <span className="text-sm">Clear Archive</span>
+                        </button>
+                    )}
+                    
+                    {!isSelectionMode && (
+                        <button
+                            onClick={() => {
+                                if (showAddForm) resetForm();
+                                setShowAddForm(!showAddForm);
+                            }}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95 ${showAddForm ? 'bg-gray-800 text-white' : 'bg-primary text-white shadow-blue-600/20'}`}
+                        >
+                            <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'} text-xs`} aria-hidden="true"></i>
+                            <span className="text-sm">{showAddForm ? 'Close Editor' : 'Post New Announcement'}</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className={`grid transition-all duration-500 ease-in-out ${showAddForm ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 overflow-hidden'}`}>
@@ -353,6 +474,15 @@ export default function NoticeManagement({ user }) {
                                 <button type="button" onClick={resetForm} className="px-8 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-all border-0 bg-transparent cursor-pointer">
                                     Discard Changes
                                 </button>
+                                {editingId && (
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleDelete(editingId)} 
+                                        className="px-8 py-3 rounded-xl font-bold text-red-500 hover:bg-red-50 transition-all border border-red-100 bg-transparent cursor-pointer"
+                                    >
+                                        Delete Forever
+                                    </button>
+                                )}
                                 <Button variant="primary" type="submit" loading={loading} className="px-12 py-3">
                                     {editingId ? 'Save & Sync Announcement' : 'Publish to Target Audience'}
                                 </Button>
@@ -364,15 +494,43 @@ export default function NoticeManagement({ user }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {notices.map(n => (
-                    <div key={n._id} className="bg-white rounded-2xl p-6 shadow-sm border hover:shadow-xl hover:border-primary transition-all group cursor-pointer" onClick={() => handleEditClick(n)}>
+                    <div 
+                        key={n._id} 
+                        className={`bg-white rounded-2xl p-6 shadow-sm border transition-all group relative ${isSelectionMode ? 'cursor-default' : 'cursor-pointer hover:shadow-xl hover:border-primary'}`} 
+                        onClick={() => !isSelectionMode && handleEditClick(n)}
+                    >
+                        {isSelectionMode && (
+                            <div className="absolute top-4 right-4 z-10">
+                                <input 
+                                    type="checkbox" 
+                                    checked={selectedIds.includes(n._id)}
+                                    onChange={() => toggleSelection(n._id)}
+                                    className="w-5 h-5 rounded-lg border-2 border-gray-300 text-primary focus:ring-primary cursor-pointer transition-all checked:scale-110"
+                                />
+                            </div>
+                        )}
                         <div className="flex items-center justify-between mb-4">
-                            <span className="text-[10px] bg-blue-50 text-primary px-2 py-0.5 rounded-full font-bold tracking-wider">
+                            <span className="text-[10px] bg-blue-50 text-primary px-2 py-0.5 rounded-full font-bold tracking-wider uppercase">
                                 {n.targetType.replace('_', ' ')}
                             </span>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={(e) => { e.stopPropagation(); handleEditClick(n); }} className="text-primary hover:scale-110 trans"><i className="fas fa-edit"></i></button>
-                                <button onClick={(e) => { e.stopPropagation(); handleDelete(n._id); }} className="text-red-400 hover:scale-110 trans"><i className="fas fa-trash"></i></button>
-                            </div>
+                            {!isSelectionMode && (
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleEditClick(n); }} 
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-primary hover:bg-primary hover:text-white transition-all transform active:scale-90"
+                                        title="Edit Announcement"
+                                    >
+                                        <i className="fas fa-edit text-xs"></i>
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(n._id); }} 
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all transform active:scale-90"
+                                        title="Delete Forever"
+                                    >
+                                        <i className="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <h3 className="font-bold text-gray-800 line-clamp-1 mb-2">{n.title}</h3>
                         <p className="text-xs text-gray-600 line-clamp-2 mb-4">{n.content}</p>

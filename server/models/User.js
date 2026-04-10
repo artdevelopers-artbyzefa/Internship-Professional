@@ -105,7 +105,7 @@ const userSchema = new mongoose.Schema({
             'Pending Activation', 'Active', 'Inactive',
             'Pass', 'Fail'
         ],
-        default: 'unverified'
+        default: 'verified'
     },
 
     fatherName: { type: String, trim: true },

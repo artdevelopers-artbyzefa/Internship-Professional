@@ -112,6 +112,65 @@ router.patch('/:id/notes', asyncHandler(async (req, res) => {
     res.json({ message: 'Notes saved.' });
 }));
 
+/**
+ * @swagger
+ * /phases/{id}/reverse:
+ *   post:
+ *     summary: Reverse a phase status (completed -> active or active -> pending)
+ *     tags: [Phases]
+ */
+router.post('/:id/reverse', asyncHandler(async (req, res) => {
+    const { officeId } = req.body;
+    const phase = await Phase.findById(req.params.id);
+    if (!phase) return res.status(404).json({ message: 'Phase not found.' });
+
+    const currentStatus = phase.status;
+    let oldStatus = currentStatus;
+    let newStatus = '';
+
+    if (currentStatus === 'completed') {
+        phase.status = 'active';
+        phase.completedAt = null;
+        phase.completedBy = null;
+        newStatus = 'active';
+        
+        const nextPhase = await Phase.findOne({ order: phase.order + 1 });
+        if (nextPhase && (nextPhase.status === 'active' || nextPhase.status === 'completed')) {
+            nextPhase.status = 'pending';
+            nextPhase.startedAt = null;
+            nextPhase.startedBy = null;
+            nextPhase.completedAt = null;
+            nextPhase.completedBy = null;
+            await nextPhase.save();
+        }
+    } else if (currentStatus === 'active') {
+        phase.status = 'pending';
+        phase.startedAt = null;
+        phase.startedBy = null;
+        newStatus = 'pending';
+
+        const prevPhase = await Phase.findOne({ order: phase.order - 1 });
+        if (prevPhase && prevPhase.status === 'completed') {
+            prevPhase.status = 'active';
+            prevPhase.completedAt = null;
+            prevPhase.completedBy = null;
+            await prevPhase.save();
+        }
+    } else {
+        return res.status(400).json({ message: 'Only active or completed phases can be reversed.' });
+    }
+
+    await phase.save();
+    await new AuditLog({ 
+        action: 'PHASE_REVERSED', 
+        performedBy: officeId || null, 
+        details: `Phase "${phase.label}" reversed from ${oldStatus} to ${newStatus}.`, 
+        ipAddress: req.ip 
+    }).save();
+
+    res.json({ message: `"${phase.label}" status reversed to ${newStatus}.` });
+}));
+
 // ── Default phase definitions ─────────────────────────────────────────────
 const DEFAULT_PHASES = [
     { key: 'registration', label: 'Phase 1: Student Registration', description: 'The Internship Office registers student accounts and the portal is open for login.', icon: 'fa-user-plus', order: 1 },

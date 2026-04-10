@@ -12,6 +12,7 @@ export default function SignupPage({ onBack }) {
   const [form, setForm] = useState({
     name: '', reg: '', semester: '1', cgpa: '',
     email: '', password: '', confirmPw: '',
+    fatherName: '', section: '', whatsappNumber: '',
     role: 'student'
   });
 
@@ -39,13 +40,16 @@ export default function SignupPage({ onBack }) {
       e.email = 'Must be an institutional email (@cuiatd.edu.pk)';
     }
     if (!validate.required(form.name)) e.name = 'Full name is required';
+    if (!validate.required(form.fatherName)) e.fatherName = 'Father name is required';
+    if (!validate.required(form.section)) e.section = 'Section is required';
     if (!form.reg) e.reg = 'Registration number could not be extracted from email';
     setErrors(e); return !Object.keys(e).length;
   };
 
   const validateStep2 = () => {
-    // Confirm Identity step - always proceeds
-    return true;
+    const e = {};
+    if (!validate.required(form.whatsappNumber)) e.whatsappNumber = 'WhatsApp number is required';
+    setErrors(e); return !Object.keys(e).length;
   };
 
   const validateStep3 = () => {
@@ -113,7 +117,7 @@ export default function SignupPage({ onBack }) {
 
         {apiError && <Alert type="danger" className="mb-4">{apiError}</Alert>}
 
-        <StepWizard steps={['Academic', 'Credentials', 'Security']} current={step} />
+        <StepWizard steps={['Academic', 'Personal', 'Security']} current={step} />
 
         {step === 1 && <>
           <FormGroup label="Institutional Email" error={errors.email}>
@@ -145,6 +149,19 @@ export default function SignupPage({ onBack }) {
           </FormGroup>
 
           <div className="grid grid-cols-2 gap-4">
+            <FormGroup label="Father Name" error={errors.fatherName}>
+              <TextInput iconLeft="fa-user-tie" placeholder="Father Name"
+                value={form.fatherName} onChange={e => setForm({ ...form, fatherName: e.target.value })} />
+            </FormGroup>
+            <FormGroup label="Section" error={errors.section}>
+              <SelectInput iconLeft="fa-users-rectangle" value={form.section} onChange={e => setForm({ ...form, section: e.target.value })}>
+                <option value="">Select</option>
+                {['A', 'B', 'C', 'D', 'E'].map(s => <option key={s} value={s}>Section {s}</option>)}
+              </SelectInput>
+            </FormGroup>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <FormGroup label="Semester">
               <SelectInput iconLeft="fa-layer-group" value={form.semester} onChange={e => setForm({ ...form, semester: e.target.value })}>
                 {[1, 2, 3, 4, 5, 6, 7, 8].map(s => <option key={s} value={s}>Semester {s}</option>)}
@@ -158,6 +175,11 @@ export default function SignupPage({ onBack }) {
         </>}
 
         {step === 2 && <>
+          <FormGroup label="WhatsApp Number" error={errors.whatsappNumber}>
+            <TextInput iconLeft="fa-whatsapp" placeholder="e.g. 03XXXXXXXXX"
+              value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} />
+          </FormGroup>
+
           <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 mb-4 text-center">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-primary text-2xl shadow-inner">
               <i className="fas fa-check-double"></i>

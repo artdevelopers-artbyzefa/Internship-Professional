@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../../utils/api.js';
 
 export default function PremiumReportPreview() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const archiveId = searchParams.get('archiveId');
 
     useEffect(() => {
-        apiRequest('/reports/hod-premium-stats')
+        const endpoint = archiveId
+            ? `/reports/hod-premium-stats/${archiveId}`
+            : '/reports/hod-premium-stats';
+        apiRequest(endpoint)
             .then(res => {
                 setData(res);
                 setLoading(false);
             })
             .catch(() => setLoading(false));
-    }, []);
+    }, [archiveId]);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -27,6 +32,9 @@ export default function PremiumReportPreview() {
             Critical Error: Unable to fetch institutional datasets. Contact system administrator.
         </div>
     );
+
+    const isArchive = !!archiveId;
+    const cycleLabel = data.cycleName || `${new Date().getFullYear()} internship cycle`;
 
     return (
         <div className="min-h-screen bg-slate-100 py-10 print:py-0 print:bg-white selection:bg-slate-200">
@@ -55,6 +63,7 @@ export default function PremiumReportPreview() {
                             </div>
                         </div>
                         <div className="text-right">
+                            {isArchive && <div className="text-[9px] font-black text-amber-500 mb-1 uppercase tracking-wider">Archived Cycle Report</div>}
                             <div className="text-[10px] font-black text-slate-400 mb-1">Internal audit log</div>
                             <div className="text-sm font-mono font-bold text-slate-800">{data.generatedAt.date}</div>
                         </div>
@@ -65,7 +74,7 @@ export default function PremiumReportPreview() {
                         <h2 className="text-3xl font-extrabold text-slate-900 mb-4">Official Internship Performance Report</h2>
                         <div className="w-20 h-1.5 bg-slate-900 mb-6" />
                         <p className="text-slate-600 leading-relaxed text-sm max-w-2xl">
-                            This document serves as the official analytical record of the {new Date().getFullYear()} internship cycle. 
+                            This document serves as the official analytical record of the {cycleLabel}. 
                             It includes system objectives, role responsibilities, workflow compliance, and academic performance metrics required for HEC accreditation.
                         </p>
                     </div>
@@ -252,7 +261,7 @@ export default function PremiumReportPreview() {
                                     <th className="px-4 py-3 font-bold text-slate-700">Organization</th>
                                     <th className="px-4 py-3 font-bold text-slate-700">Interns Subscribed</th>
                                     <th className="px-4 py-3 font-bold text-slate-700">Mid/Final Evals</th>
-                                    <th className="px-4 py-3 font-bold text-slate-700">Last Active</th>
+                                    <th className="px-4 py-3 font-bold text-slate-700">Avg Score Given</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
@@ -262,7 +271,7 @@ export default function PremiumReportPreview() {
                                         <td className="px-4 py-4 text-slate-500 font-medium">{ss.company}</td>
                                         <td className="px-4 py-4 font-bold text-slate-600">{ss.students}</td>
                                         <td className="px-4 py-4 font-bold text-emerald-600">{ss.evalsCompleted}</td>
-                                        <td className="px-4 py-4 text-slate-400 font-mono tracking-tight">{ss.lastActivity !== 'N/A' ? new Date(ss.lastActivity).toLocaleDateString() : '—'}</td>
+                                        <td className="px-4 py-4 font-bold text-indigo-600">{ss.avgScoreGiven}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -353,6 +362,39 @@ export default function PremiumReportPreview() {
                                     ))}
                                     {data.buckets.bottom.length === 0 && (
                                         <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-400 italic font-bold">No academic exceptions detected in the current cycle.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    {/* Sub-report E: Full Comprehensive Master Ledger */}
+                    <section className="mb-20 page-break-before">
+                        <h3 className="text-xs font-black text-slate-400 mb-4">Report E: Full Comprehensive Master Ledger</h3>
+                        <div className="border rounded-2xl overflow-hidden shadow-sm">
+                            <table className="w-full text-xs text-left">
+                                <thead className="bg-slate-900 text-white">
+                                    <tr>
+                                        {['Student Identity', 'Reg. No', 'Organization', 'Final Grade'].map(h => (
+                                            <th key={h} className="px-4 py-3 font-bold">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {data.allStudentsList.map(s => (
+                                        <tr key={s.reg} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-4 py-4 font-black text-slate-900">{s.name}</td>
+                                            <td className="px-4 py-4 font-mono font-bold text-slate-500">{s.reg}</td>
+                                            <td className="px-4 py-4 text-slate-600 font-medium">{s.company}</td>
+                                            <td className="px-4 py-4 font-black">
+                                                <span className={`px-2 py-0.5 rounded ${s.grade === 'F' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                    {s.grade}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {data.allStudentsList.length === 0 && (
+                                        <tr><td colSpan="4" className="px-4 py-8 text-center text-slate-400 italic font-bold">No students registered in the current cycle.</td></tr>
                                     )}
                                 </tbody>
                             </table>

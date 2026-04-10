@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../utils/api.js';
 import { showToast } from '../../utils/notifications.jsx';
 
+
 function CompanySection({ student, officeId, onUpdate, mouCompanies }) {
     const req = student.internshipRequest;
     const isUniversityAssigned = req?.type === 'University Assigned';
@@ -67,22 +68,59 @@ function CompanySection({ student, officeId, onUpdate, mouCompanies }) {
     );
 }
 
-function SiteSupervisorSection({ student, officeId, onUpdate }) {
+const LoadingSkeleton = () => (
+    <div className="max-w-4xl mx-auto py-10 px-4 animate-pulse">
+        <div className="h-4 w-32 bg-slate-200 rounded-full mb-8"></div>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+            <div className="md:col-span-7 bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-sm">
+                <div className="h-40 bg-slate-900 border-b border-slate-800"></div>
+                <div className="p-10 grid grid-cols-2 gap-10">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="space-y-3">
+                            <div className="h-2 w-20 bg-slate-100 rounded-full"></div>
+                            <div className="h-5 w-32 bg-slate-200 rounded-xl"></div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="md:col-span-5 space-y-8">
+                <div className="bg-white border border-slate-200 rounded-[40px] overflow-hidden shadow-sm divide-y divide-emerald-50/50">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="p-8 space-y-4">
+                            <div className="flex gap-4 items-center">
+                                <div className="w-5 h-5 rounded-full bg-blue-50"></div>
+                                <div className="h-3 w-28 bg-slate-100 rounded-full"></div>
+                            </div>
+                            <div className="h-12 bg-slate-50/50 rounded-2xl border border-slate-50"></div>
+                        </div>
+                    ))}
+                </div>
+                <div className="h-20 bg-slate-100/50 rounded-[28px] border border-slate-100"></div>
+            </div>
+        </div>
+    </div>
+);
+
+function SiteSupervisorSection({ student, officeId, onUpdate, companies }) {
     const req = student.internshipRequest;
     const [sName, setSName] = useState(student.assignedCompanySupervisor || req?.siteSupervisorName || '');
     const [sEmail, setSEmail] = useState(student.assignedCompanySupervisorEmail || req?.siteSupervisorEmail || '');
     const [saving, setSaving] = useState(false);
-    const isAssigned = !!student.assignedCompanySupervisor;
+    
+    const selectedCompany = companies.find(c => c.name === student.assignedCompany);
+    const availableSupervisors = selectedCompany?.siteSupervisors || [];
 
-    const handleAssign = async () => {
-        if (!sName) return;
+    const handleAssign = async (name, email) => {
+        const finalName = name || sName.trim();
+        const finalEmail = email || sEmail.trim();
+        if (!finalName) return;
         setSaving(true);
         try {
             await apiRequest('/office/assign-site-supervisor', {
                 method: 'POST',
-                body: { studentId: student._id, siteSupervisorName: sName.trim(), siteSupervisorEmail: sEmail.trim(), officeId }
+                body: { studentId: student._id, siteSupervisorName: finalName, siteSupervisorEmail: finalEmail, officeId }
             });
-            onUpdate({ assignedCompanySupervisor: sName.trim(), assignedCompanySupervisorEmail: sEmail.trim() });
+            onUpdate({ assignedCompanySupervisor: finalName, assignedCompanySupervisorEmail: finalEmail });
             showToast.success('Updated');
         } catch (err) { 
             // Error handled by apiRequest
@@ -96,10 +134,30 @@ function SiteSupervisorSection({ student, officeId, onUpdate }) {
                 <h3 className="text-[10px] font-black text-blue-900 ">Site Supervisor</h3>
             </div>
             <div className="space-y-2">
-                <input value={sName} onChange={e => setSName(e.target.value)} placeholder="Name" className="w-full px-3 py-2 text-[11px] border border-slate-200 rounded-lg font-bold text-blue-900 focus:outline-none" />
+                {availableSupervisors.length > 0 && (
+                    <select 
+                        value={availableSupervisors.find(s => s.email === student.assignedCompanySupervisorEmail)?._id || ''}
+                        onChange={(e) => {
+                            const s = availableSupervisors.find(sup => sup._id === e.target.value);
+                            if (s) {
+                                setSName(s.name);
+                                setSEmail(s.email);
+                                handleAssign(s.name, s.email);
+                            }
+                        }}
+                        className="w-full px-3 py-2.5 text-[11px] border border-blue-100 rounded-xl font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-50 bg-blue-50/30 cursor-pointer transition-all hover:bg-blue-50/50"
+                    >
+                        <option value="">Select Linked Supervisor</option>
+                        {availableSupervisors.map(s => <option key={s._id} value={s._id}>{s.name} ({s.email})</option>)}
+                    </select>
+                )}
+                
+                <input value={sName} onChange={e => setSName(e.target.value)} placeholder="Full Name" className="w-full px-3 py-2 text-[11px] border border-slate-200 rounded-lg font-bold text-blue-900 focus:outline-none focus:border-blue-500" />
                 <div className="flex gap-2">
-                    <input value={sEmail} onChange={e => setSEmail(e.target.value)} placeholder="Email" className="flex-1 px-3 py-2 text-[11px] border border-slate-200 rounded-lg font-bold text-blue-900 focus:outline-none" />
-                    <button onClick={handleAssign} className="px-3 py-2 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase">Link</button>
+                    <input value={sEmail} onChange={e => setSEmail(e.target.value)} placeholder="Email Address" className="flex-1 px-3 py-2 text-[11px] border border-slate-200 rounded-lg font-bold text-blue-900 focus:outline-none focus:border-blue-500" />
+                    <button onClick={() => handleAssign()} disabled={saving} className="px-3 py-2 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase active:scale-95 transition-all">
+                        {saving ? <i className="fas fa-spinner fa-spin"></i> : 'Link'}
+                    </button>
                 </div>
             </div>
         </div>
@@ -181,7 +239,7 @@ export default function InternshipRequestDetail({ user }) {
         }
     };
 
-    if (loading) return <div className="p-20 text-center font-black text-blue-600 text-[10px]">Loading</div>;
+    if (loading) return <LoadingSkeleton />;
     if (!student) return null;
     const req = student.internshipRequest;
 
@@ -204,21 +262,86 @@ export default function InternshipRequestDetail({ user }) {
                         </div>
                     </div>
 
-                    <div className="p-8 grid grid-cols-2 gap-6">
+                    <div className="p-8 grid grid-cols-2 gap-6 relative">
                         <div>
-                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Internship Type</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1 uppercase">Internship Type</p>
                             <p className="text-sm font-black text-slate-900 ">{req?.mode || 'TBD'}</p>
                         </div>
                         <div>
-                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Start Date</p>
-                            <p className="text-sm font-black text-slate-900">{req?.startDate ? new Date(req.startDate).toLocaleDateString() : 'TBD'}</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1 uppercase flex items-center justify-between">
+                                Duration / Dates
+                                <button 
+                                    onClick={async () => {
+                                        const sd = await showAlert.datePrompt('Update Start Date', 'Select the new internship start date', req?.startDate ? new Date(req.startDate).toISOString().split('T')[0] : '');
+                                        if (sd === undefined) return;
+                                        const ed = await showAlert.datePrompt('Update End Date', 'Select the expected internship end date', req?.endDate ? new Date(req.endDate).toISOString().split('T')[0] : '');
+                                        if (ed === undefined) return;
+                                        
+                                        try {
+                                            await apiRequest('/office/update-internship-dates', {
+                                                method: 'POST',
+                                                body: { studentId: student._id, startDate: sd, endDate: ed, officeId }
+                                            });
+                                            showToast.success('Dates rescheduled');
+                                            fetchDetail();
+                                        } catch(e) {}
+                                    }}
+                                    className="text-[8px] font-black text-blue-600 hover:underline px-1"
+                                >
+                                    Reschedule
+                                </button>
+                            </p>
+                            <p className="text-[11px] font-black text-slate-900">
+                                {req?.startDate ? new Date(req.startDate).toLocaleDateString() : 'TBD'} 
+                                <span className="mx-1 text-slate-300">→</span>
+                                {req?.endDate ? new Date(req.endDate).toLocaleDateString() : 'TBD'}
+                            </p>
                         </div>
                         <div>
-                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Internship Title</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1 uppercase">Internship Title</p>
                             <p className="text-sm font-black text-slate-900 uppercase">{req?.companyName || 'WAITING'}</p>
                         </div>
                         <div>
-                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1">Status</p>
+                            <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1 uppercase flex items-center justify-between">
+                                Status
+                                <button 
+                                    onClick={async () => {
+                                        const statuses = [
+                                            'Internship Request Submitted',
+                                            'Internship Approved',
+                                            'Agreement Submitted - Self',
+                                            'Agreement Submitted - University Assigned',
+                                            'Agreement Approved',
+                                            'Assigned'
+                                        ];
+                                        const confirmed = await showAlert.confirm(
+                                            'Reverse Phase',
+                                            `Roll back ${student.name}'s status? This will effectively reverse their internship phase progression.`,
+                                            'Yes, Reverse'
+                                        );
+                                        if (!confirmed) return;
+                                        
+                                        const currentIndex = statuses.indexOf(student.status);
+                                        if (currentIndex <= 0) {
+                                            showToast.error('Cannot reverse further');
+                                            return;
+                                        }
+                                        
+                                        const newStatus = statuses[currentIndex - 1];
+                                        try {
+                                            await apiRequest('/office/reverse-student-status', {
+                                                method: 'POST',
+                                                body: { studentId: student._id, newStatus, officeId }
+                                            });
+                                            showToast.success(`Reverted to ${newStatus}`);
+                                            fetchDetail();
+                                        } catch(e) {}
+                                    }}
+                                    className="text-[8px] font-black text-rose-600 hover:underline px-1"
+                                >
+                                    Reverse Phase
+                                </button>
+                            </p>
                             <p className="text-sm font-black text-slate-900 ">{student.status?.split(' ').pop()}</p>
                         </div>
                     </div>
@@ -228,7 +351,7 @@ export default function InternshipRequestDetail({ user }) {
                 <div className="md:col-span-5 space-y-6">
                     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <CompanySection student={student} officeId={officeId} mouCompanies={mouCompanies} onUpdate={u => setStudent({ ...student, ...u })} />
-                        <SiteSupervisorSection student={student} officeId={officeId} onUpdate={u => setStudent({ ...student, ...u })} />
+                        <SiteSupervisorSection student={student} officeId={officeId} companies={companies} onUpdate={u => setStudent({ ...student, ...u })} />
                         <FacultySection student={student} officeId={officeId} faculties={faculties} onUpdate={u => setStudent({ ...student, ...u })} />
                     </div>
 

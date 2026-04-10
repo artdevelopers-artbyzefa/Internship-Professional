@@ -25,6 +25,7 @@ const RosterDetail              = lazy(() => import('./RosterDetail.jsx'));
 const EmailCenter                = lazy(() => import('./EmailCenter.jsx'));
 const HODArchive                 = lazy(() => import('../hod/HODArchive.jsx'));
 const SystemMonitoring            = lazy(() => import('./SystemMonitoring.jsx'));
+const StudentProfileDetail       = lazy(() => import('../faculty/StudentProfileDetail.jsx'));
 
 const officeNav = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
@@ -37,8 +38,7 @@ const officeNav = [
   { id: 'notice-board', label: 'Notice Board', icon: 'fa-bullhorn' },
   { id: 'archive', label: 'Historical Archives', icon: 'fa-database' },
   { id: 'email-center', label: 'Email Center', icon: 'fa-envelope-open-text' },
-  { id: 'phase-control', label: 'Phase Control', icon: 'fa-layer-group' },
-  { id: 'system-monitoring', label: 'System Health', icon: 'fa-shield-halved' }
+  { id: 'phase-control', label: 'Phase Control', icon: 'fa-layer-group' }
 ];
 
 const PageLoader = () => (
@@ -85,6 +85,7 @@ export default function InternshipOfficePortal({ user, onLogout }) {
           <Route path="dashboard"           element={<Safe><OfficeDashboard user={user} /></Safe>} />
           <Route path="student-registry"    element={<Safe><StudentManagement user={user} /></Safe>} />
           <Route path="registered-students" element={<Safe><RegisteredStudents user={user} /></Safe>} />
+          <Route path="students/:studentId" element={<Safe><StudentProfileDetail user={user} /></Safe>} />
           <Route path="internship-requests" element={<Safe><InternshipRequestsManager user={user} /></Safe>} />
           <Route path="internship-requests/:studentId" element={<Safe><InternshipRequestDetail user={user} /></Safe>} />
 

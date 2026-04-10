@@ -19,6 +19,7 @@ export default function StudentManagement({ user }) {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [resendingId, setResendingId] = useState(null);
+    const [editingStudent, setEditingStudent] = useState(null);
 
     const initialForm = { name: '', reg: '', email: '', semester: '7', fatherName: '', whatsappNumber: '', section: '', cgpa: '' };
     const [form, setForm] = useState(initialForm);
@@ -68,19 +69,37 @@ export default function StudentManagement({ user }) {
 
         setSubmitting(true);
         try {
-            const res = await apiRequest('/office/onboard-student', {
+            const endpoint = editingStudent ? `/office/edit-student/${editingStudent._id || editingStudent.id}` : '/office/onboard-student';
+            const res = await apiRequest(endpoint, {
                 method: 'POST',
                 body: { ...form, officeId: user.id || user._id }
             });
-            showToast.success(res.message || 'Student profile created.');
+            showToast.success(res.message || (editingStudent ? 'Updated' : 'Created'));
             setShowForm(false);
             setForm(initialForm);
-            setPage(1); 
+            setEditingStudent(null);
+            if (!editingStudent) setPage(1); 
             fetchStudents();
         } catch (err) {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleEditClick = (student) => {
+        setEditingStudent(student);
+        setForm({
+            name: student.name || '',
+            reg: student.reg || '',
+            email: student.email || '',
+            semester: student.semester || '7',
+            fatherName: student.fatherName || '',
+            whatsappNumber: student.whatsappNumber || '',
+            section: student.section || '',
+            cgpa: student.cgpa || ''
+        });
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleResendLink = async (studentId) => {
@@ -124,12 +143,25 @@ export default function StudentManagement({ user }) {
                                 className="text-[10px] font-black text-primary hover:underline disabled:opacity-50"
                                 title="Resend Activation Link"
                             >
-                                {resendingId === (row._id || row.id) ? 'Sending...' : 'Resend link'}
+                                {resendingId === (row._id || row.id) ? 'Resend' : 'Resend'}
                             </button>
                         )}
                     </div>
                 );
             }
+        },
+        {
+            key: 'actions',
+            label: 'Action',
+            render: (_, row) => (
+                <button
+                    onClick={() => handleEditClick(row)}
+                    className="p-2 text-slate-400 hover:text-primary transition-colors"
+                    title="Edit Student"
+                >
+                    <i className="fas fa-edit text-xs"></i>
+                </button>
+            )
         }
     ];
 
@@ -143,8 +175,14 @@ export default function StudentManagement({ user }) {
                     </div>
                     <Button
                         variant={showForm ? 'outline' : 'primary'}
-                        onClick={() => setShowForm(!showForm)}
-                        className="rounded-2xl px-5 md:px-6 h-10 md:h-12 font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/10 flex-shrink-0 w-full sm:w-auto"
+                        onClick={() => {
+                            if (showForm) {
+                                setEditingStudent(null);
+                                setForm(initialForm);
+                            }
+                            setShowForm(!showForm);
+                        }}
+                        className="rounded-2xl px-5 md:px-6 h-10 md:h-12 font-black text-xs  tracking-widest shadow-xl shadow-primary/10 flex-shrink-0 w-full sm:w-auto"
                     >
                         {showForm ? <><i className="fas fa-xmark mr-2"></i>Close</> : <><i className="fas fa-user-plus mr-2"></i>Onboard Student</>}
                     </Button>
@@ -154,11 +192,11 @@ export default function StudentManagement({ user }) {
                     <div className="bg-slate-50 rounded-[20px] md:rounded-3xl p-4 sm:p-5 md:p-6 border border-slate-100 shadow-inner">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 md:mb-8">
                             <div className="w-10 h-10 md:w-12 md:h-12 bg-primary text-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
-                                <i className="fas fa-id-card-clip text-lg md:text-xl"></i>
+                                <i className={`fas ${editingStudent ? 'fa-user-pen' : 'fa-id-card-clip'} text-lg md:text-xl`}></i>
                             </div>
                             <div>
-                                <h3 className="text-base md:text-lg font-black text-gray-800">Manual Registration</h3>
-                                <p className="text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest text-primary">Pre-filling eligibility data for internship cycle</p>
+                                <h3 className="text-base md:text-lg font-black text-gray-800">{editingStudent ? 'Edit Student Profile' : 'Manual Registration'}</h3>
+                                <p className="text-[9px] md:text-[10px] text-gray-400 font-bold tracking-widest text-primary">{editingStudent ? `Modifying records for ${editingStudent.reg}` : 'Pre-filling eligibility data for internship cycle'}</p>
                             </div>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-8">
@@ -167,7 +205,19 @@ export default function StudentManagement({ user }) {
                                     <TextInput iconLeft="fa-user" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Student's Legal Name" />
                                 </FormGroup>
                                 <FormGroup label="Registration Number" error={errorDictionary.reg}>
-                                    <TextInput iconLeft="fa-fingerprint" value={form.reg} onChange={e => setForm({ ...form, reg: e.target.value })} placeholder="FA21-BCS-001" />
+                                    <TextInput 
+                                        iconLeft="fa-fingerprint" 
+                                        value={form.reg} 
+                                        onChange={e => setForm({ ...form, reg: e.target.value })} 
+                                        onBlur={(e) => {
+                                            const val = e.target.value.trim().toUpperCase();
+                                            if (val) {
+                                                const clean = val.replace(/^CIIT\//, '').replace(/\/ATD$/, '');
+                                                setForm({ ...form, reg: `CIIT/${clean}/ATD` });
+                                            }
+                                        }}
+                                        placeholder="FA21-BCS-001" 
+                                    />
                                 </FormGroup>
                                 <FormGroup label="Institutional Email" error={errorDictionary.email}>
                                     <TextInput iconLeft="fa-envelope" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="name@cuiatd.edu.pk" />
@@ -201,7 +251,8 @@ export default function StudentManagement({ user }) {
                                     loading={submitting} 
                                     className="rounded-2xl px-12 bg-gray-900 hover:bg-black border-0 shadow-xl shadow-black/10 h-14 font-black"
                                 >
-                                    Complete Enrollment
+                                    <i className="fas fa-check-double mr-2"></i>
+                                    {editingStudent ? 'Save Changes' : 'Complete Enrollment'}
                                 </Button>
                             </div>
                         </form>
@@ -231,18 +282,13 @@ export default function StudentManagement({ user }) {
                 </div>
 
                 <div className="min-h-[400px]">
-                    {loading ? (
-                         <div className="py-24 text-center">
-                            <i className="fas fa-circle-notch fa-spin text-3xl text-primary opacity-20 mb-4"></i>
-                            <p className="text-xs font-black text-gray-300  tracking-widest">Retrieving Records...</p>
-                         </div>
-                    ) : students.length === 0 ? (
+                    {students.length === 0 && !loading ? (
                         <div className="py-24 text-center bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100">
                             <i className="fas fa-folder-open text-gray-200 text-5xl mb-4"></i>
                             <p className="text-sm font-black text-gray-400 ">No students found in registry</p>
                         </div>
                     ) : (
-                        <DataTable columns={columns} data={students} hover striped={false} />
+                        <DataTable columns={columns} data={students} hover striped={false} loading={loading} />
                     )}
                 </div>
 

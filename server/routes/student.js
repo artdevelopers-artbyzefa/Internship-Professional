@@ -200,6 +200,8 @@ router.get('/assignments', protect, asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id);
     const orFilters = [];
     if (user.assignedFaculty) orFilters.push({ createdBy: user.assignedFaculty });
+    if (user.assignedSiteSupervisor) orFilters.push({ createdBy: user.assignedSiteSupervisor });
+    orFilters.push({ targetStudents: user._id });
 
     const offices = await User.find({ role: 'internship_office' }, '_id');
     if (offices.length > 0) orFilters.push({ createdBy: { $in: offices.map(u => u._id) } });
@@ -230,7 +232,7 @@ router.get('/assignments', protect, asyncHandler(async (req, res) => {
     res.json(assignments.map(a => {
         const sub = submissions.find(s => s.assignment.toString() === a._id.toString());
         const m = marks.find(mk => mk.assignment.toString() === a._id.toString());
-        return { ...a.toObject(), submissionStatus: sub ? 'Submitted' : 'Pending', status: new Date() <= new Date(a.deadline) ? 'Open' : 'Closed', studentSubmission: sub ? { fileUrl: sub.fileUrl, fileName: sub.fileName } : null, marks: m ? { siteSupervisorMarks: m.siteSupervisorMarks, facultyMarks: m.facultyMarks, isSiteSupervisorGraded: m.isSiteSupervisorGraded, isFacultyGraded: m.isFacultyGraded } : null };
+        return { ...a.toObject(), submissionStatus: sub ? 'Submitted' : 'Pending', status: new Date() <= new Date(a.deadline) ? 'Open' : 'Closed', studentSubmission: sub ? { fileUrl: sub.fileUrl, fileName: sub.fileName } : null, marks: m ? { siteSupervisorMarks: m.siteSupervisorMarks, facultyMarks: m.facultyMarks, siteSupervisorRemarks: m.siteSupervisorRemarks, facultyRemarks: m.facultyRemarks, isSiteSupervisorGraded: m.isSiteSupervisorGraded, isFacultyGraded: m.isFacultyGraded } : null };
     }));
 }));
 

@@ -92,13 +92,6 @@ export default function App() {
     return <PageLoader />;
   }
 
-  if (user && user.mustChangePassword) {
-    return (
-      <Suspense fallback={<PageLoader />}>
-        <ForcePasswordChange onComplete={() => setUser({ ...user, mustChangePassword: false })} />
-      </Suspense>
-    );
-  }
 
   return (
     <Suspense fallback={<PageLoader />}>

@@ -11,6 +11,20 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
+const getGrade = (pct) => {
+    if (pct >= 85) return { grade: 'A', status: 'Pass' };
+    if (pct >= 80) return { grade: 'A-', status: 'Pass' };
+    if (pct >= 75) return { grade: 'B+', status: 'Pass' };
+    if (pct >= 71) return { grade: 'B', status: 'Pass' };
+    if (pct >= 68) return { grade: 'B-', status: 'Pass' };
+    if (pct >= 64) return { grade: 'C+', status: 'Pass' };
+    if (pct >= 61) return { grade: 'C', status: 'Pass' };
+    if (pct >= 58) return { grade: 'C-', status: 'Pass' };
+    if (pct >= 54) return { grade: 'D+', status: 'Pass' };
+    if (pct >= 50) return { grade: 'D', status: 'Pass' };
+    return { grade: 'F', status: 'Fail' };
+};
+
 const isSiteSupervisor = (req, res, next) => {
     if (req.user.role !== 'site_supervisor') return res.status(403).json({ message: 'Access denied.' });
     next();
@@ -110,6 +124,159 @@ router.get('/assignments', protect, isSiteSupervisor, asyncHandler(async (req, r
     res.json(await Assignment.find({ createdBy: req.user.id }));
 }));
 
+/**
+ * @swagger
+ * /supervisor/submissions/{assignmentId}:
+ *   get:
+ *     summary: Retrieve submissions for a specific assignment for students assigned to this supervisor
+ *     tags: [Supervisor]
+ */
+router.get('/submissions/:assignmentId', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    const { assignmentId } = req.params;
+    const userEmail = req.user.email.toLowerCase(), nameRegex = new RegExp(req.user.name.trim().replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+
+    const students = await User.find({
+        role: 'student',
+        $or: [
+            { assignedSiteSupervisor: req.user._id },
+            { assignedCompanySupervisorEmail: userEmail },
+            { 'internshipRequest.siteSupervisorEmail': userEmail },
+            { 'internshipAgreement.companySupervisorEmail': userEmail },
+            { assignedCompanySupervisor: { $regex: nameRegex } }
+        ]
+    }).select('_id name reg profilePicture').lean();
+
+    const studentIds = students.map(s => s._id);
+    const [submissions, marks] = await Promise.all([
+        Submission.find({ assignment: assignmentId, student: { $in: studentIds } }).lean(),
+        Mark.find({ assignment: assignmentId, student: { $in: studentIds } }).lean()
+    ]);
+
+    const result = students.map(s => {
+        const sub = submissions.find(submission => submission.student.toString() === s._id.toString());
+        const m = marks.find(mark => mark.student.toString() === s._id.toString());
+        return {
+            _id: sub?._id || `temp-${s._id}`,
+            user: s,
+            fileUrl: sub?.fileUrl,
+            fileName: sub?.fileName,
+            marks: m || null
+        };
+    });
+
+    res.json(result);
+}));
+
+/**
+ * @swagger
+ * /supervisor/student-grades:
+ *   get:
+ *     summary: Retrieve summary of student grades for the supervisor
+ *     tags: [Supervisor]
+ */
+router.get('/student-grades', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1, limit = parseInt(req.query.limit) || 5, skip = (page - 1) * limit;
+    const userEmail = req.user.email.toLowerCase(), nameRegex = new RegExp(req.user.name.trim().replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+
+    const studentQuery = {
+        role: 'student',
+        $or: [
+            { assignedSiteSupervisor: req.user._id },
+            { assignedCompanySupervisorEmail: userEmail },
+            { 'internshipRequest.siteSupervisorEmail': userEmail },
+            { 'internshipAgreement.companySupervisorEmail': userEmail },
+            { assignedCompanySupervisor: { $regex: nameRegex } }
+        ]
+    };
+
+    const total = await User.countDocuments(studentQuery);
+    const students = await User.find(studentQuery).select('name reg').skip(skip).limit(limit).lean();
+
+    const data = await Promise.all(students.map(async (s) => {
+        const marks = await Mark.find({ student: s._id });
+        if (!marks.length) {
+            return { student: s, assignmentsCount: 0, averageMarks: null, percentage: null, grade: 'N/A', status: 'Pending' };
+        }
+
+        const gradedMarks = marks.filter(m => m.isSiteSupervisorGraded || m.isFacultyGraded);
+        let avg = 0;
+        if(gradedMarks.length > 0) {
+            avg = gradedMarks.reduce((acc, m) => {
+                let sum = 0, c = 0;
+                if (m.isSiteSupervisorGraded) { sum += m.siteSupervisorMarks || 0; c++; }
+                if (m.isFacultyGraded) { sum += m.facultyMarks || 0; c++; }
+                return acc + (c ? sum / c : 0);
+            }, 0) / gradedMarks.length;
+        }
+
+        const pct = Math.round((avg / 10) * 100);
+        const { grade, status } = getGrade(pct);
+
+        return {
+            student: s,
+            assignmentsCount: marks.length,
+            averageMarks: avg.toFixed(1),
+            percentage: pct,
+            grade,
+            status
+        };
+    }));
+
+    res.json({ data, total, page, pages: Math.ceil(total / limit) });
+}));
+
+/**
+ * @swagger
+ * /supervisor/certificate-students:
+ *   get:
+ *     summary: Retrieve students needing certificates
+ *     tags: [Supervisor]
+ */
+router.get('/certificate-students', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    const userEmail = req.user.email.toLowerCase(), nameRegex = new RegExp(req.user.name.trim().replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+
+    const students = await User.find({
+        role: 'student',
+        $or: [
+            { assignedSiteSupervisor: req.user._id },
+            { assignedCompanySupervisorEmail: userEmail },
+            { 'internshipRequest.siteSupervisorEmail': userEmail },
+            { 'internshipAgreement.companySupervisorEmail': userEmail },
+            { assignedCompanySupervisor: { $regex: nameRegex } }
+        ]
+    }).lean();
+
+    const data = await Promise.all(students.map(async (s) => {
+        const marks = await Mark.find({ student: s._id });
+        const gradedMarks = marks.filter(m => m.isSiteSupervisorGraded || m.isFacultyGraded);
+        let avgNum = 0;
+        if(gradedMarks.length > 0) {
+            avgNum = gradedMarks.reduce((acc, m) => {
+                let sum = 0, c = 0;
+                if (m.isSiteSupervisorGraded) { sum += m.siteSupervisorMarks || 0; c++; }
+                if (m.isFacultyGraded) { sum += m.facultyMarks || 0; c++; }
+                return acc + (c ? sum / c : 0);
+            }, 0) / gradedMarks.length;
+        }
+        
+        const pct = Math.round((avgNum / 10) * 100);
+        const { grade } = getGrade(pct);
+
+        return {
+            _id: s._id,
+            name: s.name,
+            reg: s.reg,
+            company: s.assignedCompany || (s.internshipRequest?.companyName) || 'Assigned Company',
+            mode: s.internshipRequest?.mode || 'Onsite',
+            grade: marks.length ? grade : 'N/A',
+            percentage: pct,
+            certificateUrl: s.certificateUrl
+        };
+    }));
+
+    res.json(data);
+}));
+
 router.post('/assignments', protect, isSiteSupervisor, uploadCloudinary.single('file'), asyncHandler(async (req, res) => {
     const { title, description, startDate, deadline, targetStudents } = req.body;
     const targets = Array.isArray(targetStudents) ? targetStudents : (targetStudents ? [targetStudents] : []);
@@ -120,6 +287,14 @@ router.post('/assignments', protect, isSiteSupervisor, uploadCloudinary.single('
         await createNotification({ recipient: s, sender: req.user.id, type: 'assignment_submission', title: 'New Task', message: `${req.user.name} posted: "${title}".`, link: '/student/assignments' });
     }
     res.status(201).json(a);
+}));
+
+router.delete('/assignments/:id', protect, isSiteSupervisor, asyncHandler(async (req, res) => {
+    const a = await Assignment.findOneAndDelete({ _id: req.params.id, createdBy: req.user.id });
+    if (!a) return res.status(404).json({ message: 'Assignment not found.' });
+    await Submission.deleteMany({ assignment: req.params.id });
+    await Mark.deleteMany({ assignment: req.params.id });
+    res.json({ message: 'Assignment deleted successfully.' });
 }));
 
 /**

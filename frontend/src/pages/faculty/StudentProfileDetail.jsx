@@ -15,9 +15,8 @@ export default function StudentProfileDetail() {
   useEffect(() => {
     const fetchStudent = async () => {
       // Safety check: if studentId is not a valid MongoDB ObjectId (24 chars hex) 
-      // or if it's a known non-ID route like "dashboard", redirect back.
       if (!studentId || studentId === 'dashboard' || studentId.length !== 24) {
-        navigate('/faculty/dashboard');
+        navigate(-1);
         return;
       }
 
@@ -33,19 +32,13 @@ export default function StudentProfileDetail() {
     fetchStudent();
   }, [studentId]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i>
-      </div>
-    );
-  }
+  if (loading) return <ProfileSkeleton />;
 
   if (!student) {
     return (
         <div className="text-center p-12">
             <h2 className="text-2xl font-black text-gray-800 tracking-tight">Student not found</h2>
-            <Button onClick={() => navigate('/faculty/students')} className="mt-4">Back to List</Button>
+            <Button onClick={() => navigate(-1)} className="mt-4">Go Back</Button>
         </div>
     );
   }
@@ -53,8 +46,8 @@ export default function StudentProfileDetail() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between mb-4">
-        <Button variant="outline" onClick={() => navigate('/faculty/students')}>
-          <i className="fas fa-arrow-left mr-2"></i> Back to List
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          <i className="fas fa-arrow-left mr-2"></i> Back
         </Button>
         <StatusBadge status={student.status} />
       </div>
@@ -145,3 +138,48 @@ function InfoRow({ label, value, icon, isBadge }) {
         </div>
     );
 }
+
+const ProfileSkeleton = () => (
+    <div className="max-w-4xl mx-auto space-y-8 animate-pulse">
+        <div className="flex items-center justify-between mb-8">
+            <div className="h-10 w-24 bg-slate-100 rounded-xl"></div>
+            <div className="h-10 w-28 bg-slate-100 rounded-full"></div>
+        </div>
+
+        <div className="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-sm">
+            <div className="bg-slate-50/50 p-10 border-b border-slate-100 flex flex-col md:flex-row items-center gap-10">
+                <div className="w-36 h-36 rounded-[2rem] bg-white border-4 border-white shadow-sm flex-shrink-0"></div>
+                <div className="text-center md:text-left space-y-4 flex-1">
+                    <div className="h-8 w-64 bg-slate-200 rounded-xl mx-auto md:mx-0"></div>
+                    <div className="h-4 w-32 bg-primary/10 rounded-full mx-auto md:mx-0"></div>
+                    <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-6">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="h-10 w-32 bg-slate-50 border border-slate-100 rounded-full"></div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-10 grid grid-cols-1 md:grid-cols-2 gap-12">
+                {[...Array(2)].map((_, i) => (
+                    <div key={i} className="space-y-8">
+                        <div>
+                            <div className="h-3 w-32 bg-slate-100 rounded-full mb-6"></div>
+                            <div className="space-y-6">
+                                {[...Array(3)].map((_, j) => (
+                                    <div key={j} className="flex gap-4">
+                                        <div className="w-5 h-5 bg-slate-50 rounded-lg"></div>
+                                        <div className="space-y-2 flex-1">
+                                            <div className="h-2 w-16 bg-slate-50 rounded-full"></div>
+                                            <div className="h-4 w-48 bg-slate-100 rounded-lg"></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);

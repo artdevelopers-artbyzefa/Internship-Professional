@@ -475,20 +475,22 @@ export default function StudentAssignments({ user }) {
                         </div>
                       </td>
                     </tr>
-                    {a.marks && (a.marks.siteSupervisorRemarks || a.marks.facultyRemarks) && (
+                    {a.marks && (a.marks.isSiteSupervisorGraded || a.marks.isFacultyGraded) && (
                       <tr className="bg-gray-50/20">
                         <td colSpan="5" className="px-8 py-3">
                           <div className="flex flex-col gap-2">
-                            {a.marks.siteSupervisorRemarks && (
+                            {a.marks.isSiteSupervisorGraded && (
                               <div className="flex items-start gap-2">
-                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-0.5">Mentor:</span>
-                                <p className="text-[10px] text-gray-500 italic font-medium leading-relaxed">"{a.marks.siteSupervisorRemarks}"</p>
+                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-0.5">Mentor Grade:</span>
+                                <p className="text-[10px] text-gray-500 font-bold">{a.marks.siteSupervisorMarks} points</p>
+                                {a.marks.siteSupervisorRemarks && <p className="text-[10px] text-gray-500 italic font-medium leading-relaxed ml-2">"{a.marks.siteSupervisorRemarks}"</p>}
                               </div>
                             )}
-                            {a.marks.facultyRemarks && (
+                            {a.marks.isFacultyGraded && (
                               <div className="flex items-start gap-2">
-                                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-0.5">Faculty:</span>
-                                <p className="text-[10px] text-gray-500 italic font-medium leading-relaxed">"{a.marks.facultyRemarks}"</p>
+                                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-0.5">Faculty Grade:</span>
+                                <p className="text-[10px] text-gray-500 font-bold">{a.marks.facultyMarks} points</p>
+                                {a.marks.facultyRemarks && <p className="text-[10px] text-gray-500 italic font-medium leading-relaxed ml-2">"{a.marks.facultyRemarks}"</p>}
                               </div>
                             )}
                           </div>

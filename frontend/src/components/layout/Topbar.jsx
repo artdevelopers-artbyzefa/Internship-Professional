@@ -210,10 +210,14 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
                 <div className="text-xs font-bold text-gray-800">{user.name}</div>
                 <div className="text-[10px] text-gray-400 font-bold">{roleLabel}</div>
               </div>
-              <div onClick={handleProfileClick} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-600 cursor-pointer transition-colors" role="menuitem">
-                <i className="fas fa-user-circle w-4 text-primary" /> My Profile
-              </div>
-              <hr className="my-1 border-gray-100" />
+              {user.role !== 'internship_office' && user.role !== 'hod' && (
+                <>
+                  <div onClick={handleProfileClick} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-gray-50 text-sm text-gray-600 cursor-pointer transition-colors" role="menuitem">
+                    <i className="fas fa-user-circle w-4 text-primary" /> My Profile
+                  </div>
+                  <hr className="my-1 border-gray-100" />
+                </>
+              )}
               <div onClick={onLogout} className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-sm text-red-500 cursor-pointer transition-colors" role="menuitem">
                 <i className="fas fa-power-off w-4" /> Sign Out
               </div>

@@ -145,6 +145,34 @@ router.put('/:id', protect, authorize('internship_office'), uploadCloudinary.arr
 
 /**
  * @swagger
+ * /notices/bulk/delete:
+ *   delete:
+ *     summary: Delete multiple selected notices
+ *     tags: [Notices]
+ */
+router.delete('/bulk/delete', protect, authorize('internship_office'), asyncHandler(async (req, res) => {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids)) {
+        return res.status(400).json({ message: 'Invalid IDs provided' });
+    }
+    await Notice.deleteMany({ _id: { $in: ids } });
+    res.json({ message: 'Selected notices deleted successfully' });
+}));
+
+/**
+ * @swagger
+ * /notices/bulk/clear:
+ *   delete:
+ *     summary: Clear entire notice history
+ *     tags: [Notices]
+ */
+router.delete('/bulk/clear', protect, authorize('internship_office'), asyncHandler(async (req, res) => {
+    await Notice.deleteMany({});
+    res.json({ message: 'All notices cleared successfully' });
+}));
+
+/**
+ * @swagger
  * /notices/{id}:
  *   delete:
  *     summary: Remove a notice
@@ -228,7 +256,7 @@ router.get('/students/:supervisorId', protect, authorize('internship_office'), a
  */
 router.get('/public', asyncHandler(async (req, res) => {
     const notices = await Notice.find({
-        targetType: { $in: ['all_students', 'all_supervisors', 'system_landing'] }
+        targetType: 'system_landing'
     })
     .sort({ createdAt: -1 })
     .limit(10);

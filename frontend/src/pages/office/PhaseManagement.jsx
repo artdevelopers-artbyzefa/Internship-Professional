@@ -162,6 +162,26 @@ export default function PhaseManagement({ user }) {
         } catch { } finally { setActionId(null); }
     };
 
+    const handleReverseAction = async (phaseId) => {
+        const phase = phases.find(p => p._id === phaseId);
+        const confirmed = await showAlert.confirm(
+            'Reverse Phase Status',
+            `Are you sure you want to reverse the status of "${phase.label}"? This will move it back to the previous state (e.g., Completed to Active, or Active to Pending).`,
+            'Yes, Reverse Status'
+        );
+        if (!confirmed) return;
+
+        setActionId(phaseId + 'reverse');
+        try {
+            const res = await apiRequest(`/phases/${phaseId}/reverse`, {
+                method: 'POST',
+                body: { officeId: user.id || user._id }
+            });
+            showToast.success(res.message);
+            fetchPhases();
+        } catch { } finally { setActionId(null); }
+    };
+
     const handleSaveNotes = async (phaseId) => {
         try {
             await apiRequest(`/phases/${phaseId}/notes`, { method: 'PATCH', body: { notes: editNotes[phaseId] } });
@@ -483,7 +503,7 @@ export default function PhaseManagement({ user }) {
                                                 <Button size="sm" variant="primary" className="font-bold text-xs"
                                                     loading={isActLoading(phase._id + 'sched')}
                                                     onClick={() => handleSaveSchedule(phase._id)}>
-                                                    <i className="fas fa-calendar-plus mr-2" />Save &amp; Override Schedule
+                                                    <i className="fas fa-calendar-plus mr-2" />Update &amp; Reschedule Phase
                                                 </Button>
                                             </div>
                                         </div>
@@ -543,6 +563,16 @@ export default function PhaseManagement({ user }) {
                                             <span className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 border border-blue-100 px-3 py-2 rounded-xl font-bold">
                                                 <i className="fas fa-circle-check" />Phase completed
                                             </span>
+                                        )}
+                                        {(phase.status === 'active' || phase.status === 'completed') && (
+                                            <Button
+                                                variant="outline" size="sm"
+                                                loading={isActLoading(phase._id + 'reverse')}
+                                                onClick={() => handleReverseAction(phase._id)}
+                                                className="border-amber-200 text-amber-600 hover:bg-amber-50 font-bold"
+                                            >
+                                                <i className="fas fa-rotate-left mr-2" />Reverse Status
+                                            </Button>
                                         )}
                                         {(phase.order === 4 || phase.order === 5) && (
                                             <Button

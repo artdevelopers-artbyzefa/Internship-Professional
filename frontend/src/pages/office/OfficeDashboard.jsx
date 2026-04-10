@@ -46,7 +46,7 @@ export default function OfficeDashboard({ user }) {
     <div className="space-y-6">
       <div className="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
         <div>
-          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Institutional Portal Control</h2>
+          <h2 className="text-xl md:text-2xl font-black text-gray-800 tracking-tight">Internship Portal Control</h2>
           <p className="text-xs md:text-sm text-gray-500 font-medium mt-1">Global oversight of internship workflows, requests, and academic evaluations.</p>
         </div>
       </div>

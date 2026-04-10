@@ -22,12 +22,20 @@ const router = express.Router();
  *   description: Faculty supervisor management of students, assignments, and grading
  */
 
-const isFaculty = (req, res, next) => {
+function isFaculty(req, res, next) {
     if (req.user.role !== 'faculty_supervisor') {
         return res.status(403).json({ message: 'Access denied. Faculty only.' });
     }
     next();
-};
+}
+
+function isStaff(req, res, next) {
+    const allowed = ['faculty_supervisor', 'internship_office', 'hod', 'site_supervisor'];
+    if (!allowed.includes(req.user.role)) {
+        return res.status(403).json({ message: 'Access denied.' });
+    }
+    next();
+}
 
 /**
  * @swagger
@@ -499,9 +507,30 @@ router.get('/my-students', protect, isFaculty, asyncHandler(async (req, res) => 
  *     summary: Detailed student dossier for faculty audit
  *     tags: [Faculty]
  */
-router.get('/student-profile/:id', protect, isFaculty, asyncHandler(async (req, res) => {
-    const student = await User.findOne({ _id: req.params.id, assignedFaculty: req.user.id }).select('-password');
-    if (!student) return res.status(404).json({ message: 'Access denied.' });
+router.get('/student-profile/:id', protect, isStaff, asyncHandler(async (req, res) => {
+    const { role, id: userId, email } = req.user;
+    const isOffice = role === 'internship_office' || role === 'hod';
+    
+    let query = { _id: req.params.id };
+    
+    if (!isOffice) {
+        if (role === 'faculty_supervisor') {
+            query.assignedFaculty = userId;
+        } else if (role === 'site_supervisor') {
+            const mail = email.toLowerCase().trim();
+            const nameRegex = new RegExp(req.user.name.trim().replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+            query.$or = [
+                { assignedSiteSupervisor: userId },
+                { assignedCompanySupervisorEmail: mail },
+                { 'internshipRequest.siteSupervisorEmail': mail },
+                { 'internshipAgreement.companySupervisorEmail': mail },
+                { assignedCompanySupervisor: { $regex: nameRegex } }
+            ];
+        }
+    }
+    
+    const student = await User.findOne(query).select('-password');
+    if (!student) return res.status(404).json({ message: 'Access denied or Student not found.' });
     res.json(student);
 }));
 
@@ -604,21 +633,59 @@ router.get('/report-data/:type', protect, isFaculty, asyncHandler(async (req, re
  *     summary: Export bulk performance spreadsheet
  *     tags: [Faculty]
  */
-router.get('/mark-sheet/bulk', protect, asyncHandler(async (req, res) => {
-    const query = req.user.role === 'faculty_supervisor' ? { assignedFaculty: req.user.id } : { role: 'student' };
-    const students = await User.find(query).select('name reg section');
+router.get('/mark-sheet/bulk', protect, isStaff, asyncHandler(async (req, res) => {
+    let query = {};
+    if (req.user.role === 'faculty_supervisor') query = { assignedFaculty: req.user.id };
+    else if (req.user.role === 'site_supervisor') query = { assignedSiteSupervisor: req.user.id };
+    else query = { role: 'student' };
+
+    const students = await User.find(query).populate('assignedFaculty assignedSiteSupervisor').select('-password');
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Ledger');
-    worksheet.columns = [{ header: 'Reg #', key: 'reg' }, { header: 'Name', key: 'name' }, { header: 'Avg %', key: 'pct' }];
+    const worksheet = workbook.addWorksheet('Master Ledger');
+    
+    worksheet.columns = [
+        { header: 'Registration #', key: 'reg', width: 22 },
+        { header: 'Full Name', key: 'name', width: 30 },
+        { header: 'Affiliated Company', key: 'company', width: 30 },
+        { header: 'Site Supervisor Assigned', key: 'site_sup', width: 30 },
+        { header: 'Faculty Assigned', key: 'faculty', width: 30 },
+        { header: 'Tasks Completed', key: 'tasks', width: 15 },
+        { header: 'Total Score', key: 'score', width: 15 },
+        { header: 'Grade Acquired', key: 'grade', width: 18 }
+    ];
+
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
 
     for (const s of students) {
         const marks = await Mark.find({ student: s._id, isFacultyGraded: true });
-        const pct = marks.length ? Math.round((marks.reduce((acc, m) => acc + (m.facultyMarks || 0), 0) / marks.length / 10) * 100) : 0;
-        worksheet.addRow({ reg: s.reg, name: s.name, pct: `${pct}%` });
+        let grade = 'N/A';
+        let totalScore = '0%';
+        if (marks.length > 0) {
+            const free = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+            const pct = Math.round((marks.reduce((acc, m) => acc + (free ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2), 0) / marks.length / 10) * 100);
+            totalScore = `${pct}%`;
+            if (pct >= 90) grade = 'A+ (Exceptional)';
+            else if (pct >= 80) grade = 'A (Excellent)';
+            else if (pct >= 70) grade = 'B+ (Good)';
+            else if (pct >= 60) grade = 'B (Satisfactory)';
+            else if (pct >= 50) grade = 'C (Pass)';
+            else grade = 'F (Fail)';
+        }
+        worksheet.addRow({
+            reg: s.reg,
+            name: s.name,
+            company: s.assignedCompany || 'N/A',
+            site_sup: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor || 'N/A',
+            faculty: s.assignedFaculty?.name || 'N/A',
+            tasks: marks.length,
+            score: totalScore,
+            grade
+        });
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="Bulk_MarkSheet.xlsx"');
+    res.setHeader('Content-Disposition', 'attachment; filename="Institution_Master_Ledger.xlsx"');
     await workbook.xlsx.write(res);
     res.end();
 }));
@@ -630,20 +697,75 @@ router.get('/mark-sheet/bulk', protect, asyncHandler(async (req, res) => {
  *     summary: Export individual marksheet as Excel
  *     tags: [Faculty]
  */
-router.get('/generate-marksheet/:studentId', protect, isFaculty, asyncHandler(async (req, res) => {
-    const student = await User.findById(req.params.studentId);
+router.get('/mark-sheet/:studentId', protect, isStaff, asyncHandler(async (req, res) => {
+    const s = await User.findById(req.params.studentId).populate('assignedFaculty assignedSiteSupervisor');
+    if (!s) return res.status(404).json({ message: 'Student not found.' });
+
     const marks = await Mark.find({ student: req.params.studentId }).populate('assignment');
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Marksheet');
-    worksheet.columns = [{ header: 'Task', key: 'title', width: 30 }, { header: 'Status', key: 'status', width: 15 }, { header: 'Score', key: 'score', width: 10 }];
+    const worksheet = workbook.addWorksheet('Student Record');
+    
+    worksheet.columns = [
+        { header: 'Registration #', key: 'reg', width: 22 },
+        { header: 'Full Name', key: 'name', width: 30 },
+        { header: 'Affiliated Company', key: 'company', width: 30 },
+        { header: 'Site Supervisor Assigned', key: 'site_sup', width: 30 },
+        { header: 'Faculty Assigned', key: 'faculty', width: 30 },
+        { header: 'Tasks Completed', key: 'tasks', width: 15 },
+        { header: 'Total Score', key: 'score', width: 15 },
+        { header: 'Grade Acquired', key: 'grade', width: 18 }
+    ];
+
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+
+    let grade = 'N/A';
+    let totalScore = '0%';
+    const gradedMarks = marks.filter(m => m.isFacultyGraded);
+    if (gradedMarks.length > 0) {
+        const free = s.internshipRequest?.mode === 'Freelance' || (!s.assignedSiteSupervisor && !s.assignedCompanySupervisor);
+        const pct = Math.round((gradedMarks.reduce((acc, m) => acc + (free ? (m.facultyMarks || 0) : ((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2), 0) / gradedMarks.length / 10) * 100);
+        totalScore = `${pct}%`;
+        if (pct >= 90) grade = 'A+ (Exceptional)';
+        else if (pct >= 80) grade = 'A (Excellent)';
+        else if (pct >= 70) grade = 'B+ (Good)';
+        else if (pct >= 60) grade = 'B (Satisfactory)';
+        else if (pct >= 50) grade = 'C (Pass)';
+        else grade = 'F (Fail)';
+    }
+
+    worksheet.addRow({
+        reg: s.reg,
+        name: s.name,
+        company: s.assignedCompany || 'N/A',
+        site_sup: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor || 'N/A',
+        faculty: s.assignedFaculty?.name || 'N/A',
+        tasks: gradedMarks.length,
+        score: totalScore,
+        grade
+    });
+
+    worksheet.addRow({});
+    worksheet.addRow({ reg: '— TASK BREAKDOWN —' }).font = { bold: true, italic: true };
+    worksheet.addRow({});
+
+    const taskSheetHeader = worksheet.addRow({ reg: 'Task Name', name: 'Status', company: 'Site Sup Score', site_sup: 'Faculty Score', faculty: 'Total Score' });
+    taskSheetHeader.font = { bold: true };
+    taskSheetHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
 
     marks.forEach(m => {
         if (!m.assignment) return;
-        worksheet.addRow({ title: m.assignment.title, status: m.isFacultyGraded ? 'Graded' : 'Pending', score: (((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2).toFixed(1) });
+        worksheet.addRow({ 
+            reg: m.assignment.title, 
+            name: m.isFacultyGraded ? 'Graded' : 'Pending', 
+            company: m.siteSupervisorMarks || 'N/A',
+            site_sup: m.facultyMarks || 'N/A',
+            faculty: (((m.facultyMarks || 0) + (m.siteSupervisorMarks || 0)) / 2).toFixed(1) 
+        });
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${student.reg}_Marksheet.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${s.reg}_Record.xlsx"`);
     await workbook.xlsx.write(res);
     res.end();
 }));

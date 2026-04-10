@@ -7,7 +7,6 @@ import { showToast } from '../../utils/notifications.jsx';
 import { DataTable, TableRow, TableCell } from '../../components/ui/DataTable.jsx';
 import { gradeFromPct, gradeColor, gradePointsFromPct } from '../../utils/helpers.js';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 function GradeBadge({ grade }) {
   const c = gradeColor(grade);
   return (

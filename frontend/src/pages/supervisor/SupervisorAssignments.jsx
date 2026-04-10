@@ -8,6 +8,7 @@ export default function SupervisorAssignments({ user }) {
     const [assignments, setAssignments] = useState([]);
     const [interns, setInterns] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [showAdd, setShowAdd] = useState(false);
     const navigate = useNavigate();
     const [newAssignment, setNewAssignment] = useState({
@@ -48,6 +49,8 @@ export default function SupervisorAssignments({ user }) {
 
     const handleAdd = async (e) => {
         e.preventDefault();
+        if (submitting) return;
+        setSubmitting(true);
         try {
             const formData = new FormData();
             formData.append('title', newAssignment.title);
@@ -78,6 +81,8 @@ export default function SupervisorAssignments({ user }) {
             fetchAssignments();
         } catch (err) {
             // Error handled by apiRequest
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -214,12 +219,13 @@ export default function SupervisorAssignments({ user }) {
                             <button
                                 type="button"
                                 onClick={() => setShowAdd(false)}
-                                className="px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-500 font-bold text-xs hover:text-gray-900 transition-all cursor-pointer"
+                                disabled={submitting}
+                                className="px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-500 font-bold text-xs hover:text-gray-900 transition-all cursor-pointer disabled:opacity-50"
                             >
                                 Cancel
                             </button>
-                            <button type="submit" className="px-10 py-3 rounded-xl bg-gray-900 text-white font-bold text-xs shadow-lg shadow-gray-200 hover:bg-black transition-all active:scale-95 border-0 cursor-pointer">
-                                Submit Task
+                            <button type="submit" disabled={submitting} className="px-10 py-3 rounded-xl bg-gray-900 text-white font-bold text-xs shadow-lg shadow-gray-200 hover:bg-black transition-all active:scale-95 border-0 cursor-pointer disabled:opacity-50">
+                                {submitting ? 'Submitting...' : 'Submit Task'}
                             </button>
                         </div>
                     </form>

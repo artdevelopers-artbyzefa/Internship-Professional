@@ -1,24 +1,26 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../utils/api.js';
+import { showToast } from '../../utils/notifications.jsx';
 
 const DataTable = React.lazy(() => import('../../components/ui/DataTable.jsx'));
 
 const StatusBadge = memo(({ status, isFreelance, hasFaculty, hasSiteSup }) => {
     const isEligible = hasFaculty && hasSiteSup;
     if (!isEligible) return (
-        <span className="px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center w-full sm:w-fit gap-1">
+        <span className="px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center w-full sm:w-fit gap-1 shadow-sm">
+            <span className="w-1 h-1 rounded-full bg-rose-500 animate-pulse"></span>
             Incomplete
         </span>
     );
     const map = {
-        'Assigned': { cls: 'bg-primary/10 text-primary border-primary/20', label: 'Placed' },
+        'Assigned': { cls: 'bg-indigo-50 text-indigo-700 border-indigo-200', label: 'Placed' },
         'Agreement Approved': { cls: 'bg-emerald-50 text-emerald-800 border-emerald-200', label: 'Agreement OK' },
         'Internship Approved': { cls: 'bg-blue-50 text-blue-800 border-blue-200', label: 'Approved' },
     };
-    const cfg = map[status] || { cls: 'bg-slate-50 text-slate-500 border-slate-100', label: status?.split(' ').slice(-1)[0] || 'Active' };
+    const cfg = map[status] || { cls: 'bg-slate-50 text-slate-500 border-slate-200', label: status?.split(' ').slice(-1)[0] || 'Active' };
     return (
-        <span className={`px-1 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[7px] sm:text-[9px] font-black uppercase tracking-tighter border ${cfg.cls} flex items-center justify-center w-full sm:w-fit`}>
+        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-tight border shadow-sm ${cfg.cls} flex items-center justify-center w-full sm:w-fit`}>
             {cfg.label}
         </span>
     );
@@ -34,6 +36,8 @@ const RegisteredStudents = memo(({ user }) => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalResults, setTotalResults] = useState(0);
+    const [currentPhase, setCurrentPhase] = useState(null);
+    const [fetchingPhase, setFetchingPhase] = useState(true);
 
     const navigate = useNavigate();
 
@@ -70,7 +74,7 @@ const RegisteredStudents = memo(({ user }) => {
             a.remove();
             window.URL.revokeObjectURL(url);
             showToast.success('Master report generated successfully.');
-        } catch (err) {}
+        } catch (err) { }
     };
 
     useEffect(() => {
@@ -105,6 +109,8 @@ const RegisteredStudents = memo(({ user }) => {
                 setStudents([]);
                 setTotalResults(0);
             }
+            const phaseData = await apiRequest('/phases/current');
+            setCurrentPhase(phaseData);
         } catch (err) {
             if (err.name !== 'AbortError') {
                 setError('Failed to load student records. Please try again.');
@@ -112,6 +118,7 @@ const RegisteredStudents = memo(({ user }) => {
             }
         } finally {
             setLoading(false);
+            setFetchingPhase(false);
         }
     }, [isSupervisor, isFaculty, user, page, debouncedSearch]);
 
@@ -128,44 +135,48 @@ const RegisteredStudents = memo(({ user }) => {
     const LIMIT = 15;
 
     const tableColumns = useMemo(() => isSupervisor ? [
-        { key: 'reg', label: 'Registration #', className: 'hidden md:table-cell' },
+        { key: 'reg', label: 'Registration #' },
         {
             key: 'name',
             label: 'Intern Identity',
             render: (v, r) => (
                 <div className="flex flex-col gap-0.5">
-                    <span className="font-bold text-slate-800 text-[9px] md:text-sm">{r.name}</span>
-                    <span className="text-[8px] md:hidden font-mono text-slate-400">{r.reg}</span>
+                    <span className="font-bold text-slate-800 text-xs md:text-sm">{r.name}</span>
+                    <span className="text-[10px] font-mono text-slate-400">{r.reg}</span>
                 </div>
             )
         },
         {
             key: 'status',
             label: 'Status',
-            render: () => <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span>
+            render: () => <span className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span>
         },
         {
             label: 'Action',
             key: 'action',
             render: (_, r) => {
-                const rolePath = user?.role === 'site_supervisor' ? 'supervisor' : 'faculty';
+                const rolePath = user?.role === 'internship_office' ? 'office' : (user?.role === 'site_supervisor' ? 'supervisor' : 'faculty');
+                const isEvaluationPhase = currentPhase?.order >= 4;
+
+                if (!isEvaluationPhase && !isOffice && user?.role !== 'hod') return <span className="text-[10px] text-slate-400 font-bold italic">Wait Phase 4</span>;
+
                 return (
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => navigate(`/${rolePath}/students/${r._id || r.id}`)}
-                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                            className="h-8 px-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shadow-sm"
                         >
                             Profile
                         </button>
                         <button
                             onClick={() => navigate(`/${rolePath}/evaluation?studentId=${r._id || r.id}`)}
-                            className="h-7 px-3 rounded-lg text-[10px] font-bold bg-secondary text-white hover:bg-black transition-all cursor-pointer whitespace-nowrap border-0"
+                            className="h-8 px-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-secondary text-white hover:bg-primary transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-secondary/20 border-0"
                         >
                             Evaluation
                         </button>
                         <button
                             onClick={() => handleDownloadMarkSheet(r._id || r.id, r.name, r.reg)}
-                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                            className="h-8 px-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shadow-sm"
                         >
                             Mark sheet
                         </button>
@@ -179,14 +190,14 @@ const RegisteredStudents = memo(({ user }) => {
             label: 'Student Identity',
             render: (v, r) => (
                 <div className="flex flex-col gap-0.5 py-1">
-                    <span className="font-black text-slate-900 leading-tight text-[10px] md:text-sm">{r.name}</span>
-                    <span className="text-[8px] font-mono text-slate-500">{r.reg}</span>
-                    <span className="text-[8px] text-primary truncate hidden sm:block md:hidden">{r.email}</span>
+                    <span className="font-black text-slate-900 leading-tight text-xs md:text-sm">{r.name}</span>
+                    <span className="text-[10px] font-mono text-slate-500">{r.reg}</span>
+                    <span className="text-[10px] text-primary truncate hidden lg:block">{r.email}</span>
                 </div>
             )
         },
-        { key: 'reg', label: 'Reg #', className: 'hidden md:table-cell' },
-        { key: 'email', label: 'Institutional Email', className: 'hidden lg:table-cell' },
+        { key: 'reg', label: 'Reg #' },
+        { key: 'email', label: 'Institutional Email', className: 'hidden xl:table-cell' },
         {
             key: 'company',
             label: 'Placement Info',
@@ -195,9 +206,9 @@ const RegisteredStudents = memo(({ user }) => {
                 const sup = r.internshipRequest?.mode === 'Freelance' ? null : (r.assignedSiteSupervisor?.name || r.assignedCompanySupervisor);
                 return (
                     <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-700 truncate max-w-[80px] md:max-w-none text-[9px] md:text-sm">{company}</span>
-                        {sup && <span className="text-[8px] text-slate-400 italic md:hidden">Sup: {sup}</span>}
-                        {r.internshipRequest?.mode && <span className="text-[8px] font-black text-primary/60 md:hidden uppercase tracking-tighter">{r.internshipRequest.mode}</span>}
+                        <span className="font-bold text-slate-700 truncate max-w-[120px] md:max-w-none text-xs md:text-sm">{company}</span>
+                        {sup && <span className="text-[10px] text-slate-400 italic">Sup: {sup}</span>}
+                        {r.internshipRequest?.mode && <span className="text-[10px] font-black text-primary/60 uppercase tracking-tighter">{r.internshipRequest.mode}</span>}
                     </div>
                 );
             }
@@ -205,8 +216,7 @@ const RegisteredStudents = memo(({ user }) => {
         {
             key: 'faculty',
             label: 'Faculty',
-            className: 'hidden md:table-cell',
-            render: (v, r) => r.assignedFaculty?.name || 'Missing'
+            render: (v, r) => r.assignedFaculty?.name || '—'
         },
         {
             key: 'status',
@@ -217,20 +227,24 @@ const RegisteredStudents = memo(({ user }) => {
             label: 'Action',
             key: 'action',
             render: (_, r) => {
-                const rolePath = user?.role === 'site_supervisor' ? 'supervisor' : 'faculty';
+                const rolePath = user?.role === 'internship_office' ? 'office' : (user?.role === 'site_supervisor' ? 'supervisor' : 'faculty');
+                const isEvaluationPhase = currentPhase?.order >= 4;
+
+                if (!isEvaluationPhase && !isOffice && user?.role !== 'hod') return <span className="text-[10px] text-slate-400 font-bold italic tracking-tighter">Wait Phase 4</span>;
+
                 return (
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => navigate(`/${rolePath}/students/${r._id || r.id}`)}
-                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                            className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shadow-sm"
                         >
                             Profile
                         </button>
                         <button
                             onClick={() => handleDownloadMarkSheet(r._id || r.id, r.name, r.reg)}
-                            className="h-7 px-3 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-100 hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+                            className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shadow-sm"
                         >
-                            Mark sheet
+                            Sheet
                         </button>
                     </div>
                 );
@@ -273,9 +287,9 @@ const RegisteredStudents = memo(({ user }) => {
                         <input type="text" value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Search by name or reg..."
-                             className="pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 w-full sm:w-64 lg:w-72 transition-all min-h-[44px]" />
+                            className="pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-medium text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 w-full sm:w-64 lg:w-72 transition-all min-h-[44px]" />
                     </div>
-                    {(isSupervisor || isFaculty) && (
+                    {(isSupervisor || isFaculty || isOffice || user?.role === 'hod') && (
                         <button
                             onClick={handleBulkDownload}
                             className="h-10 px-5 flex items-center gap-2 whitespace-nowrap bg-transparent text-secondary border border-secondary hover:bg-slate-50 font-poppins rounded-xl transition-all duration-200 cursor-pointer font-black text-[9px] uppercase tracking-widest flex-shrink-0"
@@ -308,22 +322,15 @@ const RegisteredStudents = memo(({ user }) => {
             )}
 
             <div className="min-h-[250px] sm:min-h-[400px]">
-                {loading ? (
-                    <div className="py-16 sm:py-24 text-center flex flex-col items-center justify-center">
-                        <svg className="w-8 h-8 sm:w-10 sm:h-10 text-primary opacity-20 mb-3 sm:mb-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        <p className="text-[10px] sm:text-xs font-black text-slate-300 tracking-widest uppercase">Retrieving Records...</p>
-                    </div>
-                ) : students.length === 0 ? (
-                    <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-100 py-16 sm:py-24 text-center shadow-sm px-4">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-2xl sm:rounded-[28px] flex items-center justify-center mx-auto mb-4 sm:mb-5 border-2 border-dashed border-slate-100 text-slate-200">
-                            <svg className="w-8 h-8 sm:w-10 sm:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                {students.length === 0 && !loading ? (
+                    <div className="py-24 text-center">
+                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-10 h-10 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                         </div>
-                        <h3 className="text-slate-500 font-black text-sm sm:text-base tracking-tight">No Students Found</h3>
-                        <p className="text-slate-300 text-[10px] sm:text-xs font-bold tracking-[2px] sm:tracking-[3px] mt-2 uppercase">
-                            {debouncedSearch ? 'Try a different search term' : 'No records in this registry'}
-                        </p>
-                        {debouncedSearch && (
-                            <button onClick={() => setSearch('')} className="mt-4 sm:mt-6 px-4 sm:px-6 py-2 sm:py-2.5 border border-slate-200 rounded-lg sm:rounded-xl text-slate-400 text-[10px] sm:text-xs font-black tracking-widest uppercase hover:bg-slate-50 transition-all min-h-[44px]">
+                        <h3 className="text-lg font-black text-slate-800">No records found</h3>
+                        <p className="text-sm text-slate-500 font-medium">We couldn't find any students matching your criteria.</p>
+                        {search && (
+                            <button onClick={() => setSearch('')} className="mt-4 text-xs font-black text-primary uppercase tracking-widest hover:underline cursor-pointer">
                                 Clear Search
                             </button>
                         )}
@@ -334,7 +341,7 @@ const RegisteredStudents = memo(({ user }) => {
                             <svg className="w-8 h-8 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         </div>
                     }>
-                        <DataTable columns={tableColumns} data={students} />
+                        <DataTable columns={tableColumns} data={students} loading={loading} />
                     </Suspense>
                 )}
             </div>
@@ -382,7 +389,7 @@ const RegisteredStudents = memo(({ user }) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 });
 

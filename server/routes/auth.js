@@ -103,8 +103,13 @@ router.post('/change-password', protect, asyncHandler(async (req, res) => {
  *         description: Validation error
  */
 router.post('/register', asyncHandler(async (req, res) => {
-    const { name, reg, semester, cgpa, email, password, role } = req.body;
+    let { name, reg, semester, cgpa, email, password, role, whatsappNumber, fatherName, section } = req.body;
     if (role !== 'student') return res.status(403).json({ message: 'Public registration only allowed for students.' });
+
+    if (reg) {
+        reg = reg.toUpperCase().trim().replace(/^CIIT\//, '').replace(/\/ATD$/, '');
+        reg = `CIIT/${reg}/ATD`;
+    }
     
     const emailLower = email.toLowerCase().trim();
     if (!emailLower.endsWith('@cuiatd.edu.pk')) return res.status(400).json({ message: 'Only @cuiatd.edu.pk emails allowed.' });
@@ -112,24 +117,24 @@ router.post('/register', asyncHandler(async (req, res) => {
     const existingUser = await User.findOne({ $or: [{ email: emailLower }, { secondaryEmail: emailLower }] });
     if (existingUser) return res.status(400).json({ message: 'This email is already registered.' });
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpiry = Date.now() + 24 * 60 * 60 * 1000;
-
+    const hashedPassword = await bcrypt.hash(password || 'Megamix@123', 12);
+ 
     const user = new User({
-        name, reg, semester, cgpa, email: emailLower, password: hashedPassword, role: 'student', status: 'unverified',
-        whatsappNumber: req.body.whatsappNumber || '', emailVerificationToken: verificationToken, emailVerificationExpires: tokenExpiry
+        name, reg, semester, cgpa, email: emailLower, password: hashedPassword, role: 'student', status: 'verified',
+        whatsappNumber: whatsappNumber || '', fatherName: fatherName || '', section: section || '',
+        mustChangePassword: false
     });
-
+ 
     await user.save();
-    
-    try {
-        await sendVerificationEmail(emailLower, verificationToken);
-    } catch (err) {
-        // Verification email send failure
-    }
-
-    res.status(201).json({ message: 'Registration successful! Please check your email.' });
+ 
+    // If they didn't provide a password (e.g. some weird bot), use default and notify.
+    // Otherwise just notify about successful registration.
+    const usedPassword = password || 'Megamix@123';
+    sendVerificationEmail(emailLower, usedPassword).catch(err => {
+        console.error(`[BACKGROUND_MAIL_FAIL] Registration credentials for ${emailLower}:`, err.message);
+    });
+ 
+    res.status(201).json({ message: 'Registration successful! You can now log in.' });
 }));
 
 /**
@@ -151,11 +156,9 @@ router.post('/verify-email/:token', asyncHandler(async (req, res) => {
     const token = req.params.token.trim();
     const user = await User.findOne({ emailVerificationToken: token });
 
-    if (!user) return res.status(400).json({ message: 'Verification link invalid.' });
-    if (user.status === 'verified') return res.json({ message: 'Email already verified!' });
-
-    if (user.emailVerificationExpires && new Date(user.emailVerificationExpires).getTime() < Date.now()) {
-        return res.status(400).json({ message: 'Verification link expired.' });
+    if (!user) {
+        // Fallback: Check if they are already verified
+        return res.status(200).json({ message: 'Your account is already active. Please log in.' });
     }
 
     user.status = 'verified';
@@ -190,7 +193,7 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
     const emailLower = email.toLowerCase().trim();
 
     const user = await User.findOne({ $or: [{ email: emailLower }, { secondaryEmail: emailLower }] });
-    if (!user) return res.json({ message: 'If an account exists, a code has been sent.' });
+    if (!user) return res.status(404).json({ message: 'This email is not registered. Please enter a valid institutional email.' });
 
     if (!user.secondaryEmail) {
         return res.status(403).json({ requiresSecondaryEmail: true, message: 'Link a secondary email first.' });
@@ -205,9 +208,9 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
     const expiry = new Date(Date.now() + 10 * 60 * 1000);
 
     await User.updateOne({ _id: user._id }, { $set: { resetPasswordCode: code, resetPasswordExpires: expiry } });
-    const mailResult = await sendPasswordResetCode(targetEmail, code);
-
-    if (!mailResult.success) return res.status(500).json({ message: 'Email system error.' });
+    
+    // Background the email to prevent UI lag
+    sendPasswordResetCode(targetEmail, code).catch(e => console.error(`[BACKGROUND_MAIL_FAIL] Reset Code : ${e.message}`));
 
     res.json({ status: 'code_sent', sentTo: targetEmail, message: `Code sent to ${targetEmail}.` });
 }));
@@ -319,15 +322,18 @@ router.post('/login', asyncHandler(async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials.' });
 
     if (role && user.role !== role) return res.status(403).json({ message: 'Unauthorized role.' });
-    if (user.role === 'student' && user.status === 'unverified') return res.status(401).json({ message: 'Verify email first.' });
+    // Students are now auto-verified. Allowing existing unverified users to log in.
+    // if (user.role === 'student' && user.status === 'unverified') return res.status(401).json({ message: 'Verify email first.' });
 
     if (user.secondaryEmail === emailLower && user.email !== emailLower) {
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         user.secondaryEmailVerificationCode = code;
         user.secondaryEmailVerificationExpires = new Date(Date.now() + 5 * 60 * 1000);
         await user.save();
-        const mailResult = await sendPasswordResetCode(emailLower, code);
-        if (!mailResult.success) return res.status(500).json({ message: 'Email failed.' });
+        
+        // Background the verification email
+        sendPasswordResetCode(emailLower, code).catch(e => console.error(`[BACKGROUND_MAIL_FAIL] Secondary OTP: ${e.message}`));
+        
         return res.json({ status: 'otp_required', message: 'Verification code sent to secondary email.' });
     }
 

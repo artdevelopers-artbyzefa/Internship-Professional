@@ -3,6 +3,7 @@ import Button from '../ui/Button.jsx';
 import { FormGroup, TextInput } from '../ui/FormInput.jsx';
 import { apiRequest } from '../../utils/api.js';
 import Alert from '../ui/Alert.jsx';
+import { showToast } from '../../utils/notifications.jsx';
 
 // Steps:
 // 1 → Enter primary email
@@ -33,7 +34,11 @@ export default function ForgotPage({ onBack }) {
 
   // Step 1: Lookup account & check secondary email
   const handleLookup = async () => {
-    if (!email.trim()) return setError('Please enter your registered email.');
+    if (!email.trim()) {
+      const msg = 'Please enter your registered institutional email.';
+      showToast.error(msg);
+      return setError(msg);
+    }
     setLoading(true);
     setError('');
     setRequiresSecondary(false);
@@ -55,7 +60,9 @@ export default function ForgotPage({ onBack }) {
         setStep(2);
       }
     } catch (err) {
-      setError(err.message || 'Something went wrong.');
+      const msg = err.message || 'Something went wrong.';
+      showToast.error(msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -75,7 +82,9 @@ export default function ForgotPage({ onBack }) {
       setSentToEmail(data.sentTo || '');
       setStep(3);
     } catch (err) {
-      setError(err.message || 'Failed to send code.');
+      const msg = err.message || 'Failed to send code.';
+      showToast.error(msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -83,7 +92,11 @@ export default function ForgotPage({ onBack }) {
 
   // Step 3: Verify OTP
   const handleVerifyCode = async () => {
-    if (code.length !== 6) return setError('Please enter the full 6-digit code.');
+    if (code.length !== 6) {
+      const msg = 'Please enter the full 6-digit code.';
+      showToast.error(msg);
+      return setError(msg);
+    }
     setLoading(true);
     setError('');
     try {
@@ -94,7 +107,9 @@ export default function ForgotPage({ onBack }) {
       });
       setStep(4);
     } catch (err) {
-      setError(err.message || 'Invalid or expired code.');
+      const msg = err.message || 'Invalid or expired code.';
+      showToast.error(msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -102,8 +117,16 @@ export default function ForgotPage({ onBack }) {
 
   // Step 4: Set new password
   const handleResetPassword = async () => {
-    if (password.length < 8) return setError('Password must be at least 8 characters.');
-    if (password !== confirmPassword) return setError('Passwords do not match.');
+    if (password.length < 8) {
+      const msg = 'Password must be at least 8 characters.';
+      showToast.error(msg);
+      return setError(msg);
+    }
+    if (password !== confirmPassword) {
+      const msg = 'Passwords do not match.';
+      showToast.error(msg);
+      return setError(msg);
+    }
     setLoading(true);
     setError('');
     try {
@@ -115,7 +138,9 @@ export default function ForgotPage({ onBack }) {
       setSuccess('Password reset successfully! Redirecting to login...');
       setTimeout(onBack, 3000);
     } catch (err) {
-      setError(err.message || 'Reset failed.');
+      const msg = err.message || 'Reset failed.';
+      showToast.error(msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }

@@ -53,7 +53,10 @@ export default function SupervisorGrading({ user, activePhase }) {
     }, [page]);
 
     const handleDownload = async (url, name = 'Submission') => {
-        if (!url) return;
+        if (!url) {
+            showToast.error("No submission yet");
+            return;
+        }
         try {
             const cleanName = `${name.replace(/[^a-z0-9]/gi, '_')}`;
             const blob = await apiRequest(`/auth/download-proxy?url=${encodeURIComponent(url)}&filename=${cleanName}.pdf`, {
@@ -261,7 +264,7 @@ export default function SupervisorGrading({ user, activePhase }) {
                                 </div>
                                 <div className="px-4 py-2 bg-slate-50 rounded-xl text-center sm:text-right">
                                     <p className="text-[10px] font-bold text-slate-400 mb-1">Total Submissions</p>
-                                    <p className="text-lg font-black text-slate-800">{submissions.length}</p>
+                                    <p className="text-lg font-black text-slate-800">{submissions.filter(s => s.fileUrl).length}</p>
                                 </div>
                             </div>
 
@@ -300,10 +303,16 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                         {isExpanded && (
                                                             <div className="p-4 bg-slate-50/30 border-t border-slate-100">
                                                                 <div className="flex gap-2 mb-4">
-                                                                    <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)}
-                                                                        className="flex-1 py-2 bg-primary text-white rounded-xl text-[10px] font-black border-0 cursor-pointer">
-                                                                        View Document
-                                                                    </button>
+                                                                    {sub.fileUrl ? (
+                                                                        <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)}
+                                                                            className="flex-1 py-2 bg-primary text-white rounded-xl text-[10px] font-black border-0 cursor-pointer">
+                                                                            View Document
+                                                                        </button>
+                                                                    ) : (
+                                                                        <div className="flex-1 py-2 bg-slate-50 text-slate-300 text-center rounded-xl text-[10px] font-bold border border-slate-100 italic">
+                                                                            No Submission Yet
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                                 <div className="space-y-4 bg-white p-4 rounded-2xl border border-slate-100">
                                                                     <div className="grid grid-cols-1 gap-3">
@@ -372,10 +381,16 @@ export default function SupervisorGrading({ user, activePhase }) {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-5">
-                                                            <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)}
-                                                                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl border-0 transition-all text-[11px] font-bold cursor-pointer">
-                                                                <i className="fas fa-file-pdf"></i> View File
-                                                            </button>
+                                                            {sub.fileUrl ? (
+                                                                <button onClick={() => handleDownload(sub.fileUrl, sub.user?.name)}
+                                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl border-0 transition-all text-[11px] font-bold cursor-pointer hover:bg-black">
+                                                                    <i className="fas fa-file-pdf"></i> View File
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-[11px] font-bold text-slate-300 italic">
+                                                                    <i className="fas fa-times-circle mr-1"></i> No File
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-5">
                                                             {sub.marks?.isSiteSupervisorGraded ? (

@@ -1,15 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../utils/api.js';
-
-const SkeletonRow = () => (
-    <tr className="animate-pulse border-b border-slate-50">
-        <td className="py-6 px-8"><div className="h-10 w-10 bg-slate-100 rounded-lg"></div></td>
-        <td className="py-6 px-8"><div className="h-6 w-48 bg-slate-100 rounded"></div></td>
-        <td className="py-6 px-8"><div className="h-6 w-32 bg-slate-50 rounded"></div></td>
-        <td className="py-6 px-8 text-right"><div className="h-8 w-24 bg-slate-100 rounded-full ml-auto"></div></td>
-    </tr>
-);
+import { DataTable } from '../../components/ui/DataTable.jsx';
 
 export default function InternshipRequestsManager({ user }) {
     const navigate = useNavigate();
@@ -57,127 +49,156 @@ export default function InternshipRequestsManager({ user }) {
         return () => clearInterval(interval);
     }, [fetchRequests]);
 
-    return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Command Header */}
-            <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-10 flex flex-col lg:flex-row items-center justify-between gap-10">
-                <div className="text-center sm:text-left">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Applications</h2>
-                    <p className="text-xs font-bold text-slate-500 tracking-widest mt-2 uppercase">Active Applications</p>
+    const columns = [
+        {
+            key: 'name',
+            label: 'Student Identity',
+            render: (v, r) => (
+                <div className="flex flex-col gap-0.5 py-1">
+                    <span className="font-black text-slate-900 uppercase text-xs md:text-sm">{r.name}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{r.reg}</span>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+            )
+        },
+        {
+            key: 'placement',
+            label: 'Placement Details',
+            render: (v, r) => (
+                <div className="flex flex-col gap-0.5 py-1">
+                    <span className="text-xs font-black text-slate-900 uppercase truncate max-w-[200px]">{r.internshipRequest?.companyName || 'PENDING'}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{r.internshipRequest?.mode || 'TBD'}</span>
+                </div>
+            )
+        },
+        {
+            key: 'advisors',
+            label: 'Supervision',
+            render: (v, r) => (
+                <div className="flex flex-col gap-1.5 py-1">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${r.assignedFaculty ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200'}`}></div>
+                        <span className={`text-[9px] font-black uppercase tracking-tight ${r.assignedFaculty ? 'text-slate-900' : 'text-slate-300'}`}>Internal Advisor</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${r.assignedCompanySupervisor ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200'}`}></div>
+                        <span className={`text-[9px] font-black uppercase tracking-tight ${r.assignedCompanySupervisor ? 'text-slate-900' : 'text-slate-300'}`}>Site Manager</span>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'status',
+            label: 'Decision',
+            render: (v, r) => (
+                <span className={`inline-block px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm ${
+                    r.status === 'Internship Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    r.status === 'Internship Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>
+                    {r.status?.split(' ').pop()}
+                </span>
+            )
+        },
+        {
+            key: 'actions',
+            label: 'Actions',
+            className: 'text-right',
+            render: (v, r) => (
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/office/internship-requests/${r._id}`);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:scale-[1.02] active:scale-95 transition-all shadow-sm hover:shadow-primary/25 cursor-pointer"
+                >
+                    View Details
+                    <i className="fas fa-arrow-right text-[8px]"></i>
+                </button>
+            )
+        }
+    ];
+
+    return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Command Header */}
+            <div className="bg-white border border-slate-200 shadow-sm rounded-[32px] p-6 sm:p-8 lg:p-10 flex flex-col lg:flex-row items-center justify-between gap-6 md:gap-10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
+                <div className="text-center sm:text-left z-10">
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">Internship Requests</h2>
+                    <p className="text-[10px] font-black text-primary tracking-[0.3em] mt-2 ">Manage the internship requests</p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto z-10">
                     <div className="relative group w-full lg:w-96">
-                        <i className="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <i className="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-xs transition-colors group-focus-within:text-primary"></i>
                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                             placeholder="SEARCH BY NAME, ID, OR SITE..."
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-12 py-4 text-slate-900 text-xs font-black tracking-widest outline-none focus:bg-white focus:border-slate-300 transition-all placeholder-slate-400 uppercase" />
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-12 py-3.5 text-slate-900 text-[11px] font-black tracking-widest outline-none focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all placeholder-slate-300 uppercase" />
                     </div>
-                    <button onClick={() => fetchRequests()} className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all">
-                        <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''} text-sm`}></i>
+                    <button onClick={() => fetchRequests()} className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-primary hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
+                        <i className={`fas fa-sync-alt ${loading ? 'fa-spin text-primary' : ''} text-sm`}></i>
                     </button>
                 </div>
             </div>
 
             {/* Registry Table Container */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden text-left">
-                {/* Modern Sleek Tabs */}
-                <div className="px-8 pt-6 border-b border-slate-100">
-                    <div className="flex gap-8 overflow-x-auto scrollbar-hide">
-                        {[
-                            { key: 'all', label: 'All Requests', count: counts.all },
-                            { key: 'pending', label: 'Under Review', count: counts.pending },
-                            { key: 'approved', label: 'Approved', count: counts.approved },
-                            { key: 'rejected', label: 'Rejected', count: counts.rejected },
-                        ].map(t => (
-                            <button 
-                                key={t.key} 
-                                onClick={() => { setFilter(t.key); setPage(1); }}
-                                className={`relative pb-4 text-xs font-black tracking-wide transition-colors whitespace-nowrap flex items-center gap-2 ${
-                                    filter === t.key 
-                                        ? 'text-slate-900' 
-                                        : 'text-slate-400 hover:text-slate-600'
-                                }`}
-                            >
-                                {t.label}
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                                    filter === t.key 
-                                        ? 'bg-slate-900 text-white' 
-                                        : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                    {t.count}
-                                </span>
-                                {filter === t.key && (
-                                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900 rounded-t-full"></span>
-                                )}
-                            </button>
-                        ))}
+            <div className="bg-white border border-slate-100 rounded-[40px] shadow-2xl shadow-slate-200/50 overflow-hidden">
+                {/* Modern Dropdown Form */}
+                <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest hidden sm:block">Filter Requests Status</h3>
+                    <div className="relative w-full sm:w-80">
+                        <select
+                            value={filter}
+                            onChange={(e) => { setFilter(e.target.value); setPage(1); }}
+                            className="appearance-none w-full bg-white border border-slate-200 text-slate-700 text-[11px] font-black uppercase tracking-widest rounded-[1.25rem] focus:ring-4 focus:ring-primary/10 focus:border-primary block px-6 py-4 pr-12 shadow-sm cursor-pointer outline-none transition-all hover:border-slate-300"
+                        >
+                            <option value="all">All Requests ({counts.all})</option>
+                            <option value="pending">Under Review ({counts.pending})</option>
+                            <option value="approved">Approved ({counts.approved})</option>
+                            <option value="rejected">Rejected ({counts.rejected})</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-6 text-slate-400">
+                            <i className="fas fa-chevron-down text-[10px]"></i>
+                        </div>
                     </div>
                 </div>
 
-                <div className="w-full">
-                    <table className="w-full block lg:table">
-                        <thead className="hidden lg:table-header-group">
-                            <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 tracking-widest">Student</th>
-                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 tracking-widest">Internship</th>
-                                <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 tracking-widest">Supervisors</th>
-                                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 tracking-widest">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="block lg:table-row-group divide-y divide-slate-100 lg:divide-slate-50">
-                            {loading ? [...Array(8)].map((_, i) => <SkeletonRow key={i} />) : 
-                             students.length === 0 ? (
-                                <tr className="block lg:table-row">
-                                    <td colSpan={4} className="block lg:table-cell py-40 text-center font-black text-slate-300 text-[10px] uppercase tracking-[0.5em]">Empty</td>
-                                </tr>
-                             ) : (
-                                students.map(s => (
-                                    <tr key={s._id} onClick={() => navigate(`/office/internship-requests/${s._id}`)} 
-                                        className="group cursor-pointer hover:bg-slate-50/50 transition-all border-l-4 border-transparent hover:border-slate-900 block lg:table-row p-6 lg:p-0">
-                                        
-                                        <td className="block lg:table-cell lg:px-8 lg:py-8 mb-4 lg:mb-0">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest lg:hidden mb-1">Student</p>
-                                            <p className="text-sm font-black text-slate-900 uppercase transition-colors">{s.name}</p>
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{s.reg}</p>
-                                        </td>
-                                        
-                                        <td className="block lg:table-cell lg:px-8 lg:py-8 mb-4 lg:mb-0">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest lg:hidden mb-1">Placement</p>
-                                            <p className="text-xs font-black text-slate-900 uppercase">{s.internshipRequest?.companyName || 'PENDING'}</p>
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase mt-1 tracking-widest">{s.internshipRequest?.mode || 'TBD'}</p>
-                                        </td>
-                                        
-                                        <td className="block lg:table-cell lg:px-8 lg:py-8 mb-6 lg:mb-0">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest lg:hidden mb-2">Advisors</p>
-                                            <div className="flex flex-col gap-2">
-                                                <div className={`text-[9px] font-black uppercase ${s.assignedFaculty ? 'text-slate-900' : 'text-slate-300'}`}>Internal Advisor</div>
-                                                <div className={`text-[9px] font-black uppercase ${s.assignedCompanySupervisor ? 'text-slate-900' : 'text-slate-300'}`}>Site Manager</div>
-                                            </div>
-                                        </td>
-                                        
-                                        <td className="block lg:table-cell lg:px-8 lg:py-8 lg:text-right border-t border-slate-100 lg:border-none pt-4 lg:pt-0">
-                                            <span className={`inline-block px-4 py-2 rounded-md text-[9px] font-black uppercase tracking-widest border ${
-                                                s.status === 'Internship Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                s.status === 'Internship Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                'bg-amber-50 text-amber-700 border-amber-200'
-                                            }`}>
-                                                {s.status?.split(' ').pop()}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))
-                             )}
-                        </tbody>
-                    </table>
+                <div className="w-full min-h-[500px]">
+                    {students.length === 0 && !loading ? (
+                        <div className="py-48 text-center flex flex-col items-center justify-center gap-6">
+                             <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center border border-slate-100 text-slate-200 shadow-inner">
+                                <i className="fas fa-inbox text-4xl"></i>
+                             </div>
+                             <div className="space-y-2">
+                                <h4 className="text-slate-400 font-black text-xs  tracking-[0.5em]">No Applications Found</h4>
+                                <p className="text-[10px] text-slate-300 font-bold  tracking-wider">Try adjusting your filters or search keywords</p>
+                             </div>
+                        </div>
+                    ) : (
+                        <DataTable 
+                            columns={columns} 
+                            data={students} 
+                            loading={loading}
+                            onRowClick={(row) => navigate(`/office/internship-requests/${row._id}`)}
+                        />
+                    )}
                 </div>
 
                 {totalPages > 1 && (
-                    <div className="bg-slate-50 border-t border-slate-100 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">PAGE {page} OF {totalPages}</p>
+                    <div className="bg-slate-50/50 border-t border-slate-100 p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Navigation</span>
+                            <span className="text-xs font-black text-slate-900 uppercase mt-1 tracking-tighter">Page {page} of {totalPages}</span>
+                        </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setPage(p => p - 1)} disabled={page === 1} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed">Prev</button>
+                            <button 
+                                onClick={() => setPage(p => p - 1)} 
+                                disabled={page === 1 || loading} 
+                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-xl hover:shadow-slate-900/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                <i className="fas fa-chevron-left mr-2"></i> Prev
+                            </button>
                             
-                            <div className="flex items-center gap-1 hidden sm:flex">
+                            <div className="flex items-center gap-1.5 hidden lg:flex">
                                 {[...Array(totalPages)].map((_, i) => {
                                     const p = i + 1;
                                     if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
@@ -185,20 +206,27 @@ export default function InternshipRequestsManager({ user }) {
                                             <button 
                                                 key={p} 
                                                 onClick={() => setPage(p)}
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${page === p ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-400'}`}
+                                                disabled={loading}
+                                                className={`w-11 h-11 rounded-2xl flex items-center justify-center text-[10px] font-black transition-all cursor-pointer ${page === p ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-110' : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-400'}`}
                                             >
                                                 {p}
                                             </button>
                                         );
                                     }
                                     if (p === page - 2 || p === page + 2) {
-                                        return <span key={p} className="text-slate-400 font-black px-1">...</span>;
+                                        return <span key={p} className="text-slate-400 font-black px-1 self-center">...</span>;
                                     }
                                     return null;
                                 })}
                             </div>
 
-                            <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                            <button 
+                                onClick={() => setPage(p => p + 1)} 
+                                disabled={page === totalPages || loading} 
+                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-xl hover:shadow-slate-900/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                Next <i className="fas fa-chevron-right ml-2"></i>
+                            </button>
                         </div>
                     </div>
                 )}

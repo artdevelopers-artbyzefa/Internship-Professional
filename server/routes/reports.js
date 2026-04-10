@@ -478,12 +478,13 @@ router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
                 reg: s.reg,
                 name: s.name,
                 company: s.company || 'N/A',
-                tasksPerformed,
-                avgScore: (s.avgMarks || 0).toFixed(2),
-                percentage: pct,
+                tasks: tasksPerformed,
+                avg: (s.avgMarks || 0).toFixed(2),
+                pct: pct,
                 status: s.status,
-                supervisor: s.siteSupervisor?.name || 'N/A',
-                faculty: s.faculty?.name || 'N/A'
+                sup: s.siteSupervisor?.name || 'N/A',
+                fac: s.faculty?.name || 'N/A',
+                percentage: pct
             });
 
             const cName = s.company || 'Unassigned';
@@ -523,12 +524,13 @@ router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
                 reg: s.reg,
                 name: s.name,
                 company: s.assignedCompany || 'N/A',
-                tasksPerformed: totalTasks,
-                avgScore: avg.toFixed(2),
-                percentage: pct,
+                tasks: totalTasks,
+                avg: avg.toFixed(2),
+                pct: pct,
                 status: s.status,
-                supervisor: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor || 'N/A',
-                faculty: s.assignedFaculty?.name || 'N/A'
+                sup: s.assignedSiteSupervisor?.name || s.assignedCompanySupervisor || 'N/A',
+                fac: s.assignedFaculty?.name || 'N/A',
+                percentage: pct
             });
 
             const cName = s.assignedCompany || 'Unassigned';
@@ -555,132 +557,168 @@ router.post('/hod-excel-report', protect, asyncHandler(async (req, res) => {
         });
     }
 
-    // 2. SHEET: EXECUTIVE DASHBOARD ──────────────────────────────────────────
-    const sh0 = workbook.addWorksheet('Executive Dashboard', { views: [{ showGridLines: false }] });
-    sh0.getColumn(1).width = 45;
-    sh0.getColumn(2).width = 35;
-    sh0.getColumn(3).width = 25;
-    sh0.getColumn(4).width = 25;
+    // Helper: compute letter grade from percentage
+    const getLetterGrade = (pct) => {
+        if (pct >= 90) return 'A+';
+        if (pct >= 80) return 'A';
+        if (pct >= 70) return 'B+';
+        if (pct >= 60) return 'B';
+        if (pct >= 50) return 'C';
+        return 'F';
+    };
 
-    // Title Section
-    sh0.mergeCells('A1:D1');
-    const titleCell = sh0.getCell('A1');
-    titleCell.value = 'INSTITUTIONAL PERFORMANCE AUDIT & EXECUTIVE DASHBOARD';
-    titleCell.font = { bold: true, size: 20, color: NAVY };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    sh0.getRow(1).height = 45;
-
-    sh0.mergeCells('A2:D2');
-    const subCell = sh0.getCell('A2');
-    subCell.value = `Academic Cycle: ${new Date().getFullYear()}   |   Generated On: ${getPKTDate()} at ${getPKTTime()}`;
-    subCell.font = { size: 10, color: { argb: 'FF64748B' } };
-    subCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    sh0.getRow(2).height = 20;
-
-    sh0.addRow([]);
-
-    // Logic for Completion
-    const sortedCos = Object.values(companyStats).sort((a, b) => (b.totalMarks / b.students) - (a.totalMarks / a.students));
-    const sortedTasks = Object.values(companyStats).sort((a, b) => b.totalTasks - a.totalTasks);
-    const sortedFac = Object.values(facultyStats).sort((a, b) => a.unmarked - b.unmarked);
-    const allGraded = sortedFac.length > 0 && sortedFac.every(f => f.unmarked === 0);
-
-    // Header for Summary Table
-    const headerRow = sh0.addRow(['ANALYSIS CATEGORY', 'TOP PERFORMING ENTITY', 'KEY METRIC', 'VALUE / COUNT']);
-    styleHeader(sh0, headerRow.number);
-
-    const leaderData = [
-        ['Highest Performing Company (Avg Grade)', sortedCos[0]?.name || 'N/A', 'Avg Success Rate', sortedCos[0] ? `${Math.round(sortedCos[0].totalMarks / sortedCos[0].students)}%` : '0%'],
-        ['Most Active Company (Task Volume)', sortedTasks[0]?.name || 'N/A', 'Tasks Completed', sortedTasks[0]?.totalTasks || 0],
-        ['Highest Performing Faculty (Evaluations)',
-            allGraded ? 'AUDIT COMPLETED' : (sortedFac[0]?.name || 'N/A'),
-            allGraded ? 'STATUS' : 'Pending Tasks',
-            allGraded ? '100% GRADED' : (sortedFac[0]?.unmarked || 0)],
-        ['Least Performing Faculty (Evaluations)',
-            allGraded ? 'N/A' : (sortedFac[sortedFac.length - 1]?.name || 'N/A'),
-            allGraded ? 'REMARK' : 'Pending Tasks',
-            allGraded ? 'Everyone has Marked Every Task' : (sortedFac[sortedFac.length - 1]?.unmarked || 0)]
-    ];
-
-    leaderData.forEach((ld, idx) => {
-        const r = sh0.addRow(ld);
-        r.height = 30;
-        r.alignment = { vertical: 'middle' };
-        r.getCell(1).font = { bold: true, color: { argb: 'FF334155' } };
-        r.getCell(2).font = { bold: true, color: NAVY };
-        r.getCell(4).font = { bold: true, color: (idx === 3 && !allGraded ? { argb: 'FFDC2626' } : { argb: 'FF059669' }) };
-
-        r.eachCell(c => {
-            c.border = BORDER;
-            if (idx % 2 !== 0) c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE };
-        });
+    // Build per-supervisor student lists
+    const supervisorStudents = {};
+    studentStats.forEach(s => {
+        const key = s.sup || 'Unassigned';
+        if (!supervisorStudents[key]) supervisorStudents[key] = [];
+        supervisorStudents[key].push(s);
     });
 
-    sh0.addRow([]);
-    sh0.addRow(['* This institutional audit is strictly for departmental review and archival purposes.']).font = { size: 9, italic: true, color: { argb: 'FF64748B' } };
+    // Build per-faculty student lists
+    const facultyStudents = {};
+    studentStats.forEach(s => {
+        const key = s.fac || 'Unassigned';
+        if (!facultyStudents[key]) facultyStudents[key] = [];
+        facultyStudents[key].push(s);
+    });
 
-    // 3. SHEET: STUDENT RECORDS ──────────────────────────────────────────
-    const sh1 = workbook.addWorksheet('Student Achievement Register');
+    // Build per-company student lists
+    const companyStudents = {};
+    studentStats.forEach(s => {
+        const key = s.company || 'Unassigned';
+        if (!companyStudents[key]) companyStudents[key] = { supervisor: s.sup || 'N/A', students: [] };
+        companyStudents[key].students.push(s);
+    });
+
+    // ── SHEET 1: STUDENT MASTER REGISTER ─────────────────────────────────
+    const sh1 = workbook.addWorksheet('Student Master Register');
     sh1.columns = [
-        { header: 'REGISTRATION #', key: 'reg', width: 22 },
-        { header: 'FULL NAME', key: 'name', width: 30 },
-        { header: 'AFFILIATED COMPANY', key: 'company', width: 30 },
-        { header: 'SITE SUPERVISOR', key: 'sup', width: 30 },
-        { header: 'ACADEMIC SUPERVISOR', key: 'fac', width: 30 },
-        { header: 'TASKS COMPLETED', key: 'tasks', width: 15 },
-        { header: 'AVG / 10', key: 'avg', width: 12 },
-        { header: '% SCORE', key: 'pct', width: 12 },
-        { header: 'STATUS', key: 'status', width: 20 }
+        { header: 'Registration #', key: 'reg', width: 24 },
+        { header: 'Full Name', key: 'name', width: 28 },
+        { header: 'Affiliated Company', key: 'company', width: 28 },
+        { header: 'Site Supervisor', key: 'sup', width: 28 },
+        { header: 'Faculty Supervisor', key: 'fac', width: 28 },
+        { header: 'Tasks Completed', key: 'tasks', width: 16 },
+        { header: 'Score (%)', key: 'pct', width: 12 },
+        { header: 'Grade', key: 'grade', width: 10 }
     ];
     styleHeader(sh1, 1);
     studentStats.forEach((s, i) => {
-        const r = sh1.addRow(s);
+        const r = sh1.addRow({ ...s, grade: getLetterGrade(s.percentage) });
         r.height = 25;
         r.alignment = { vertical: 'middle' };
         if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
         r.getCell('pct').font = { bold: true, color: s.percentage >= 50 ? { argb: 'FF059669' } : { argb: 'FFDC2626' } };
+        r.getCell('grade').font = { bold: true, color: s.percentage >= 50 ? { argb: 'FF059669' } : { argb: 'FFDC2626' } };
         r.eachCell(c => c.border = BORDER);
     });
 
-    // 4. SHEET: SUPERVISOR ANALYTICS ───────────────────────────────────────
-    const sh2 = workbook.addWorksheet('Supervisor Insights');
+    // ── SHEET 2: SITE SUPERVISOR BREAKDOWN ────────────────────────────────
+    const sh2 = workbook.addWorksheet('Site Supervisor Breakdown');
     sh2.columns = [
-        { header: 'SUPERVISOR NAME', key: 'name', width: 35 },
-        { header: 'INTERNS ASSIGNED', key: 'students', width: 22 },
-        { header: 'TASKS EVALUATED', key: 'tasks', width: 22 },
-        { header: 'COHORT AVG GRADE', key: 'avg', width: 22 }
+        { header: 'Site Supervisor', key: 'col1', width: 28 },
+        { header: 'Registration #', key: 'col2', width: 24 },
+        { header: 'Student Name', key: 'col3', width: 28 },
+        { header: 'Company', key: 'col4', width: 28 },
+        { header: 'Score (%)', key: 'col5', width: 12 },
+        { header: 'Grade', key: 'col6', width: 10 }
     ];
     styleHeader(sh2, 1);
-    Object.values(supervisorStats).forEach((s, i) => {
-        const r = sh2.addRow({
-            name: s.name,
-            students: s.students,
-            tasks: s.tasksGiven,
-            avg: `${Math.round(s.totalScore / s.students)}%`
+    let sh2Row = 1;
+    Object.entries(supervisorStudents).forEach(([supName, studs]) => {
+        // Supervisor header row
+        sh2Row++;
+        const hdr = sh2.addRow({ col1: supName, col2: `${studs.length} student(s)`, col3: '', col4: '', col5: `Avg: ${Math.round(studs.reduce((a, s) => a + s.percentage, 0) / studs.length)}%`, col6: '' });
+        hdr.font = { bold: true, size: 11, color: NAVY };
+        hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+        hdr.height = 28;
+        hdr.eachCell(c => c.border = BORDER);
+
+        // Student rows under this supervisor
+        studs.forEach((s, i) => {
+            sh2Row++;
+            const r = sh2.addRow({ col1: '', col2: s.reg, col3: s.name, col4: s.company, col5: `${s.percentage}%`, col6: getLetterGrade(s.percentage) });
+            r.height = 22;
+            r.alignment = { vertical: 'middle' };
+            r.getCell('col6').font = { bold: true, color: s.percentage >= 50 ? { argb: 'FF059669' } : { argb: 'FFDC2626' } };
+            if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
+            r.eachCell(c => c.border = BORDER);
         });
-        r.height = 25;
-        r.alignment = { vertical: 'middle' };
-        if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
-        r.eachCell(c => c.border = BORDER);
+
+        // Blank separator
+        sh2.addRow({});
+        sh2Row++;
     });
 
-    // 5. SHEET: FACULTY ANALYTICS ──────────────────────────────────────────
-    const sh3 = workbook.addWorksheet('Faculty Workload Audit');
+    // ── SHEET 3: FACULTY SUPERVISOR BREAKDOWN ─────────────────────────────
+    const sh3 = workbook.addWorksheet('Faculty Supervisor Breakdown');
     sh3.columns = [
-        { header: 'FACULTY NAME', key: 'name', width: 35 },
-        { header: 'STUDENTS MAPPED', key: 'students', width: 22 },
-        { header: 'TASKS GRADED', key: 'marked', width: 22 },
-        { header: 'TASKS PENDING', key: 'unmarked', width: 22 }
+        { header: 'Faculty Supervisor', key: 'col1', width: 28 },
+        { header: 'Registration #', key: 'col2', width: 24 },
+        { header: 'Student Name', key: 'col3', width: 28 },
+        { header: 'Company', key: 'col4', width: 28 },
+        { header: 'Score (%)', key: 'col5', width: 12 },
+        { header: 'Grade', key: 'col6', width: 10 },
+        { header: 'Tasks Done', key: 'col7', width: 12 }
     ];
     styleHeader(sh3, 1);
-    Object.values(facultyStats).forEach((s, i) => {
-        const r = sh3.addRow(s);
-        r.height = 25;
-        r.alignment = { vertical: 'middle' };
-        if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
-        const pc = r.getCell('unmarked');
-        if (s.unmarked > 5) pc.font = { color: { argb: 'FFDC2626' }, bold: true };
-        r.eachCell(c => c.border = BORDER);
+    Object.entries(facultyStudents).forEach(([facName, studs]) => {
+        // Faculty header row
+        const tasksTotal = studs.reduce((a, s) => a + (s.tasks || 0), 0);
+        const hdr = sh3.addRow({ col1: facName, col2: `${studs.length} student(s)`, col3: '', col4: '', col5: `Avg: ${Math.round(studs.reduce((a, s) => a + s.percentage, 0) / studs.length)}%`, col6: '', col7: `${tasksTotal} tasks` });
+        hdr.font = { bold: true, size: 11, color: NAVY };
+        hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+        hdr.height = 28;
+        hdr.eachCell(c => c.border = BORDER);
+
+        // Student rows under this faculty
+        studs.forEach((s, i) => {
+            const r = sh3.addRow({ col1: '', col2: s.reg, col3: s.name, col4: s.company, col5: `${s.percentage}%`, col6: getLetterGrade(s.percentage), col7: s.tasks || 0 });
+            r.height = 22;
+            r.alignment = { vertical: 'middle' };
+            r.getCell('col6').font = { bold: true, color: s.percentage >= 50 ? { argb: 'FF059669' } : { argb: 'FFDC2626' } };
+            if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
+            r.eachCell(c => c.border = BORDER);
+        });
+
+        // Blank separator
+        sh3.addRow({});
+    });
+
+    // ── SHEET 4: COMPANY BREAKDOWN ────────────────────────────────────────
+    const sh4 = workbook.addWorksheet('Company Breakdown');
+    sh4.columns = [
+        { header: 'Company Name', key: 'col1', width: 30 },
+        { header: 'Site Supervisor', key: 'col2', width: 28 },
+        { header: 'Registration #', key: 'col3', width: 24 },
+        { header: 'Student Name', key: 'col4', width: 28 },
+        { header: 'Faculty Supervisor', key: 'col5', width: 28 },
+        { header: 'Score (%)', key: 'col6', width: 12 },
+        { header: 'Grade', key: 'col7', width: 10 }
+    ];
+    styleHeader(sh4, 1);
+    Object.entries(companyStudents).forEach(([coName, data]) => {
+        // Company header row
+        const studs = data.students;
+        const hdr = sh4.addRow({ col1: coName, col2: `Supervisor: ${data.supervisor}`, col3: `${studs.length} student(s)`, col4: '', col5: '', col6: `Avg: ${Math.round(studs.reduce((a, s) => a + s.percentage, 0) / studs.length)}%`, col7: '' });
+        hdr.font = { bold: true, size: 11, color: NAVY };
+        hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+        hdr.height = 28;
+        hdr.eachCell(c => c.border = BORDER);
+
+        // Student rows under this company
+        studs.forEach((s, i) => {
+            const r = sh4.addRow({ col1: '', col2: '', col3: s.reg, col4: s.name, col5: s.fac, col6: `${s.percentage}%`, col7: getLetterGrade(s.percentage) });
+            r.height = 22;
+            r.alignment = { vertical: 'middle' };
+            r.getCell('col7').font = { bold: true, color: s.percentage >= 50 ? { argb: 'FF059669' } : { argb: 'FFDC2626' } };
+            if (i % 2 !== 0) r.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: LIGHT_BLUE });
+            r.eachCell(c => c.border = BORDER);
+        });
+
+        // Blank separator
+        sh4.addRow({});
     });
 
     // Finalize
@@ -798,10 +836,10 @@ router.get('/hod-premium-stats', protect, asyncHandler(async (req, res) => {
         
         return {
             name: ss.name,
-            company: ss.company || 'N/A',
+            company: ss.assignedCompany || assigned[0]?.company || 'N/A',
             students: assigned.length,
             evalsCompleted: graded,
-            lastActivity: auditLogs.find(l => l.performedBy?._id?.toString() === ss._id.toString())?.timestamp || 'N/A'
+            avgScoreGiven: assigned.length > 0 ? Math.round(assigned.reduce((a, b) => a + b.percentage, 0) / assigned.length) + '%' : 'N/A'
         };
     }).sort((a, b) => b.students - a.students);
 
@@ -827,6 +865,28 @@ router.get('/hod-premium-stats', protect, asyncHandler(async (req, res) => {
         else grades['F']++;
     });
 
+    // 8. Role Activity for exception reporting
+    const roleActivity = {
+        'Faculty Supervisor': {
+            pending: allMarks.filter(m => !m.isFacultyGraded).length
+        }
+    };
+
+    const allStudentsList = sorted.map(s => {
+        let g = 'F';
+        if (s.percentage >= 90) g = 'A+';
+        else if (s.percentage >= 80) g = 'A';
+        else if (s.percentage >= 70) g = 'B+';
+        else if (s.percentage >= 60) g = 'B';
+        else if (s.percentage >= 50) g = 'C';
+        return {
+            name: s.name,
+            reg: s.reg,
+            company: s.company,
+            grade: g
+        };
+    });
+
     res.json({
         phases,
         compStats,
@@ -835,7 +895,181 @@ router.get('/hod-premium-stats', protect, asyncHandler(async (req, res) => {
         siteSupervisorPerformance,
         companyReports,
         gradeDist: Object.entries(grades).map(([g, c]) => ({ grade: g, count: c, pct: processedStudents.length > 0 ? ((c / processedStudents.length) * 100).toFixed(1) + '%' : '0%' })),
+        roleActivity,
         buckets: { top, middle, bottom },
+        allStudentsList,
+        generatedAt: { date: getPKTDate(), time: getPKTTime() }
+    });
+}));
+
+/**
+ * @swagger
+ * /reports/hod-premium-stats/{archiveId}:
+ *   get:
+ *     summary: Retrieve premium stats from an archived cycle in the same format as hod-premium-stats
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/hod-premium-stats/:archiveId', protect, asyncHandler(async (req, res) => {
+    const archive = await Archive.findById(req.params.archiveId).lean();
+    if (!archive) return res.status(404).json({ message: 'Archive not found' });
+
+    const students = archive.students || [];
+
+    // 1. Process Student Performance & Buckets (same shape as live endpoint)
+    const processedStudents = students
+        .filter(s => s.finalStatus !== 'Ineligible')
+        .map(s => ({
+            _id: s._id || s.reg,
+            reg: s.reg,
+            name: s.name,
+            email: s.email || 'N/A',
+            company: s.company || 'N/A',
+            faculty: s.faculty?.name || 'N/A',
+            siteSupervisor: s.siteSupervisor?.name || 'N/A',
+            percentage: s.percentage || 0,
+            status: s.status || s.finalStatus,
+            assignmentsCount: (s.marks || []).length
+        }));
+
+    const sorted = [...processedStudents].sort((a, b) => b.percentage - a.percentage);
+    const top = sorted.slice(0, 5);
+    const bottom = [...sorted].reverse().slice(0, 5).filter(s => !top.some(t => t.reg === s.reg));
+    const midIdx = Math.floor(sorted.length / 2);
+    const middle = sorted.slice(Math.max(0, midIdx - 2), midIdx + 3).filter(s => !top.some(t => t.reg === s.reg) && !bottom.some(b => b.reg === s.reg));
+
+    // 2. Completion Statistics
+    const compStats = {
+        total: students.length,
+        completed: students.filter(s => s.finalStatus === 'Pass').length,
+        inProgress: 0,
+        overdue: 0,
+        withdrawn: students.filter(s => s.status === 'Withdrawn').length
+    };
+
+    // 3. Phases from rawSnapshot
+    const phases = (archive.rawSnapshot?.phases || []).map(p => ({
+        _id: p._id || p.key,
+        key: p.key || p.label?.toLowerCase().replace(/\s+/g, '_'),
+        label: p.label,
+        description: p.description || '',
+        order: p.order,
+        status: p.completedAt ? 'completed' : 'active',
+        startedAt: p.startedAt,
+        completedAt: p.completedAt
+    }));
+
+    // 4. Role Stats (from archive context, zeroed since we don't store audit logs)
+    const roleStats = {
+        'Site Supervisor': 0,
+        'Faculty Supervisor': 0,
+        'Internship Office': 0,
+        'HOD': 0
+    };
+
+    // 5. Faculty Performance from archived student data
+    const facultyMap = {};
+    processedStudents.forEach(s => {
+        const fname = s.faculty || 'Unassigned';
+        if (!facultyMap[fname]) facultyMap[fname] = { name: fname, students: 0, gradedCount: 0, totalPct: 0 };
+        facultyMap[fname].students++;
+        facultyMap[fname].totalPct += s.percentage;
+    });
+    // Count graded tasks per faculty from student marks
+    students.forEach(s => {
+        const fname = s.faculty?.name || 'Unassigned';
+        if (facultyMap[fname]) {
+            facultyMap[fname].gradedCount += (s.marks || []).filter(m => m.isFacultyGraded).length;
+        }
+    });
+    const facultyPerformance = Object.values(facultyMap).map(f => ({
+        name: f.name,
+        students: f.students,
+        gradedCount: f.gradedCount,
+        completionPct: f.students > 0 ? Math.round((f.gradedCount / Math.max(f.students, 1)) * 100) : 0,
+        avgScoreGiven: f.students > 0 ? Math.round(f.totalPct / f.students) : 'N/A'
+    })).sort((a, b) => b.students - a.students);
+
+    // 6. Site Supervisor Performance from archived student data
+    const ssMap = {};
+    processedStudents.forEach(s => {
+        const ssName = s.siteSupervisor || 'Unassigned';
+        if (!ssMap[ssName]) ssMap[ssName] = { name: ssName, company: s.company, students: 0, evalsCompleted: 0, totalPct: 0 };
+        ssMap[ssName].students++;
+        ssMap[ssName].totalPct += s.percentage;
+    });
+    students.forEach(s => {
+        const ssName = s.siteSupervisor?.name || 'Unassigned';
+        if (ssMap[ssName]) {
+            ssMap[ssName].evalsCompleted += (s.marks || []).filter(m => m.siteSupervisorMarks > 0).length;
+        }
+    });
+    const siteSupervisorPerformance = Object.values(ssMap).map(ss => ({
+        name: ss.name,
+        company: ss.company,
+        students: ss.students,
+        evalsCompleted: ss.evalsCompleted,
+        avgScoreGiven: ss.students > 0 ? Math.round(ss.totalPct / ss.students) + '%' : 'N/A'
+    })).sort((a, b) => b.students - a.students);
+
+    // 7. Company Participation Report
+    const companyMap = {};
+    processedStudents.forEach(s => {
+        const c = s.company || 'Unassigned';
+        if (!companyMap[c]) companyMap[c] = { name: c, interns: 0, supervisors: new Set(), totalPct: 0 };
+        companyMap[c].interns++;
+        companyMap[c].totalPct += s.percentage;
+        if (s.siteSupervisor && s.siteSupervisor !== 'N/A') companyMap[c].supervisors.add(s.siteSupervisor);
+    });
+    const companyReports = Object.values(companyMap).map(c => ({
+        name: c.name,
+        interns: c.interns,
+        supervisors: c.supervisors.size || 1,
+        avgGrade: c.interns > 0 ? (c.totalPct / c.interns).toFixed(1) + '%' : 'N/A'
+    }));
+
+    // 8. Grade Distribution
+    const grades = { 'A+': 0, 'A': 0, 'B+': 0, 'B': 0, 'C': 0, 'F': 0 };
+    processedStudents.forEach(s => {
+        if (s.percentage >= 90) grades['A+']++;
+        else if (s.percentage >= 80) grades['A']++;
+        else if (s.percentage >= 70) grades['B+']++;
+        else if (s.percentage >= 60) grades['B']++;
+        else if (s.percentage >= 50) grades['C']++;
+        else grades['F']++;
+    });
+
+    // 9. Role Activity
+    const roleActivity = {
+        'Faculty Supervisor': {
+            pending: 0
+        }
+    };
+
+    // 10. All students list
+    const allStudentsList = sorted.map(s => {
+        let g = 'F';
+        if (s.percentage >= 90) g = 'A+';
+        else if (s.percentage >= 80) g = 'A';
+        else if (s.percentage >= 70) g = 'B+';
+        else if (s.percentage >= 60) g = 'B';
+        else if (s.percentage >= 50) g = 'C';
+        return { name: s.name, reg: s.reg, company: s.company, grade: g };
+    });
+
+    res.json({
+        phases,
+        compStats,
+        roleStats,
+        facultyPerformance,
+        siteSupervisorPerformance,
+        companyReports,
+        gradeDist: Object.entries(grades).map(([g, c]) => ({ grade: g, count: c, pct: processedStudents.length > 0 ? ((c / processedStudents.length) * 100).toFixed(1) + '%' : '0%' })),
+        roleActivity,
+        buckets: { top, middle, bottom },
+        allStudentsList,
+        cycleName: archive.cycleName,
         generatedAt: { date: getPKTDate(), time: getPKTTime() }
     });
 }));

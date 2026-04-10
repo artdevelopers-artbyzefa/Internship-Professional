@@ -219,7 +219,7 @@ export default function CompanyManagement({ view, user }) {
         </div>
       )
     },
-    { key: 'scope', label: 'Domain/Scope' },
+    { key: 'scope', label: 'Feild of study' },
     {
       key: 'siteSupervisors',
       label: 'Supervisors',

@@ -674,7 +674,7 @@ export default function InternshipRequestForm({ user, activePhase }) {
         </section>
 
         <div className="flex justify-center md:justify-end pt-8 border-t border-gray-100">
-          <Button type="submit" variant="primary" loading={loading} className="w-full md:w-auto px-12 py-5 rounded-2xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-[0.2em] border-0 cursor-pointer">
+          <Button type="submit" variant="primary" loading={loading} className="w-full md:w-auto px-12 py-5 rounded-2xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-black text-xs tracking-[0.2em] border-0 cursor-pointer">
             Send Approval Form <i className="fas fa-paper-plane ml-2"></i>
           </Button>
         </div>
