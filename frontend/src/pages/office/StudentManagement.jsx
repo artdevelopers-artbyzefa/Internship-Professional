@@ -116,6 +116,17 @@ export default function StudentManagement({ user }) {
         }
     };
 
+    const handleDeleteStudent = async (student) => {
+        const confirmed = await showToast.confirm(`Delete ${student.name}?`, 'This will permanently remove the student record and free up their email for re-registration.', 'Delete Permanently');
+        if (!confirmed) return;
+        
+        try {
+            await apiRequest(`/office/delete-student/${student._id || student.id}`, { method: 'POST', body: { officeId: user.id || user._id } });
+            showToast.success('Student deleted.');
+            fetchStudents();
+        } catch { /* handled */ }
+    };
+
     const columns = [
         { key: 'reg', label: 'Registration #' },
         { key: 'name', label: 'Full Name' },
@@ -154,13 +165,22 @@ export default function StudentManagement({ user }) {
             key: 'actions',
             label: 'Action',
             render: (_, row) => (
-                <button
-                    onClick={() => handleEditClick(row)}
-                    className="p-2 text-slate-400 hover:text-primary transition-colors"
-                    title="Edit Student"
-                >
-                    <i className="fas fa-edit text-xs"></i>
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => handleEditClick(row)}
+                        className="p-2 text-slate-400 hover:text-primary transition-colors"
+                        title="Edit Student"
+                    >
+                        <i className="fas fa-edit text-xs"></i>
+                    </button>
+                    <button
+                        onClick={() => handleDeleteStudent(row)}
+                        className="p-2 text-rose-300 hover:text-rose-600 transition-colors"
+                        title="Delete Student"
+                    >
+                        <i className="fas fa-trash-can text-xs"></i>
+                    </button>
+                </div>
             )
         }
     ];

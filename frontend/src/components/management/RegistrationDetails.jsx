@@ -8,7 +8,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis
 const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b'];
 const ELIGIBILITY_COLORS = { eligible: '#3b82f6', ineligible: '#ef4444' };
 
-export default function RegistrationDetails() {
+export default function RegistrationDetails({ regSummaryProp }) {
     const [activeTab, setActiveTab] = useState('faculty');
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -16,6 +16,10 @@ export default function RegistrationDetails() {
     const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState('');
     const [regSummary, setRegSummary] = useState(null);
+
+    useEffect(() => {
+        if (regSummaryProp) setRegSummary(regSummaryProp);
+    }, [regSummaryProp]);
 
     const tabs = [
         { id: 'faculty', label: 'Faculty Advisors', icon: 'fa-user-tie', endpoint: '/analytics/faculty-paginated' },
@@ -30,7 +34,7 @@ export default function RegistrationDetails() {
             setData(response.data);
             setTotalPages(response.pages);
 
-            if (isInitial) {
+            if (isInitial && !regSummaryProp) {
                 const stats = await apiRequest('/analytics/registration-stats');
                 setRegSummary(stats);
             }
@@ -39,7 +43,7 @@ export default function RegistrationDetails() {
         } finally {
             setLoading(false);
         }
-    }, [activeTab, page, search]);
+    }, [activeTab, page, search, regSummaryProp]);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {

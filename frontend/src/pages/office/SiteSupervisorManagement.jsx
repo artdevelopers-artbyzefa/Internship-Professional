@@ -14,9 +14,9 @@ export default function SiteSupervisorManagement({ user }) {
     const [supervisors, setSupervisors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [editingSupervisor, setEditingSupervisor] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [resending, setResending] = useState(null);
+    const [resetting, setResetting] = useState(null);
 
     // Pagination & Search State
     const [page, setPage] = useState(1);
@@ -85,27 +85,20 @@ export default function SiteSupervisorManagement({ user }) {
     };
 
     const handleEditInit = (sup) => {
-        setEditingSupervisor(sup);
-        setForm({ companyId: sup.companies[0]?.id || '', name: sup.name, email: sup.email, whatsappNumber: sup.whatsappNumber });
-        setShowEditModal(true);
-        setErrorDictionary({});
+        // This is now handled inline in the actions render
     };
 
-    const handleEditSubmit = async (e) => {
-        e.preventDefault();
-        if (!validateForm()) return;
+    const handleEditSubmit = async (sup, formData) => {
         setSubmitting(true);
         try {
-            await apiRequest(`/office/edit-site-supervisor/${editingSupervisor._id || editingSupervisor.email}`, {
+            await apiRequest(`/office/edit-site-supervisor/${sup._id || sup.email}`, {
                 method: 'POST',
-                body: { ...form, officeId: user?.id || user?._id }
+                body: { ...formData, officeId: user?.id || user?._id }
             });
-            showToast.success('Supervisor details updated successfully.');
-            setShowEditModal(false);
-            setEditingSupervisor(null);
-            setForm(initialForm);
+            showToast.success('Updated.');
             fetchInitialData();
-        } catch { /* handled */ }
+            return true;
+        } catch { return false; }
         finally { setSubmitting(false); }
     };
 
@@ -129,19 +122,41 @@ export default function SiteSupervisorManagement({ user }) {
         } catch { /* handled */ }
     };
 
+    const handleResendActivation = async (sup) => {
+        setResending(sup.email);
+        try {
+            await apiRequest('/office/resend-supervisor-activation', {
+                method: 'POST',
+                body: { email: sup.email, officeId: user?.id || user?._id }
+            });
+            showToast.success('Activation link resent.');
+        } catch { /* handled */ }
+        finally { setResending(null); }
+    };
+
+    const handleResetPassword = async (sup) => {
+        if (!sup.userId) {
+            showToast.error('No account linked to this supervisor.');
+            return;
+        }
+        const confirmed = await showAlert.confirm('Reset Password?', `Send a new temporary password to ${sup.name}?`, 'Reset Account');
+        if (!confirmed) return;
+        setResetting(sup.email);
+        try {
+            await apiRequest(`/office/reset-supervisor-password/${sup.userId}`, { method: 'POST', body: { officeId: user.id || user._id } });
+            showAlert.success('Password Reset', 'New credentials have been sent to their email.');
+        } catch { /* handled */ }
+        finally { setResetting(null); }
+    };
+
     const columns = [
         {
             key: 'name',
             label: 'Full Name',
             render: (v, sup) => (
-                <div className="flex items-center gap-4 py-2">
-                    <div className="w-11 h-11 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-xs shrink-0 border border-primary/5 group-hover:bg-primary group-hover:text-white transition-all">
-                        {sup.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-800 tracking-tight">{sup.name}</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 whitespace-nowrap">Site Supervisor</span>
-                    </div>
+                <div className="flex flex-col py-2">
+                    <span className="text-sm font-bold text-slate-800 tracking-tight">{sup.name}</span>
+                    <span className="text-[10px] text-slate-400 font-medium mt-0.5">Site Supervisor</span>
                 </div>
             )
         },
@@ -192,35 +207,117 @@ export default function SiteSupervisorManagement({ user }) {
             key: 'companies',
             label: 'Affiliated Partners',
             render: (v, sup) => (
-                <div className="flex flex-wrap gap-1.5 py-2">
-                    {sup.companies.map((c, i) => (
-                        <span key={i} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[9px] uppercase tracking-wider border border-blue-100">
-                            {c.name}
+                <div className="flex flex-wrap gap-2 py-2">
+                    {sup.companies?.map((c, i) => (
+                        <span key={i} className="text-slate-600 font-bold text-[10px]">
+                            {c.name}{i < sup.companies.length - 1 ? ',' : ''}
                         </span>
                     ))}
                 </div>
             )
         },
         {
+            key: 'status',
+            label: 'Account Status',
+            render: (v, sup) => {
+                const status = sup.status || 'Not Registered';
+                let style = 'bg-rose-50 text-rose-600 border border-rose-100';
+                if (status === 'Active') style = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+                if (status === 'Pending Activation') style = 'bg-amber-50 text-amber-600 border border-amber-100';
+                
+                return (
+                    <div className="py-2">
+                        <span className={`inline-block px-2 py-1 rounded-md text-[10px] font-bold ${style}`}>
+                            {status}
+                        </span>
+                    </div>
+                );
+            }
+        },
+        {
             key: 'actions',
             label: 'Actions',
             className: 'text-right',
-            render: (v, sup) => (
-                <div className="flex items-center justify-end gap-3" onClick={e => e.stopPropagation()}>
-                    <button
-                        onClick={() => handleEditInit(sup)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-sm"
-                    >
-                        <i className="fas fa-edit text-xs"></i>
-                    </button>
-                    <button
-                        onClick={() => handleDeleteSupervisor(sup)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 text-slate-300 hover:bg-rose-500 hover:text-white hover:border-rose-600 transition-all shadow-sm"
-                    >
-                        <i className="fas fa-trash-alt text-xs"></i>
-                    </button>
-                </div>
-            )
+            render: (v, sup) => {
+                const [isOpen, setIsOpen] = useState(false);
+                const [innerEditing, setInnerEditing] = useState(false);
+                const [innerForm, setInnerForm] = useState({ name: sup.name, email: sup.email, whatsappNumber: sup.whatsappNumber, companyId: sup.companies[0]?.id || '' });
+
+                const handleInnerSubmit = async (e) => {
+                    e.preventDefault();
+                    setSubmitting(true);
+                    try {
+                        await apiRequest(`/office/edit-site-supervisor/${sup._id || sup.email}`, {
+                            method: 'POST',
+                            body: { ...innerForm, officeId: user?.id || user?._id }
+                        });
+                        showToast.success('Updated.');
+                        setIsOpen(false);
+                        setInnerEditing(false);
+                        fetchInitialData();
+                    } catch { /* handled */ }
+                    finally { setSubmitting(false); }
+                };
+
+                return (
+                    <div className="relative flex justify-end" onClick={e => e.stopPropagation()}>
+                        <button 
+                            onClick={() => { setIsOpen(!isOpen); setInnerEditing(false); }}
+                            className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-50 border border-slate-100 text-slate-400 hover:text-primary transition-all cursor-pointer"
+                        >
+                            <i className={`fas ${isOpen ? 'fa-times' : 'fa-ellipsis-v'} text-xs`}></i>
+                        </button>
+
+                        {isOpen && (
+                            <div className={`absolute right-0 top-11 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[60] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${innerEditing ? 'w-80 p-6' : 'w-48 py-2'}`}>
+                                {!innerEditing ? (
+                                    <>
+                                        <div className="px-4 py-2 border-b border-slate-50 mb-1">
+                                            <p className="text-[10px] font-bold text-slate-400">Actions</p>
+                                        </div>
+                                        <button onClick={() => setInnerEditing(true)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors border-0 bg-white cursor-pointer">
+                                            <i className="fas fa-edit w-4"></i> Edit Profile
+                                        </button>
+                                        {sup.status === 'Active' && (
+                                            <button onClick={() => { setIsOpen(false); handleResetPassword(sup); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-amber-600 hover:bg-amber-50 transition-colors border-0 bg-white cursor-pointer">
+                                                <i className="fas fa-key w-4"></i> Reset Password
+                                            </button>
+                                        )}
+                                        {sup.status === 'Pending Activation' && (
+                                            <button onClick={() => { setIsOpen(false); handleResendActivation(sup); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-primary hover:bg-blue-50 transition-colors border-0 bg-white cursor-pointer">
+                                                <i className="fas fa-paper-plane w-4"></i> Resend Email
+                                            </button>
+                                        )}
+                                        <button onClick={() => { setIsOpen(false); handleDeleteSupervisor(sup); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-rose-500 hover:bg-rose-50 transition-colors border-0 bg-white cursor-pointer">
+                                            <i className="fas fa-trash-alt w-4"></i> Remove
+                                        </button>
+                                    </>
+                                ) : (
+                                    <form onSubmit={handleInnerSubmit} className="space-y-4">
+                                        <p className="text-[10px] font-bold text-slate-400 mb-4">Edit Profile</p>
+                                        <input 
+                                            value={innerForm.name} 
+                                            onChange={e => setInnerForm({...innerForm, name: e.target.value})}
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="Name"
+                                        />
+                                        <input 
+                                            value={innerForm.whatsappNumber} 
+                                            onChange={e => setInnerForm({...innerForm, whatsappNumber: e.target.value})}
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="WhatsApp"
+                                        />
+                                        <div className="flex gap-2 pt-2">
+                                            <button type="button" onClick={() => setInnerEditing(false)} className="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 border-0 bg-transparent cursor-pointer">Cancel</button>
+                                            <button type="submit" disabled={submitting} className="flex-1 py-2 bg-primary text-white rounded-lg text-xs font-bold border-0 cursor-pointer">{submitting ? '...' : 'Save'}</button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            }
         }
     ];
 
@@ -235,8 +332,8 @@ export default function SiteSupervisorManagement({ user }) {
                             <i className="fas fa-building-user text-xl"></i>
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Mentor Network</h2>
-                            <p className="text-xs text-slate-400 font-bold mt-1  tracking-widest">Industry Partnerships Manager</p>
+                            <h2 className="text-3xl font-black text-slate-800 tracking-tight text-lowercase capitalize">Mentor Network</h2>
+                            <p className="text-xs text-slate-400 font-bold mt-1">Industry Partnerships Manager</p>
                         </div>
                     </div>
                 </div>
@@ -254,7 +351,7 @@ export default function SiteSupervisorManagement({ user }) {
                     </div>
                     <button
                         onClick={() => setShowAddForm(!showAddForm)}
-                        className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-[11px]  tracking-widest transition-all w-full lg:w-auto ${showAddForm ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-primary text-white hover:bg-blue-800 shadow-xl shadow-primary/20'}`}
+                        className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-bold text-xs transition-all w-full lg:w-auto ${showAddForm ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-primary text-white hover:bg-blue-800 shadow-xl shadow-primary/20'}`}
                     >
                         <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus-circle'} text-xs`}></i>
                         {showAddForm ? 'Cancel Onboarding' : 'Register Supervisor'}
@@ -269,7 +366,7 @@ export default function SiteSupervisorManagement({ user }) {
                         <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                             <i className="fas fa-id-badge text-lg"></i>
                         </div>
-                        <h3 className="text-sm font-black text-slate-800 tracking-widest">Credentials Registration</h3>
+                        <h3 className="text-sm font-bold text-slate-800">Credentials Registration</h3>
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -292,7 +389,7 @@ export default function SiteSupervisorManagement({ user }) {
                             </FormGroup>
                         </div>
                         <div className="flex justify-end pt-4">
-                            <Button type="submit" loading={submitting} className="px-12 py-4 rounded-2xl font-black bg-primary text-white hover:bg-blue-800 transition-all text-[11px] shadow-xl shadow-primary/30 tracking-widest uppercase">
+                            <Button type="submit" loading={submitting} className="px-12 py-4 rounded-2xl font-bold bg-primary text-white hover:bg-blue-800 transition-all text-xs shadow-xl shadow-primary/30">
                                 <i className="fas fa-check-circle mr-2"></i>
                                 {submitting ? 'Verifying...' : 'Authorize New Mentor'}
                             </Button>
@@ -310,8 +407,8 @@ export default function SiteSupervisorManagement({ user }) {
                                 <i className="fas fa-user-slash text-4xl"></i>
                             </div>
                             <div className="space-y-2">
-                                <h4 className="text-slate-400 font-black text-xs uppercase tracking-[0.5em]">No Mentors Identified</h4>
-                                <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Try a different search or onboard a new institutional partner</p>
+                                <h4 className="text-slate-400 font-bold text-xs">No Mentors Identified</h4>
+                                <p className="text-[10px] text-slate-300 font-bold">Try a different search or onboard a new institutional partner</p>
                             </div>
                         </div>
                     ) : (
@@ -327,21 +424,21 @@ export default function SiteSupervisorManagement({ user }) {
                 {totalPages > 1 && (
                     <div className="p-8 bg-slate-50/30 flex items-center justify-between border-t border-slate-50">
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Navigation Status</span>
-                            <span className="text-xs font-black text-slate-900 uppercase mt-1 tracking-tighter italic">Registry Page {page} <span className="text-slate-300 not-italic mx-1">OF</span> {totalPages}</span>
+                            <span className="text-[10px] font-bold text-slate-400">Navigation Status</span>
+                            <span className="text-xs font-bold text-slate-900 mt-1">Registry Page {page} of {totalPages}</span>
                         </div>
                         <div className="flex gap-2">
                             <button
                                 disabled={page === 1 || loading}
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
-                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all disabled:opacity-30 cursor-pointer"
+                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 cursor-pointer"
                             >
                                 <i className="fas fa-arrow-left mr-2"></i> Previous
                             </button>
                             <button
                                 disabled={page === totalPages || loading}
                                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-700 uppercase hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all disabled:opacity-30 cursor-pointer"
+                                className="h-11 px-6 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-30 cursor-pointer"
                             >
                                 Next <i className="fas fa-arrow-right ml-2"></i>
                             </button>
@@ -350,41 +447,6 @@ export default function SiteSupervisorManagement({ user }) {
                 )}
             </div>
 
-            {/* Edit Modal */}
-            {showEditModal && (
-                <Modal onClose={() => setShowEditModal(false)}>
-                    <div className="p-4 py-6 space-y-8">
-                        <div className="flex items-center gap-4 pb-6 border-b border-slate-50">
-                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                                <i className="fas fa-user-edit text-lg"></i>
-                            </div>
-                            <div>
-                                <ModalTitle>Update Supervisor Profile</ModalTitle>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]">Editing: {editingSupervisor?.name}</p>
-                            </div>
-                        </div>
-
-                        <form onSubmit={handleEditSubmit} className="space-y-8">
-                            <FormGroup label="Full Name" error={errorDictionary.name}>
-                                <TextInput value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} iconLeft="fa-user-cog" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm" />
-                            </FormGroup>
-                            <FormGroup label="WhatsApp / Contact" error={errorDictionary.whatsappNumber}>
-                                <TextInput value={form.whatsappNumber} onChange={e => setForm({ ...form, whatsappNumber: e.target.value })} iconLeft="fa-phone-alt" className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm" />
-                            </FormGroup>
-                            <FormGroup label="Affiliated Company" error={errorDictionary.companyId}>
-                                <SelectInput value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })} className="!rounded-2xl !bg-slate-50/50 !py-4 shadow-sm mb-2">
-                                    <option value="">Update Company...</option>
-                                    {companies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                </SelectInput>
-                            </FormGroup>
-                            <div className="flex gap-4 pt-4">
-                                <Button variant="outline" className="flex-1 !rounded-2xl !font-black !py-4 !text-[10px]" onClick={() => setShowEditModal(false)}>Cancel</Button>
-                                <Button variant="primary" className="flex-1 !rounded-2xl !font-black !py-4 !text-[10px]" type="submit" loading={submitting}>Save Changes</Button>
-                            </div>
-                        </form>
-                    </div>
-                </Modal>
-            )}
         </div>
     );
 }

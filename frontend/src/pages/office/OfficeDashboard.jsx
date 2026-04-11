@@ -12,20 +12,11 @@ export default function OfficeDashboard({ user }) {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [sumData, statsData, phaseData] = await Promise.all([
-          apiRequest('/analytics/summary'),
-          apiRequest('/analytics/registration-stats'),
-          apiRequest('/phases/current')
-        ]);
-        setSummary(sumData);
-        setRegStats(statsData);
-        setActivePhase(phaseData);
-
-        // Fetch phase-specific stats if moving to Phase 2
-        if (phaseData?.key === 'placement_process' || phaseData?.order >= 2) {
-          const reqData = await apiRequest('/analytics/request-stats');
-          setReqStats(reqData);
-        }
+        const data = await apiRequest('/analytics/dashboard-init');
+        setSummary(data.summary);
+        setRegStats(data.registration);
+        setActivePhase(data.phase);
+        setReqStats(data.requests);
       } catch (error) {
         // Error handled by apiRequest
       } finally {
@@ -41,6 +32,15 @@ export default function OfficeDashboard({ user }) {
     { label: 'Active Interns', count: summary?.totalStudents || 0, icon: 'fa-users', color: 'bg-indigo-500' },
     { label: 'Faculty Active', count: summary?.facultyCount || 0, icon: 'fa-user-tie', color: 'bg-purple-500' },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4">
+        <div className="w-12 h-12 border-4 border-primary/10 border-t-primary rounded-full animate-spin" />
+        <p className="text-xs font-black text-primary uppercase tracking-[0.2em] animate-pulse">Fetching Data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -135,7 +135,7 @@ export default function OfficeDashboard({ user }) {
             <div className="w-1 h-6 bg-primary rounded-full"></div>
             <h3 className="font-black text-gray-800 tracking-tight text-lg px-2">Detailed Registration Records</h3>
           </div>
-          <RegistrationDetails />
+          <RegistrationDetails regSummaryProp={regStats} />
         </div>
       )}
 

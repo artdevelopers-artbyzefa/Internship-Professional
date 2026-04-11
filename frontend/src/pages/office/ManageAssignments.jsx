@@ -201,7 +201,7 @@ export default function ManageAssignments({ user }) {
     }
   ];
 
-  if (loading) return <div className="text-center py-20 bg-white rounded-3xl border shadow-sm"><i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i><p className="mt-4 text-gray-400 font-bold uppercase tracking-widest text-xs">Syncing Academic Engine...</p></div>;
+  if (loading) return <div className="text-center py-20 bg-white rounded-3xl border shadow-sm"><i className="fas fa-circle-notch fa-spin text-3xl text-primary"></i><p className="mt-4 text-gray-400 font-bold uppercase tracking-widest text-xs">Fetching...</p></div>;
 
   return (
     <div className="space-y-8">

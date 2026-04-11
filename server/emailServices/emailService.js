@@ -13,12 +13,16 @@ const senderEmail = (process.env.SENDER_EMAIL || '').trim();
 const senderName = process.env.SENDER_NAME || 'DIMS Portal';
 
 const getFrontendUrl = () => {
-    const url = process.env.FRONTEND_URL || 'https://csinternships.cuiatd.edu.pk';
-    // If it's specifically "localhost" but we are likely in production (or user just wants it fixed)
-    // we can either keep it or force the production one.
-    // For now, we'll trust the .env but provide a clear fallback.
-    return url.replace('http://localhost:5173', 'https://csinternships.cuiatd.edu.pk')
-              .replace('http://localhost:3000', 'https://csinternships.cuiatd.edu.pk');
+    // Priority 1: Use direct environment variable
+    let url = (process.env.FRONTEND_URL || '').trim();
+    
+    // Fallback: If no URL or it's localhost, use the hardcoded production domain
+    if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
+        return 'https://csinternships.cuiatd.edu.pk';
+    }
+    
+    // Clean up trailing slash
+    return url.replace(/\/$/, '');
 };
 
 console.log(`[EMAIL_SERVICE] Configured for sender: ${senderEmail} | URL: ${getFrontendUrl()}`);
@@ -117,7 +121,7 @@ export const sendVerificationEmail = async (email, password = 'Megamix@123') => 
 
 export const sendFacultyNominationEmail = async (email, token, name) => {
     const url = `${getFrontendUrl()}/faculty/activate/${token}`;
-    const text = `Hello ${name},\n\nYou have been nominated as a Faculty Supervisor. Activate here: ${url}\n\nBest regards,\nDIMS Team`;
+    const text = `Hello ${name},\n\nYou have been nominated as a Faculty Supervisor. Please activate your account and set your password here: ${url}\n\nBest regards,\nCOMSATS University Islamabad, Abbottabad Campus\nDIMS Team`;
     return await sendMail(email, 'Faculty Nomination: DIMS Portal', text);
 };
 

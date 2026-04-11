@@ -38,7 +38,7 @@ export function DataTable({ columns, children, data, loading }) {
             <thead>
               <tr className="bg-slate-50/50">
                 {columns.map((col, idx) => (
-                  <th key={idx} className="px-6 py-5 text-left text-slate-400 font-black uppercase tracking-widest border-b border-slate-100 text-[10px]">
+                  <th key={idx} className="px-6 py-5 text-left text-slate-500 font-bold border-b border-slate-100 text-xs">
                     {typeof col === 'string' ? col : col.label}
                   </th>
                 ))}
@@ -94,7 +94,7 @@ export function DataTable({ columns, children, data, loading }) {
               
               return (
                 <div key={idx} className="flex justify-between items-start py-2 border-b border-slate-50 last:border-0 gap-4">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 mt-0.5">
                     {typeof col === 'string' ? col : col.label}
                   </span>
                   <div className="text-right flex-1 flex justify-end overflow-hidden">
@@ -125,7 +125,7 @@ export function DataTable({ columns, children, data, loading }) {
                 {columns.map((col, idx) => (
                   <th
                     key={idx}
-                    className={`px-6 py-5 text-left text-slate-400 font-black uppercase tracking-widest border-b border-slate-100 text-[10px] ${col.className || ''}`}
+                    className={`px-6 py-5 text-left text-slate-500 font-bold border-b border-slate-100 text-xs ${col.className || ''}`}
                   >
                     {typeof col === 'string' ? col : col.label}
                   </th>

@@ -31,9 +31,9 @@ const FacultyRow = memo(({ fac, onEdit, onDeactivate, onResendLink, onResetPassw
 
   const statusStyle = useMemo(() => {
     switch (fac.status) {
-      case 'Active': return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
-      case 'Pending Activation': return 'bg-amber-50 text-amber-600 border border-amber-100';
-      default: return 'bg-rose-50 text-rose-600 border border-rose-100';
+      case 'Active': return 'bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider';
+      case 'Pending Activation': return 'bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-wider';
+      default: return 'bg-rose-50 text-rose-600 border border-rose-100 uppercase tracking-wider';
     }
   }, [fac.status]);
 
@@ -107,11 +107,11 @@ const FacultyRow = memo(({ fac, onEdit, onDeactivate, onResendLink, onResetPassw
               <i className="fas fa-edit text-sm"></i>
             </button>
             <button
-              onClick={() => onDeactivate(fac._id)}
-              title="Deactivate Account"
-              className="flex-1 lg:flex-none w-11 h-11 rounded-2xl flex items-center justify-center bg-white border border-slate-200 text-slate-300 hover:bg-rose-500 hover:text-white hover:border-rose-600 transition-all shadow-sm"
+              onClick={() => onDeactivate(fac)}
+              title="Delete Faculty Account"
+              className="flex-1 lg:flex-none w-11 h-11 rounded-2xl flex items-center justify-center bg-white border border-slate-200 text-rose-300 hover:bg-rose-500 hover:text-white hover:border-rose-600 transition-all shadow-sm"
             >
-              <i className="fas fa-user-slash text-sm"></i>
+              <i className="fas fa-trash-can text-sm"></i>
             </button>
           </div>
         </td>
@@ -192,12 +192,12 @@ export default function FacultyManagement({ user }) {
     finally { setSubmitting(false); }
   }, [form, user, fetchFaculty]);
 
-  const handleDeactivate = useCallback(async (id) => {
-    const confirmed = await showAlert.confirm('Revoke Access?', 'Are you sure you want to deactivate this supervisor account?', 'Deactivate Account');
+  const handleDeactivate = useCallback(async (fac) => {
+    const confirmed = await showAlert.confirm('Purge Account?', `Are you sure you want to PERMANENTLY delete ${fac.name}? This frees up their email for re-registration.`, 'Delete Permanently');
     if (!confirmed) return;
     try {
-      await apiRequest(`/office/delete-faculty/${id}`, { method: 'POST', body: { officeId: user.id || user._id } });
-      showToast.success('Faculty account deactivated.');
+      await apiRequest(`/office/delete-faculty/${fac._id}`, { method: 'POST', body: { officeId: user.id || user._id } });
+      showToast.success('Faculty account purged from registry.');
       fetchFaculty();
     } catch (err) {
       // Error handled by apiRequest

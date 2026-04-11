@@ -6,11 +6,13 @@
  */
 
 import express from 'express';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
 import Mark from '../models/Mark.js';
 import Assignment from '../models/Assignment.js';
 import Submission from '../models/Submission.js';
+import Phase from '../models/Phase.js';
 import { protect } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
@@ -36,44 +38,42 @@ const isManagement = (req, res, next) => {
  *         description: Counts of registered, eligible, and ineligible students
  */
 router.get('/registration-stats', protect, isManagement, asyncHandler(async (req, res) => {
-    const stats = await User.aggregate([
-        { $match: { role: 'student' } },
-        {
-            $group: {
-                _id: null,
-                total: { $sum: 1 },
-                eligible: {
-                    $sum: {
-                        $cond: [
-                            {
-                                $and: [
-                                    { $in: ["$semester", ['4', '5', '6', '7', '8']] },
-                                    { $ne: ["$status", "unverified"] },
-                                    { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
-                                ]
-                            },
-                            1,
-                            0
-                        ]
+    const [stats, facultyCount, siteStats] = await Promise.all([
+        User.aggregate([
+            { $match: { role: 'student' } },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    eligible: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $in: ["$semester", ['4', '5', '6', '7', '8']] },
+                                        { $ne: ["$status", "unverified"] },
+                                        { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
                     }
                 }
             }
-        }
+        ]),
+        User.countDocuments({ role: 'faculty_supervisor', status: { $ne: 'Inactive' } }),
+        Company.aggregate([
+            { $match: { status: 'Active' } },
+            { $unwind: "$siteSupervisors" },
+            { $group: { _id: { $toLower: { $ifNull: ["$siteSupervisors.email", "$siteSupervisors.name"] } } } },
+            { $count: "count" }
+        ])
     ]);
 
-    const facultyCount = await User.countDocuments({ role: 'faculty_supervisor', status: { $ne: 'Inactive' } });
-    
-    const activeCompanies = await Company.find({ status: 'Active' }).select('siteSupervisors');
-    const siteSupSet = new Set();
-    activeCompanies.forEach(c => {
-        (c.siteSupervisors || []).forEach(s => {
-            if (s.email) siteSupSet.add(s.email.toLowerCase().trim());
-            else if (s.name) siteSupSet.add(s.name.trim());
-        });
-    });
-    const siteSupervisorCount = siteSupSet.size;
-
     const result = stats[0] || { total: 0, eligible: 0 };
+    const siteSupervisorCount = siteStats[0]?.count || 0;
 
     res.json({
         total: result.total,
@@ -99,65 +99,72 @@ router.get('/registration-stats', protect, isManagement, asyncHandler(async (req
 router.get('/request-stats', protect, isManagement, asyncHandler(async (req, res) => {
     const eligibleSemesters = ['4', '5', '6', '7', '8'];
     
-    const stats = await User.aggregate([
-        { $match: { role: 'student' } },
-        {
-            $addFields: {
-                isEligible: {
-                    $and: [
-                        { $in: ["$semester", eligibleSemesters] },
-                        { $ne: ["$status", "unverified"] },
-                        { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
-                    ]
+    const [stats, supervisors] = await Promise.all([
+        User.aggregate([
+            { $match: { role: 'student' } },
+            {
+                $addFields: {
+                    isEligible: {
+                        $and: [
+                            { $in: ["$semester", eligibleSemesters] },
+                            { $ne: ["$status", "unverified"] },
+                            { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
+                        ]
+                    }
+                }
+            },
+            { $match: { isEligible: true } },
+            {
+                $group: {
+                    _id: null,
+                    eligibleCount: { $sum: 1 },
+                    submittedCount: {
+                        $sum: {
+                            $cond: [
+                                { $in: ["$status", ['Internship Request Submitted', 'Internship Approved', 'Assigned', 'Agreement Submitted', 'Agreement Approved']] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    approvedCount: {
+                        $sum: {
+                            $cond: [
+                                { $in: ["$status", ['Internship Approved', 'Assigned', 'Agreement Approved']] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    type_self: { $sum: { $cond: [{ $eq: ["$internshipRequest.type", "Self"] }, 1, 0] } },
+                    type_university: { $sum: { $cond: [{ $eq: ["$internshipRequest.type", "University Assigned"] }, 1, 0] } },
+                    mode_onsite: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "onsite"] }, 1, 0] } },
+                    mode_remote: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "remote"] }, 1, 0] } },
+                    mode_hybrid: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "hybrid"] }, 1, 0] } },
+                    mode_freelance: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "freelance"] }, 1, 0] } }
                 }
             }
-        },
-        { $match: { isEligible: true } },
-        {
-            $group: {
-                _id: null,
-                eligibleCount: { $sum: 1 },
-                submittedCount: {
-                    $sum: {
-                        $cond: [
-                            { $in: ["$status", ['Internship Request Submitted', 'Internship Approved', 'Assigned', 'Agreement Submitted', 'Agreement Approved']] },
-                            1,
-                            0
-                        ]
-                    }
-                },
-                approvedCount: {
-                    $sum: {
-                        $cond: [
-                            { $in: ["$status", ['Internship Approved', 'Assigned', 'Agreement Approved']] },
-                            1,
-                            0
-                        ]
-                    }
-                },
-                type_self: { $sum: { $cond: [{ $eq: ["$internshipRequest.type", "Self"] }, 1, 0] } },
-                type_university: { $sum: { $cond: [{ $eq: ["$internshipRequest.type", "University Assigned"] }, 1, 0] } },
-                mode_onsite: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "onsite"] }, 1, 0] } },
-                mode_remote: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "remote"] }, 1, 0] } },
-                mode_hybrid: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "hybrid"] }, 1, 0] } },
-                mode_freelance: { $sum: { $cond: [{ $eq: [{ $toLower: "$internshipRequest.mode" }, "freelance"] }, 1, 0] } }
+        ]),
+        User.aggregate([
+            { $match: { role: 'student' } },
+            {
+                $group: {
+                    _id: null,
+                    facultyIds: { $addToSet: "$assignedFaculty" },
+                    siteSups: { $addToSet: "$assignedCompanySupervisor" }
+                }
+            },
+            {
+                $project: {
+                    facultyCount: { $size: { $filter: { input: "$facultyIds", as: "id", cond: { $ne: ["$$id", null] } } } },
+                    siteCount: { $size: { $filter: { input: "$siteSups", as: "id", cond: { $ne: ["$$id", null] } } } }
+                }
             }
-        }
+        ])
     ]);
 
-    const studentsForSup = await User.find({ 
-        role: 'student',
-        $or: [{ assignedFaculty: { $exists: true } }, { assignedCompanySupervisor: { $exists: true } }]
-    }).select('assignedFaculty assignedCompanySupervisor');
-
-    const facultySupSet = new Set();
-    const siteSupSet = new Set();
-    studentsForSup.forEach(s => {
-        if (s.assignedFaculty) facultySupSet.add(s.assignedFaculty.toString());
-        if (s.assignedCompanySupervisor) siteSupSet.add(s.assignedCompanySupervisor);
-    });
-
     const result = stats[0] || { eligibleCount: 0, submittedCount: 0, approvedCount: 0 };
+    const supStats = supervisors[0] || { facultyCount: 0, siteCount: 0 };
 
     res.json({
         eligible: result.eligibleCount,
@@ -169,7 +176,7 @@ router.get('/request-stats', protect, isManagement, asyncHandler(async (req, res
             type: { self: result.type_self || 0, university: result.type_university || 0 },
             mode: { onsite: result.mode_onsite || 0, remote: result.mode_remote || 0, hybrid: result.mode_hybrid || 0, freelance: result.mode_freelance || 0 }
         },
-        supervisors: { faculty: facultySupSet.size, site: siteSupSet.size }
+        supervisors: { faculty: supStats.facultyCount, site: supStats.siteCount }
     });
 }));
 
@@ -186,22 +193,37 @@ router.get('/request-stats', protect, isManagement, asyncHandler(async (req, res
  *         description: Active intern counts and grading progress
  */
 router.get('/commencement-stats', protect, isManagement, asyncHandler(async (req, res) => {
-    const activeInterns = await User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } });
-    const totalAssignments = await Assignment.countDocuments();
-    const totalSubmissions = await Submission.countDocuments();
-    
-    const gradedBySite = await Mark.distinct('student', { isSiteSupervisorGraded: true });
-    const gradedByFaculty = await Mark.distinct('student', { isFacultyGraded: true });
-    const fullyGraded = await Mark.distinct('student', { isSiteSupervisorGraded: true, isFacultyGraded: true });
+    const [counts, grading] = await Promise.all([
+        Promise.all([
+            User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } }),
+            Assignment.countDocuments(),
+            Submission.countDocuments()
+        ]),
+        Mark.aggregate([
+            {
+                $facet: {
+                    siteGraded: [{ $match: { isSiteSupervisorGraded: true } }, { $group: { _id: "$student" } }, { $count: "total" }],
+                    facultyGraded: [{ $match: { isFacultyGraded: true } }, { $group: { _id: "$student" } }, { $count: "total" }],
+                    fullyGraded: [{ $match: { isSiteSupervisorGraded: true, isFacultyGraded: true } }, { $group: { _id: "$student" } }, { $count: "total" }]
+                }
+            }
+        ])
+    ]);
+
+    const [activeInterns, totalAssignments, totalSubmissions] = counts;
+    const g = grading[0];
+    const sCount = g.siteGraded[0]?.total || 0;
+    const fCount = g.facultyGraded[0]?.total || 0;
+    const bothCount = g.fullyGraded[0]?.total || 0;
 
     res.json({
         activeInterns,
         totalAssignments,
         totalSubmissions,
-        gradedBySite: gradedBySite.length,
-        gradedByFaculty: gradedByFaculty.length,
-        fullyGraded: fullyGraded.length,
-        completionRate: activeInterns > 0 ? ((fullyGraded.length / activeInterns) * 100).toFixed(0) : 0
+        gradedBySite: sCount,
+        gradedByFaculty: fCount,
+        fullyGraded: bothCount,
+        completionRate: activeInterns > 0 ? ((bothCount / activeInterns) * 100).toFixed(0) : 0
     });
 }));
 
@@ -218,21 +240,34 @@ router.get('/commencement-stats', protect, isManagement, asyncHandler(async (req
  *         description: Top-level counts for students, companies, and success rates
  */
 router.get('/summary', protect, isManagement, asyncHandler(async (req, res) => {
-    const totalStudents = await User.countDocuments({ role: 'student' });
-    const completedInternships = await User.countDocuments({ role: 'student', status: { $in: ['Assigned', 'Agreement Approved'] } });
-    const activeCompanies = await Company.countDocuments({ status: 'Active' });
-    const facultyCount = await User.countDocuments({ role: 'faculty_supervisor' });
+    const [stats, activeCompanies, facultyCount, avgMark] = await Promise.all([
+        User.aggregate([
+            { $match: { role: 'student' } },
+            {
+                $group: {
+                    _id: null,
+                    totalStudents: { $sum: 1 },
+                    completedInternships: { $sum: { $cond: [{ $in: ["$status", ['Assigned', 'Agreement Approved']] }, 1, 0] } }
+                }
+            }
+        ]),
+        Company.countDocuments({ status: 'Active' }),
+        User.countDocuments({ role: 'faculty_supervisor' }),
+        Mark.aggregate([
+            { $group: { _id: null, avgScore: { $avg: "$marks" } } }
+        ])
+    ]);
 
-    const marks = await Mark.find();
-    const avgScore = marks.length > 0 ? (marks.reduce((acc, m) => acc + m.marks, 0) / marks.length).toFixed(1) : 0;
+    const result = stats[0] || { totalStudents: 0, completedInternships: 0 };
+    const avgScore = avgMark[0]?.avgScore?.toFixed(1) || 0;
 
     res.json({
-        totalStudents,
-        completedInternships,
+        totalStudents: result.totalStudents,
+        completedInternships: result.completedInternships,
         activeCompanies,
         facultyCount,
         avgScore,
-        successRate: totalStudents > 0 ? ((completedInternships / totalStudents) * 100).toFixed(0) : 0
+        successRate: result.totalStudents > 0 ? ((result.completedInternships / result.totalStudents) * 100).toFixed(0) : 0
     });
 }));
 
@@ -559,7 +594,7 @@ router.get('/students-paginated', protect, isManagement, asyncHandler(async (req
     let query = { role: 'student' };
     if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { reg: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }];
 
-    const students = await User.find(query).select('name reg email semester cgpa status assignedCompany').skip(skip).limit(limit).sort({ createdAt: -1 });
+    const students = await User.find(query).select('name reg email semester cgpa status assignedCompany').skip(skip).limit(limit).sort({ createdAt: -1 }).lean();
     const total = await User.countDocuments(query);
     const eligibleSemesters = ['4', '5', '6', '7', '8'];
 
@@ -590,7 +625,7 @@ router.get('/faculty-paginated', protect, isManagement, asyncHandler(async (req,
     let query = { role: 'faculty_supervisor' };
     if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }];
 
-    const faculty = await User.find(query).select('name email whatsappNumber status').skip(skip).limit(limit).sort({ createdAt: -1 });
+    const faculty = await User.find(query).select('name email whatsappNumber status').skip(skip).limit(limit).sort({ createdAt: -1 }).lean();
     const total = await User.countDocuments(query);
     res.json({ data: faculty, total, page, pages: Math.ceil(total / limit) });
 }));
@@ -640,6 +675,131 @@ router.get('/site-supervisors-paginated', protect, isManagement, asyncHandler(as
     }));
 
     res.json({ data, total: all.length, page, pages: Math.ceil(all.length / limit) });
+}));
+
+/**
+ * @swagger
+ * /analytics/dashboard-init:
+ *   get:
+ *     summary: Atomic dashboard initialization payload
+ *     description: Returns all stats, summary, and current phase info in one high-speed request
+ *     tags: [Analytics]
+ */
+router.get('/dashboard-init', protect, isManagement, asyncHandler(async (req, res) => {
+    const start = Date.now();
+    
+    // We run everything in parallel
+    const [summaryStats, regStats, phase, reqStats, supervisors] = await Promise.all([
+        // Summary
+        Promise.all([
+            User.aggregate([
+                { $match: { role: 'student' } },
+                { $group: { _id: null, total: { $sum: 1 }, completed: { $sum: { $cond: [{ $in: ["$status", ['Assigned', 'Agreement Approved']] }, 1, 0] } } } }
+            ]),
+            Company.countDocuments({ status: 'Active' }),
+            User.countDocuments({ role: 'faculty_supervisor' }),
+            Mark.aggregate([{ $group: { _id: null, avgScore: { $avg: "$marks" } } }])
+        ]),
+        // Registration Stats
+        Promise.all([
+            User.aggregate([
+                { $match: { role: 'student' } },
+                {
+                    $group: {
+                        _id: null,
+                        total: { $sum: 1 },
+                        eligible: {
+                            $sum: {
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $in: ["$semester", ['4', '5', '6', '7', '8']] },
+                                            { $ne: ["$status", "unverified"] },
+                                            { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
+                                        ]
+                                    },
+                                    1,
+                                    0
+                                ]
+                            }
+                        }
+                    }
+                }
+            ]),
+            Company.aggregate([
+                { $match: { status: 'Active' } },
+                { $unwind: "$siteSupervisors" },
+                { $group: { _id: { $toLower: { $ifNull: ["$siteSupervisors.email", "$siteSupervisors.name"] } } } },
+                { $count: "count" }
+            ])
+        ]),
+        // Phase
+        Phase.findOne({ status: 'active' }).lean(),
+        // Request Stats (Heavier)
+        User.aggregate([
+            { $match: { role: 'student' } },
+            {
+                $addFields: {
+                    isEligible: {
+                        $and: [
+                            { $in: ["$semester", ['4', '5', '6', '7', '8']] },
+                            { $ne: ["$status", "unverified"] },
+                            { $gte: [{ $convert: { input: "$cgpa", to: "double", onError: 0, onNull: 0 } }, 2.0] }
+                        ]
+                    }
+                }
+            },
+            { $match: { isEligible: true } },
+            {
+                $group: {
+                    _id: null,
+                    eligibleCount: { $sum: 1 },
+                    submittedCount: { $sum: { $cond: [{ $in: ["$status", ['Internship Request Submitted', 'Internship Approved', 'Assigned', 'Agreement Submitted', 'Agreement Approved']] }, 1, 0] } },
+                    approvedCount: { $sum: { $cond: [{ $in: ["$status", ['Internship Approved', 'Assigned', 'Agreement Approved']] }, 1, 0] } }
+                }
+            }
+        ]),
+        // Supervisor Counts
+        User.aggregate([
+            { $match: { role: 'student' } },
+            { $group: { _id: null, fIds: { $addToSet: "$assignedFaculty" }, sSups: { $addToSet: "$assignedCompanySupervisor" } } },
+            { $project: { f: { $size: { $filter: { input: "$fIds", as: "id", cond: { $ne: ["$$id", null] } } } }, s: { $size: { $filter: { input: "$sSups", as: "id", cond: { $ne: ["$$id", null] } } } } } }
+        ])
+    ]);
+
+    const sResult = summaryStats[0][0] || { total: 0, completed: 0 };
+    const rResult = regStats[0][0] || { total: 0, eligible: 0 };
+    const reqResult = reqStats[0] || { eligibleCount: 0, submittedCount: 0, approvedCount: 0 };
+    const supResult = supervisors[0] || { f: 0, s: 0 };
+
+    const payload = {
+        summary: {
+            totalStudents: sResult.total,
+            completedInternships: sResult.completed,
+            activeCompanies: summaryStats[1],
+            facultyCount: summaryStats[2],
+            avgScore: summaryStats[3][0]?.avgScore?.toFixed(1) || 0,
+            successRate: sResult.total > 0 ? ((sResult.completed / sResult.total) * 100).toFixed(0) : 0
+        },
+        registration: {
+            total: rResult.total,
+            eligible: rResult.eligible,
+            ineligible: rResult.total - rResult.eligible,
+            facultyCount: summaryStats[2],
+            siteSupervisorCount: regStats[1][0]?.count || 0
+        },
+        requests: {
+            eligible: reqResult.eligibleCount,
+            submitted: reqResult.submittedCount,
+            approved: reqResult.approvedCount,
+            pending: reqResult.eligibleCount - reqResult.submittedCount,
+            supervisors: { faculty: supResult.f, site: supResult.s }
+        },
+        phase,
+        performanceMs: Date.now() - start
+    };
+
+    res.json(payload);
 }));
 
 export default router;

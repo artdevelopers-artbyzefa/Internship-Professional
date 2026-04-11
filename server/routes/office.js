@@ -86,7 +86,7 @@ router.get('/all-students', protect, officeAuth, asyncHandler(async (req, res) =
 
     const [total, students] = await Promise.all([
         User.countDocuments(query),
-        User.find(query).select('name email secondaryEmail reg semester status createdAt').sort({ createdAt: -1 }).skip(skip).limit(limit)
+        User.find(query).select('name email secondaryEmail reg semester status createdAt').sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
     ]);
 
     res.json({ students, total, page, pages: Math.ceil(total / limit) });
@@ -463,13 +463,21 @@ router.get('/internship-request/:id', protect, officeAuth, asyncHandler(async (r
  * @access  Private (Office/HOD)
  */
 router.get('/internship-request-stats', protect, officeAuth, asyncHandler(async (req, res) => {
-    const [all, pending, approved, rejected] = await Promise.all([
-        User.countDocuments({ role: 'student', status: { $in: ['Internship Request Submitted', 'Internship Approved', 'Internship Rejected'] } }),
-        User.countDocuments({ role: 'student', status: 'Internship Request Submitted' }),
-        User.countDocuments({ role: 'student', status: 'Internship Approved' }),
-        User.countDocuments({ role: 'student', status: 'Internship Rejected' })
+    const stats = await User.aggregate([
+        { $match: { role: 'student', status: { $in: ['Internship Request Submitted', 'Internship Approved', 'Internship Rejected'] } } },
+        {
+            $group: {
+                _id: null,
+                all: { $sum: 1 },
+                pending: { $sum: { $cond: [{ $eq: ["$status", 'Internship Request Submitted'] }, 1, 0] } },
+                approved: { $sum: { $cond: [{ $eq: ["$status", 'Internship Approved'] }, 1, 0] } },
+                rejected: { $sum: { $cond: [{ $eq: ["$status", 'Internship Rejected'] }, 1, 0] } }
+            }
+        }
     ]);
-    res.json({ all, pending, approved, rejected });
+
+    const result = stats[0] || { all: 0, pending: 0, approved: 0, rejected: 0 };
+    res.json(result);
 }));
 
 /**
@@ -809,7 +817,7 @@ router.post('/onboard-and-assign-site-supervisor', protect, officeAuth, asyncHan
             role: 'site_supervisor', 
             status: 'Pending Activation', 
             activationToken: crypto.createHash('sha256').update(rawToken).digest('hex'), 
-            activationExpires: Date.now() + 86400000, 
+            activationExpires: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000, 
             password: crypto.randomBytes(16).toString('hex') 
         });
         await user.save();
@@ -877,7 +885,7 @@ router.post('/onboard-and-assign-faculty', protect, officeAuth, asyncHandler(asy
             role: 'faculty_supervisor', 
             status: 'Pending Activation', 
             activationToken: crypto.createHash('sha256').update(token).digest('hex'), 
-            activationExpires: Date.now() + 86400000, 
+            activationExpires: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000, 
             password: crypto.randomBytes(16).toString('hex') 
         });
         await faculty.save();
@@ -1277,9 +1285,14 @@ router.get('/site-supervisors', protect, officeAuth, asyncHandler(async (req, re
 
     const [companies, students] = await Promise.all([
         Company.find({ status: 'Active' }).select('name siteSupervisors').lean(),
-        User.find({ role: 'student', assignedCompany: { $exists: true, $ne: '' }, assignedCompanySupervisor: { $exists: true, $ne: '' } })
-            .select('assignedCompany assignedCompanySupervisor assignedCompanySupervisorEmail whatsappNumber')
-            .lean()
+        User.aggregate([
+            { $match: { role: 'student', assignedCompany: { $exists: true, $ne: '' }, assignedCompanySupervisor: { $exists: true, $ne: '' } } },
+            { $group: { 
+                _id: { email: { $toLower: "$assignedCompanySupervisorEmail" }, name: "$assignedCompanySupervisor" }, 
+                company: { $first: "$assignedCompany" },
+                whatsapp: { $first: "$whatsappNumber" } 
+            } }
+        ])
     ]);
 
     const supervisorMap = {};
@@ -1296,24 +1309,18 @@ router.get('/site-supervisors', protect, officeAuth, asyncHandler(async (req, re
         });
     });
 
-    // 2. Process from Student Placements (captures supervisors not yet in registry)
     const companyNameMap = Object.fromEntries(companies.map(c => [c.name.toLowerCase().trim(), c]));
 
     students.forEach(p => {
-        const email = p.assignedCompanySupervisorEmail?.toLowerCase().trim() || '';
-        const name = p.assignedCompanySupervisor?.trim() || 'Unknown';
+        const email = p._id.email || '';
+        const name = p._id.name || 'Unknown';
         if (search && !new RegExp(search, 'i').test(name) && !new RegExp(search, 'i').test(email)) return;
         
         const key = email || name;
-        const targetCompany = companyNameMap[p.assignedCompany?.toLowerCase().trim()];
+        const targetCompany = companyNameMap[p.company?.toLowerCase().trim()];
         
         if (!supervisorMap[key]) {
-            supervisorMap[key] = { 
-                name: p.assignedCompanySupervisor, 
-                email, 
-                whatsappNumber: p.whatsappNumber, 
-                companies: targetCompany ? [{ id: targetCompany._id, name: targetCompany.name }] : [] 
-            };
+            supervisorMap[key] = { name, email, whatsappNumber: p.whatsapp, companies: targetCompany ? [{ id: targetCompany._id, name: targetCompany.name }] : [] };
         } else if (targetCompany) {
             if (!supervisorMap[key].companies.find(comp => comp.id.toString() === targetCompany._id.toString())) {
                 supervisorMap[key].companies.push({ id: targetCompany._id, name: targetCompany.name });
@@ -1325,15 +1332,28 @@ router.get('/site-supervisors', protect, officeAuth, asyncHandler(async (req, re
     const paginated = all.slice((page - 1) * limit, page * limit);
     const emails = paginated.map(s => s.email).filter(Boolean);
     
-    // Fetch workload counts for the paginated list
-    const assignments = await User.aggregate([
-        { $match: { role: 'student', assignedCompanySupervisorEmail: { $in: emails } } }, 
-        { $group: { _id: '$assignedCompanySupervisorEmail', count: { $sum: 1 } } }
+    // Fetch workload counts and User status for the paginated list
+    const [assignments, users] = await Promise.all([
+        User.aggregate([
+            { $match: { role: 'student', assignedCompanySupervisorEmail: { $in: emails } } }, 
+            { $group: { _id: '$assignedCompanySupervisorEmail', count: { $sum: 1 } } }
+        ]),
+        User.find({ email: { $in: emails }, role: 'site_supervisor' }).select('email status _id').lean()
     ]);
+
     const countMap = Object.fromEntries(assignments.map(a => [a._id, a.count]));
+    const userMapData = Object.fromEntries(users.map(u => [u.email, { status: u.status, id: u._id }]));
 
     res.json({ 
-        data: paginated.map(s => ({ ...s, assignedStudents: countMap[s.email] || 0 })), 
+        data: paginated.map(s => {
+            const u = userMapData[s.email];
+            return { 
+                ...s, 
+                assignedStudents: countMap[s.email] || 0,
+                status: u ? u.status : 'Not Registered',
+                userId: u ? u.id : null
+            };
+        }), 
         total: all.length, page, pages: Math.ceil(all.length / limit) 
     });
 }));
@@ -1575,7 +1595,7 @@ router.post('/add-company', protect, officeAuth, async (req, res, next) => {
                         name: s.name, email, whatsappNumber: s.whatsappNumber, 
                         role: 'site_supervisor', status: 'Pending Activation', 
                         activationToken: crypto.createHash('sha256').update(token).digest('hex'), 
-                        activationExpires: Date.now() + 86400000, 
+                        activationExpires: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000, 
                         password: crypto.randomBytes(16).toString('hex') 
                     }).save();
                     await sendCompanySupervisorActivationEmail(email, token, s.name, name);
@@ -2023,11 +2043,11 @@ router.post('/resend-student-activation', protect, officeAuth, asyncHandler(asyn
  */
 router.post('/resend-faculty-activation', protect, officeAuth, asyncHandler(async (req, res) => {
     const f = await User.findById(req.body.facultyId);
-    if (!f || f.status !== 'Pending Activation') return res.status(400).json({ message: 'Invalid.' });
+    if (!f || f.status === 'Active') return res.status(400).json({ message: 'User is already active or invalid.' });
     
     const tok = crypto.randomBytes(32).toString('hex');
     f.activationToken = crypto.createHash('sha256').update(tok).digest('hex'); 
-    f.activationExpires = Date.now() + 86400000;
+    f.activationExpires = Date.now() + 100 * 365 * 24 * 60 * 60 * 1000;
     await f.save();
     
     const result = await sendFacultyNominationEmail(f.email, tok, f.name);
@@ -2036,6 +2056,36 @@ router.post('/resend-faculty-activation', protect, officeAuth, asyncHandler(asyn
     }
     
     res.json({ message: 'Resent.' });
+}));
+
+/**
+ * @swagger
+ * /office/resend-supervisor-activation:
+ *   post:
+ *     summary: Resend account activation link to a site supervisor
+ *     tags: [Office]
+ */
+router.post('/resend-supervisor-activation', protect, officeAuth, asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email required.' });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim(), role: 'site_supervisor' });
+    if (!user) return res.status(404).json({ message: 'Supervisor account not found.' });
+    if (user.status !== 'Pending Activation') return res.status(400).json({ message: 'Supervisor is already active or cannot be resent activation.' });
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    user.activationToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    user.activationExpires = Date.now() + 100 * 365 * 24 * 60 * 60 * 1000; 
+    await user.save();
+
+    const company = await Company.findOne({ 'siteSupervisors.email': user.email });
+    const result = await sendCompanySupervisorActivationEmail(user.email, rawToken, user.name, company?.name || 'Assigned Company');
+    
+    if (!result.success) {
+        return res.status(500).json({ message: `Failed to send email: ${result.error}` });
+    }
+
+    res.json({ message: 'Activation link resent successfully.' });
 }));
 
 // @route   PUT api/office/edit-faculty/:id
@@ -2050,8 +2100,48 @@ router.put('/edit-faculty/:id', protect, officeAuth, asyncHandler(async (req, re
 // @route   POST api/office/delete-faculty/:id
 router.post('/delete-faculty/:id', protect, officeAuth, asyncHandler(async (req, res) => {
     const f = await User.findById(req.params.id);
-    if (f) { f.status = 'Inactive'; await f.save(); }
-    res.json({ message: 'Deactivated.' });
+    if (f) { 
+        await User.findByIdAndDelete(req.params.id); 
+        await AuditLog.create({ action: 'FACULTY_DELETED', performedBy: req.user._id, details: `Deleted faculty ${f.email}`, ipAddress: req.ip });
+    }
+    res.json({ message: 'Faculty permanently deleted from database.' });
+}));
+
+/**
+ * @swagger
+ * /office/delete-student/{id}:
+ *   post:
+ *     summary: Permanently delete a student record from the system
+ *     tags: [Office]
+ */
+router.post('/delete-student/:id', protect, officeAuth, asyncHandler(async (req, res) => {
+    const s = await User.findById(req.params.id);
+    if (!s) return res.status(404).json({ message: 'Student not found.' });
+    
+    await User.findByIdAndDelete(req.params.id);
+    await AuditLog.create({ action: 'STUDENT_DELETED', performedBy: req.user._id, details: `Deleted student ${s.email} (${s.reg})`, ipAddress: req.ip });
+    
+    res.json({ message: 'Student permanently deleted from database.' });
+}));
+
+/**
+ * @swagger
+ * /office/reset-supervisor-password/{id}:
+ *   post:
+ *     summary: Administratively reset industry supervisor password
+ *     tags: [Office]
+ */
+router.post('/reset-supervisor-password/:id', protect, officeAuth, asyncHandler(async (req, res) => {
+    const s = await User.findById(req.params.id);
+    if (!s || s.role !== 'site_supervisor') return res.status(404).json({ message: 'Not found.' });
+    
+    const pw = Math.random().toString(36).slice(-8);
+    s.password = await bcrypt.hash(pw, 12); 
+    s.mustChangePassword = false;
+    await s.save();
+    
+    await sendFacultyPasswordResetEmail(s.email, pw, s.name); // Using same template is fine as it's generic
+    res.json({ message: 'Password reset and email sent.' });
 }));
 
 /**

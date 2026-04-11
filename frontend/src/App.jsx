@@ -11,7 +11,6 @@ const ForgotPage          = lazy(() => import('./components/auth/ForgotPage.jsx'
 const VerifyEmail         = lazy(() => import('./components/auth/VerifyEmail.jsx'));
 const FacultyActivation   = lazy(() => import('./pages/faculty/FacultyActivation.jsx'));
 const SupervisorActivation= lazy(() => import('./pages/auth/SupervisorActivation.jsx'));
-const ForcePasswordChange = lazy(() => import('./pages/auth/ForcePasswordChange.jsx'));
 const StudentPortal       = lazy(() => import('./pages/student/StudentPortal.jsx'));
 const OfficePortal        = lazy(() => import('./pages/office/InternshipOfficePortal.jsx'));
 const FacultyPortal       = lazy(() => import('./pages/faculty/FacultyPortal.jsx'));

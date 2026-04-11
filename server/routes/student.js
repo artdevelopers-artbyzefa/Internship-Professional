@@ -163,7 +163,7 @@ router.post('/secondary-email/send-otp', protect, asyncHandler(async (req, res) 
     if (lower === user.email) return res.status(400).json({ message: 'Cannot be the same as primary email.' });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await User.updateOne({ _id: user._id }, { $set: { pendingSecondaryEmail: lower, secondaryEmailOtp: code, secondaryEmailOtpExpires: new Date(Date.now() + 5 * 60 * 1000) }});
+    await User.updateOne({ _id: user._id }, { $set: { pendingSecondaryEmail: lower, secondaryEmailOtp: code, secondaryEmailOtpExpires: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000) }});
     const result = await sendSecondaryEmailVerificationCode(lower, code);
     if (!result.success) return res.status(500).json({ message: 'Email dispatch failed.' });
     res.json({ message: 'OTP sent!' });
@@ -179,8 +179,8 @@ router.post('/secondary-email/send-otp', protect, asyncHandler(async (req, res) 
 router.post('/secondary-email/confirm', protect, asyncHandler(async (req, res) => {
     const { otp } = req.body;
     const user = await User.findById(req.user.id);
-    if (!user.pendingSecondaryEmail || new Date() > new Date(user.secondaryEmailOtpExpires) || otp.trim() !== user.secondaryEmailOtp) {
-        return res.status(400).json({ message: 'Invalid or expired OTP.' });
+    if (!user.pendingSecondaryEmail || otp.trim() !== user.secondaryEmailOtp) {
+        return res.status(400).json({ message: 'Invalid OTP.' });
     }
 
     const mail = user.pendingSecondaryEmail;

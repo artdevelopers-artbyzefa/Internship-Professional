@@ -189,30 +189,22 @@ router.post('/verify-email/:token', asyncHandler(async (req, res) => {
  *         description: OTP Sent
  */
 router.post('/forgot-password', asyncHandler(async (req, res) => {
-    const { email, sendTo } = req.body;
+    const { email } = req.body;
     const emailLower = email.toLowerCase().trim();
 
     const user = await User.findOne({ $or: [{ email: emailLower }, { secondaryEmail: emailLower }] });
-    if (!user) return res.status(404).json({ message: 'This email is not registered. Please enter a valid institutional email.' });
+    if (!user) return res.status(404).json({ message: 'This email is not registered.' });
 
-    if (!user.secondaryEmail) {
-        return res.status(403).json({ requiresSecondaryEmail: true, message: 'Link a secondary email first.' });
-    }
-
-    if (!sendTo) {
-        return res.json({ status: 'choose_email', primaryEmail: user.email, secondaryEmail: user.secondaryEmail });
-    }
-
-    const targetEmail = sendTo === 'secondary' ? user.secondaryEmail : user.email;
+    const targetEmail = user.email; // Always send to primary institutional email
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    const expiry = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);
 
     await User.updateOne({ _id: user._id }, { $set: { resetPasswordCode: code, resetPasswordExpires: expiry } });
     
     // Background the email to prevent UI lag
-    sendPasswordResetCode(targetEmail, code).catch(e => console.error(`[BACKGROUND_MAIL_FAIL] Reset Code : ${e.message}`));
+    sendPasswordResetCode(targetEmail, code).catch(e => console.error(`Reset Code : ${e.message}`));
 
-    res.json({ status: 'code_sent', sentTo: targetEmail, message: `Code sent to ${targetEmail}.` });
+    res.json({ status: 'code_sent', sentTo: targetEmail, message: `Verification code sent to registration email.` });
 }));
 
 /**
@@ -239,8 +231,7 @@ router.post('/verify-reset-code', asyncHandler(async (req, res) => {
     const { email, code } = req.body;
     const user = await User.findOne({
         $or: [{ email: email.toLowerCase().trim() }, { secondaryEmail: email.toLowerCase().trim() }],
-        resetPasswordCode: code.toString().trim(),
-        resetPasswordExpires: { $gt: new Date() }
+        resetPasswordCode: code.toString().trim()
     });
 
     if (!user) return res.status(400).json({ message: 'Invalid or expired code.' });
@@ -274,11 +265,10 @@ router.post('/reset-password-final', asyncHandler(async (req, res) => {
 
     const user = await User.findOne({
         $or: [{ email: email.toLowerCase().trim() }, { secondaryEmail: email.toLowerCase().trim() }],
-        resetPasswordCode: code.toString().trim(),
-        resetPasswordExpires: { $gt: new Date() }
+        resetPasswordCode: code.toString().trim()
     });
 
-    if (!user) return res.status(400).json({ message: 'Session expired or code invalid.' });
+    if (!user) return res.status(400).json({ message: 'Code invalid.' });
 
     user.password = await bcrypt.hash(newPassword, 12);
     user.resetPasswordCode = undefined;
@@ -328,7 +318,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     if (user.secondaryEmail === emailLower && user.email !== emailLower) {
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         user.secondaryEmailVerificationCode = code;
-        user.secondaryEmailVerificationExpires = new Date(Date.now() + 5 * 60 * 1000);
+        user.secondaryEmailVerificationExpires = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);
         await user.save();
         
         // Background the verification email
@@ -377,8 +367,7 @@ router.post('/verify-secondary', asyncHandler(async (req, res) => {
     const { email, code } = req.body;
     const user = await User.findOne({
         secondaryEmail: email.toLowerCase().trim(),
-        secondaryEmailVerificationCode: code,
-        secondaryEmailVerificationExpires: { $gt: new Date() }
+        secondaryEmailVerificationCode: code
     }).populate('assignedFaculty', 'name email whatsappNumber');
 
     if (!user) return res.status(400).json({ message: 'Invalid or expired code.' });
@@ -436,7 +425,7 @@ router.get('/faculty-list', asyncHandler(async (req, res) => {
  */
 router.get('/faculty-activate-check/:token', asyncHandler(async (req, res) => {
     const hash = crypto.createHash('sha256').update(req.params.token).digest('hex');
-    const user = await User.findOne({ activationToken: hash, activationExpires: { $gt: Date.now() }, status: 'Pending Activation' });
+    const user = await User.findOne({ activationToken: hash, status: 'Pending Activation' });
     if (!user) return res.status(400).json({ message: 'Invalid activation link.' });
     res.json({ name: user.name, email: user.email });
 }));
@@ -464,7 +453,7 @@ router.get('/faculty-activate-check/:token', asyncHandler(async (req, res) => {
 router.post('/faculty-set-password', asyncHandler(async (req, res) => {
     const { token, password } = req.body;
     const hash = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await User.findOne({ activationToken: hash, activationExpires: { $gt: Date.now() }, status: 'Pending Activation' });
+    const user = await User.findOne({ activationToken: hash, status: 'Pending Activation' });
 
     if (!user) return res.status(400).json({ message: 'Invalid activation link.' });
     user.password = await bcrypt.hash(password, 12);
@@ -492,7 +481,7 @@ router.post('/faculty-set-password', asyncHandler(async (req, res) => {
  */
 router.get('/supervisor-activate-check/:token', asyncHandler(async (req, res) => {
     const hash = crypto.createHash('sha256').update(req.params.token).digest('hex');
-    const user = await User.findOne({ activationToken: hash, activationExpires: { $gt: Date.now() }, status: 'Pending Activation', role: 'site_supervisor' });
+    const user = await User.findOne({ activationToken: hash, status: 'Pending Activation', role: 'site_supervisor' });
     if (!user) return res.status(400).json({ message: 'Invalid activation link.' });
     res.json({ name: user.name, email: user.email });
 }));
@@ -520,7 +509,7 @@ router.get('/supervisor-activate-check/:token', asyncHandler(async (req, res) =>
 router.post('/supervisor-set-password', asyncHandler(async (req, res) => {
     const { token, password } = req.body;
     const hash = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await User.findOne({ activationToken: hash, activationExpires: { $gt: Date.now() }, status: 'Pending Activation', role: 'site_supervisor' });
+    const user = await User.findOne({ activationToken: hash, status: 'Pending Activation', role: 'site_supervisor' });
 
     if (!user) return res.status(400).json({ message: 'Invalid activation link.' });
     user.password = await bcrypt.hash(password, 12);

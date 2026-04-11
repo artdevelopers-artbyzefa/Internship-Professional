@@ -194,8 +194,8 @@ export default function Topbar({ user, activePage, navItems, onLogout, showDD, s
           <button
             onClick={() => { setShowDD(!showDD); setShowNotif(false); }}
             className="flex items-center gap-2 p-1 md:px-2.5 md:py-1.5 bg-gray-50 rounded-xl cursor-pointer border border-gray-100 hover:bg-blue-50 hover:border-blue-100 transition-all">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden flex-shrink-0">
-              {user.profilePicture ? <img src={user.profilePicture} className="w-full h-full object-cover" alt="" /> : initials}
+            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary text-xs font-bold shadow-sm overflow-hidden flex-shrink-0">
+              {user.profilePicture ? <img src={user.profilePicture} className="w-full h-full object-cover" alt="" /> : <i className="fas fa-user"></i>}
             </div>
             <div className="text-left hidden sm:block">
               <div className="text-xs font-bold text-gray-800 leading-tight truncate max-w-28">{user.name}</div>
