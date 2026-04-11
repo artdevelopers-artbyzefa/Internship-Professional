@@ -49,7 +49,7 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
 
     try {
         let url = `${API_BASE}${endpoint}`;
-        
+
         if (options.params) {
             const queryParams = new URLSearchParams();
             Object.entries(options.params).forEach(([key, value]) => {
@@ -74,7 +74,7 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
             data = await response.json();
         } else {
             if (response.ok) return { success: true };
-            
+
             // Handle payload too large
             if (response.status === 413) {
                 const msg = "File/Data too large (Max 2MB)!";
@@ -104,7 +104,7 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
 
             // Retry logic for transient server errors
             if (response.status >= 500 && retryCount < 2) {
-                 return apiRequest(endpoint, options, retryCount + 1);
+                return apiRequest(endpoint, options, retryCount + 1);
             }
 
             // Use backend-provided standardized error message
@@ -122,20 +122,20 @@ export const apiRequest = async (endpoint, options = {}, retryCount = 0) => {
         return data;
     } catch (error) {
         clearTimeout(id);
-        
+
         if (error.name === 'AbortError') {
-             if (controller.signal.aborted && retryCount < 2) {
-                 return apiRequest(endpoint, { ...options, timeout: timeout + 10000 }, retryCount + 1);
-             }
-             throw error;
-        } 
-        
+            if (controller.signal.aborted && retryCount < 2) {
+                return apiRequest(endpoint, { ...options, timeout: timeout + 10000 }, retryCount + 1);
+            }
+            throw error;
+        }
+
         // Handle network/connection errors
         if (!silent && !error.status) {
             const toast = await getToast();
             toast.error("Connection failed. Please check your internet.");
         }
-        
+
         throw error;
     }
 };

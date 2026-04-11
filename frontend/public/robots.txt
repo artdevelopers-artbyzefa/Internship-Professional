@@ -5,4 +5,4 @@ Disallow: /private/
 Disallow: /api/
 
 # Sitemap does not exist yet, removing to avoid robots.txt errors
-# Sitemap: https://ims.cuiatd.edu.pk/sitemap.xml
+# Sitemap: https://csinternships.cuiatd.edu.pk/sitemap.xml

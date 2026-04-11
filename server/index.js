@@ -69,14 +69,29 @@ const connectDB = async (req, res, next) => {
 
 app.use(cors({
     origin: (origin, callback) => {
-        const allowed = [
+        // Allow requests with no origin (server-to-server, mobile apps, curl)
+        if (!origin) return callback(null, true);
+
+        const allowedExact = [
             'http://localhost:5173',
             'http://localhost:5174',
+            'http://localhost:3000',
             'https://internship-professional.vercel.app',
-            'https://internshipcscuiatd.artdevelopers.site'
+            'https://internshipcscuiatd.artdevelopers.site',
+            'https://api.internshipcscuiatd.artdevelopers.site'
         ];
-        if (!origin || allowed.includes(origin)) callback(null, true);
-        else callback(new Error('CORS blocked'));
+
+        // Dynamic matching: accept any http/https + www/non-www variant of csinternships.cuiatd.edu.pk
+        const dynamicPatterns = [
+            /^https?:\/\/(www\.)?csinternships\.cuiatd\.edu\.pk$/,
+            /^https?:\/\/(www\.)?internshipcscuiatd\.artdevelopers\.site$/,
+        ];
+
+        if (allowedExact.includes(origin) || dynamicPatterns.some(p => p.test(origin))) {
+            callback(null, true);
+        } else {
+            callback(new Error('CORS blocked'));
+        }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
