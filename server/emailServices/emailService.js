@@ -12,7 +12,16 @@ const apiKey = (process.env.BREVO_API_KEY || '').trim();
 const senderEmail = (process.env.SENDER_EMAIL || '').trim();
 const senderName = process.env.SENDER_NAME || 'DIMS Portal';
 
-console.log(`[EMAIL_SERVICE] Configured for sender: ${senderEmail}`);
+const getFrontendUrl = () => {
+    const url = process.env.FRONTEND_URL || 'https://csinternships.cuiatd.edu.pk';
+    // If it's specifically "localhost" but we are likely in production (or user just wants it fixed)
+    // we can either keep it or force the production one.
+    // For now, we'll trust the .env but provide a clear fallback.
+    return url.replace('http://localhost:5173', 'https://csinternships.cuiatd.edu.pk')
+              .replace('http://localhost:3000', 'https://csinternships.cuiatd.edu.pk');
+};
+
+console.log(`[EMAIL_SERVICE] Configured for sender: ${senderEmail} | URL: ${getFrontendUrl()}`);
 if (!apiKey) console.warn('[EMAIL_SERVICE] CRITICAL: BREVO_API_KEY is missing from .env!');
 
 const agent = new https.Agent({ keepAlive: true, maxSockets: 10 });
@@ -102,33 +111,33 @@ const sendMail = async (to, subject, text) => {
  */
 
 export const sendVerificationEmail = async (email, password = 'Megamix@123') => {
-    const text = `DIMS Portal: Account Verified\n--\nYour account has been successfully registered and verified.\n\nLogin Email: ${email}\nDefault Password: ${password}\n\nLogin here: ${process.env.FRONTEND_URL}/login\n\nPlease change your password after logging in for security.`;
+    const text = `DIMS Portal: Account Verified\n--\nYour account has been successfully registered and verified.\n\nLogin Email: ${email}\nDefault Password: ${password}\n\nLogin here: ${getFrontendUrl()}/login\n\nPlease change your password after logging in for security.`;
     return await sendMail(email, 'Your DIMS Account Credentials', text);
 };
 
 export const sendFacultyNominationEmail = async (email, token, name) => {
-    const url = `${process.env.FRONTEND_URL}/faculty/activate/${token}`;
+    const url = `${getFrontendUrl()}/faculty/activate/${token}`;
     const text = `Hello ${name},\n\nYou have been nominated as a Faculty Supervisor. Activate here: ${url}\n\nBest regards,\nDIMS Team`;
     return await sendMail(email, 'Faculty Nomination: DIMS Portal', text);
 };
 
 export const sendAssignmentConfirmationEmail = async (email, name, details) => {
-    const text = `Hello ${name},\n\nYour placement at ${details.companyName} is confirmed.\n\nDashboard: ${process.env.FRONTEND_URL}/dashboard`;
+    const text = `Hello ${name},\n\nYour placement at ${details.companyName} is confirmed.\n\nDashboard: ${getFrontendUrl()}/dashboard`;
     return await sendMail(email, 'Internship Assignment Confirmed', text);
 };
 
 export const sendFacultyAssignmentNotificationEmail = async (email, name, details) => {
-    const text = `Hello ${name},\n\nNew student ${details.studentName} is assigned to you.\n\nDashboard: ${process.env.FRONTEND_URL}/faculty`;
+    const text = `Hello ${name},\n\nNew student ${details.studentName} is assigned to you.\n\nDashboard: ${getFrontendUrl()}/faculty`;
     return await sendMail(email, `New Student Assigned: ${details.studentName}`, text);
 };
 
 export const sendSupervisorAssignmentNotificationEmail = async (email, name, details) => {
-    const text = `Hello ${name},\n\n${details.studentName} is assigned to your supervision at ${details.companyName}.\n\nManage: ${process.env.FRONTEND_URL}/supervisor`;
+    const text = `Hello ${name},\n\n${details.studentName} is assigned to your supervision at ${details.companyName}.\n\nManage: ${getFrontendUrl()}/supervisor`;
     return await sendMail(email, `Official Placement: ${details.studentName}`, text);
 };
 
 export const sendFacultyPasswordResetEmail = async (email, pw, name) => {
-    const text = `Hello ${name},\n\nYour password has been reset.\n\nEmail: ${email}\nTemporary Password: ${pw}\n\nLog in: ${process.env.FRONTEND_URL}/login`;
+    const text = `Hello ${name},\n\nYour password has been reset.\n\nEmail: ${email}\nTemporary Password: ${pw}\n\nLog in: ${getFrontendUrl()}/login`;
     return await sendMail(email, 'DIMS: Password Reset', text);
 };
 
@@ -148,18 +157,18 @@ export const sendSecondaryEmailLinkedConfirmation = async (email, primary) => {
 };
 
 export const sendStudentActivationEmail = async (email, name, tempPw = 'Megamix@123') => {
-    const text = `Hello ${name},\n\nWelcome to DIMS Portal! Your account has been professionally activated.\n\nLogin Email: ${email}\nTemporary Password: ${tempPw}\n\nLogin here: ${process.env.FRONTEND_URL}/login\n\nPlease change your password after logging in.`;
+    const text = `Hello ${name},\n\nWelcome to DIMS Portal! Your account has been professionally activated.\n\nLogin Email: ${email}\nTemporary Password: ${tempPw}\n\nLogin here: ${getFrontendUrl()}/login\n\nPlease change your password after logging in.`;
     return await sendMail(email, 'Your DIMS Account is Ready', text);
 };
 
 export const sendCompanySupervisorActivationEmail = async (email, token, name, company) => {
-    const text = `Hello ${name},\n\nYou are site supervisor for ${company}. Activate here: ${process.env.FRONTEND_URL}/supervisor/activate/${token}`;
+    const text = `Hello ${name},\n\nYou are site supervisor for ${company}. Activate here: ${getFrontendUrl()}/supervisor/activate/${token}`;
     return await sendMail(email, 'DIMS: Supervisor Activation', text);
 };
 
 export const sendBulkEmailService = async (recipients, subject, content) => {
     try {
-        const text = `DIMS Portal: Official Announcement\n---------------------------------\n${content}\n\nVisit: ${process.env.FRONTEND_URL}`;
+        const text = `DIMS Portal: Official Announcement\n---------------------------------\n${content}\n\nVisit: ${getFrontendUrl()}`;
         
         // Multi-recipient optimization for bulk
         const bodyData = {
