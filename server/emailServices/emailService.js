@@ -12,20 +12,7 @@ const apiKey = (process.env.BREVO_API_KEY || '').trim();
 const senderEmail = (process.env.SENDER_EMAIL || '').trim();
 const senderName = process.env.SENDER_NAME || 'DIMS Portal';
 
-const getFrontendUrl = () => {
-    // Priority 1: Use direct environment variable
-    let url = (process.env.FRONTEND_URL || '').trim();
-    
-    // Fallback: If no URL or it's localhost, use the hardcoded production domain
-    if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
-        return 'https://csinternships.cuiatd.edu.pk';
-    }
-    
-    // Clean up trailing slash
-    return url.replace(/\/$/, '');
-};
-
-console.log(`[EMAIL_SERVICE] Configured for sender: ${senderEmail} | URL: ${getFrontendUrl()}`);
+console.log(`[EMAIL_SERVICE] Configured for sender: ${senderEmail}`);
 if (!apiKey) console.warn('[EMAIL_SERVICE] CRITICAL: BREVO_API_KEY is missing from .env!');
 
 const agent = new https.Agent({ keepAlive: true, maxSockets: 10 });
@@ -115,64 +102,64 @@ const sendMail = async (to, subject, text) => {
  */
 
 export const sendVerificationEmail = async (email, password = 'Megamix@123') => {
-    const text = `DIMS Portal: Account Verified\n--\nYour account has been successfully registered and verified.\n\nLogin Email: ${email}\nDefault Password: ${password}\n\nLogin here: ${getFrontendUrl()}/login\n\nPlease change your password after logging in for security.`;
+    const text = `DIMS Portal: Account Verified\n--\nYour account has been successfully registered and verified.\n\nLogin Email: ${email}\nDefault Password: ${password}\n\nLogin here: ${process.env.FRONTEND_URL}/login\n\nPlease change your password after logging in for security.\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'Your DIMS Account Credentials', text);
 };
 
 export const sendFacultyNominationEmail = async (email, token, name) => {
-    const url = `${getFrontendUrl()}/faculty/activate/${token}`;
-    const text = `Hello ${name},\n\nYou have been nominated as a Faculty Supervisor. Please activate your account and set your password here: ${url}\n\nBest regards,\nCOMSATS University Islamabad, Abbottabad Campus\nDIMS Team`;
+    const url = `${process.env.FRONTEND_URL}/faculty/activate/${token}`;
+    const text = `Hello ${name},\n\nYou have been nominated as a Faculty Supervisor. Activate here: ${url}\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'Faculty Nomination: DIMS Portal', text);
 };
 
 export const sendAssignmentConfirmationEmail = async (email, name, details) => {
-    const text = `Hello ${name},\n\nYour placement at ${details.companyName} is confirmed.\n\nDashboard: ${getFrontendUrl()}/dashboard`;
+    const text = `Hello ${name},\n\nYour placement at ${details.companyName} is confirmed.\n\nDashboard: ${process.env.FRONTEND_URL}/dashboard\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'Internship Assignment Confirmed', text);
 };
 
 export const sendFacultyAssignmentNotificationEmail = async (email, name, details) => {
-    const text = `Hello ${name},\n\nNew student ${details.studentName} is assigned to you.\n\nDashboard: ${getFrontendUrl()}/faculty`;
+    const text = `Hello ${name},\n\nNew student ${details.studentName} is assigned to you.\n\nDashboard: ${process.env.FRONTEND_URL}/faculty\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, `New Student Assigned: ${details.studentName}`, text);
 };
 
 export const sendSupervisorAssignmentNotificationEmail = async (email, name, details) => {
-    const text = `Hello ${name},\n\n${details.studentName} is assigned to your supervision at ${details.companyName}.\n\nManage: ${getFrontendUrl()}/supervisor`;
+    const text = `Hello ${name},\n\n${details.studentName} is assigned to your supervision at ${details.companyName}.\n\nManage: ${process.env.FRONTEND_URL}/supervisor\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, `Official Placement: ${details.studentName}`, text);
 };
 
 export const sendFacultyPasswordResetEmail = async (email, pw, name) => {
-    const text = `Hello ${name},\n\nYour password has been reset.\n\nEmail: ${email}\nTemporary Password: ${pw}\n\nLog in: ${getFrontendUrl()}/login`;
+    const text = `Hello ${name},\n\nYour password has been reset.\n\nEmail: ${email}\nTemporary Password: ${pw}\n\nLog in: ${process.env.FRONTEND_URL}/login\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'DIMS: Password Reset', text);
 };
 
 export const sendPasswordResetCode = async (email, code) => {
-    const text = `DIMS: Password reset code is ${code}.\nValid for 10 minutes.`;
+    const text = `DIMS: Password reset code is ${code}.\nValid for 10 minutes.\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'DIMS: Security Verification', text);
 };
 
 export const sendSecondaryEmailVerificationCode = async (email, code) => {
-    const text = `DIMS: Verification code is ${code} to link your secondary email.`;
+    const text = `DIMS: Verification code is ${code} to link your secondary email.\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'DIMS: Email Linking', text);
 };
 
 export const sendSecondaryEmailLinkedConfirmation = async (email, primary) => {
-    const text = `Success! ${email} is linked to ${primary}.`;
+    const text = `Success! ${email} is linked to ${primary}.\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'DIMS: Email Linked', text);
 };
 
 export const sendStudentActivationEmail = async (email, name, tempPw = 'Megamix@123') => {
-    const text = `Hello ${name},\n\nWelcome to DIMS Portal! Your account has been professionally activated.\n\nLogin Email: ${email}\nTemporary Password: ${tempPw}\n\nLogin here: ${getFrontendUrl()}/login\n\nPlease change your password after logging in.`;
+    const text = `Hello ${name},\n\nWelcome to DIMS Portal! Your account has been professionally activated.\n\nLogin Email: ${email}\nTemporary Password: ${tempPw}\n\nLogin here: ${process.env.FRONTEND_URL}/login\n\nPlease change your password after logging in.\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'Your DIMS Account is Ready', text);
 };
 
 export const sendCompanySupervisorActivationEmail = async (email, token, name, company) => {
-    const text = `Hello ${name},\n\nYou are site supervisor for ${company}. Activate here: ${getFrontendUrl()}/supervisor/activate/${token}`;
+    const text = `Hello ${name},\n\nYou are site supervisor for ${company}. Activate here: ${process.env.FRONTEND_URL}/supervisor/activate/${token}\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
     return await sendMail(email, 'DIMS: Supervisor Activation', text);
 };
 
 export const sendBulkEmailService = async (recipients, subject, content) => {
     try {
-        const text = `DIMS Portal: Official Announcement\n---------------------------------\n${content}\n\nVisit: ${getFrontendUrl()}`;
+        const text = `DIMS Portal: Official Announcement\n---------------------------------\n${content}\n\nVisit: ${process.env.FRONTEND_URL}\n\nWith Regards,\nSystem Administrator\nDigital Internship Management System (DIMS)\nCOMSATS University Islamabad, Abbottabad Campus\nFor Query : csinternshipoffice@cuiatd.edu.pk`;
         
         // Multi-recipient optimization for bulk
         const bodyData = {
