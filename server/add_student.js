@@ -9,12 +9,10 @@ const run = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('Connected to MongoDB');
-
         const studentId = 'fa23-bcs-013';
         const email = `${studentId.toLowerCase()}@cuiatd.edu.pk`;
         const reg = `CIIT/${studentId.toUpperCase()}/ATD`;
         const password = 'Megamix@123';
-
         console.log(`Cleaning up existing records for ${email}...`);
         await User.deleteMany({ $or: [{ email }, { reg }] });
 
