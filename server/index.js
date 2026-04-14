@@ -69,7 +69,6 @@ const connectDB = async (req, res, next) => {
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (server-to-server, mobile apps, curl)
         if (!origin) return callback(null, true);
 
         const allowedExact = [
@@ -78,7 +77,8 @@ app.use(cors({
             'http://localhost:3000',
             'https://internship-professional.vercel.app',
             'https://internshipcscuiatd.artdevelopers.site',
-            'https://api.internshipcscuiatd.artdevelopers.site'
+            'https://api.internshipcscuiatd.artdevelopers.site',
+            'https://csinternships.cuiatd.edu.pk'
         ];
 
         // Dynamic matching: accept any http/https + www/non-www variant of csinternships.cuiatd.edu.pk
